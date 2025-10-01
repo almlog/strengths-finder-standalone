@@ -1,46 +1,107 @@
-# Getting Started with Create React App
+# ストレングスファインダー分析ツール（スタンドアロン版）
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## 概要
+このツールは、チームメンバーのストレングスファインダー結果を管理・分析するためのスタンドアロンWebアプリケーションです。完全にクライアントサイドで動作し、個人情報はブラウザのローカルストレージにのみ保存されます。
 
-## Available Scripts
+## 特徴
+- 🔒 **プライバシー重視**: すべてのデータはローカルに保存され、外部サーバーには送信されません
+- 📊 **多角的な分析**: 個人分析、部署分析、選択メンバー分析、資質分析
+- 💾 **データのインポート/エクスポート**: JSON形式でバックアップと共有が可能
+- 🎯 **34の資質対応**: ストレングスファインダーの全資質に対応
+- 📱 **レスポンシブデザイン**: デスクトップ・タブレット・モバイルに対応
 
-In the project directory, you can run:
+## クイックスタート
 
-### `npm start`
+### 開発環境での起動
+```bash
+# プロジェクトディレクトリに移動
+cd C:\Users\shunpei_suzuki\github\20250431\strengths-finder-standalone
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+# 依存関係のインストール（初回のみ）
+npm install
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+# 開発サーバーの起動
+npm start
+```
+**開発サーバー**: http://localhost:3005
 
-### `npm test`
+### 本番用ビルド
+```bash
+npm run build
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 主な機能
 
-### `npm run build`
+### メンバー管理
+- メンバーの追加・編集・削除
+- 社員番号、氏名、部署コードの管理
+- 5つの強み（資質）の順位付け
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### 分析機能
+- **個人分析**: 選択したメンバーの強みを視覚的に分析
+- **部署分析**: 部署コードごとの強みの傾向を分析
+- **選択メンバー分析**: 複数メンバーを選択して集計分析
+- **資質分析**: 特定の資質を持つメンバーの検索と分析
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### データ管理
+- **エクスポート**: 現在のデータをJSONファイルとして保存
+- **インポート**: JSONファイルからデータを復元
+- **ローカルストレージ**: ブラウザにデータを自動保存
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## デプロイ方法
 
-### `npm run eject`
+### 1. 静的Webホスティング
+buildフォルダの内容を以下のいずれかにアップロード：
+- 社内Webサーバー
+- GitHub Pages
+- Azure Static Web Apps
+- AWS S3 + CloudFront
+- Netlify/Vercel
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+### 2. ローカルサーバー
+```bash
+# serve パッケージのインストール（初回のみ）
+npm install -g serve
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+# ビルドしたアプリケーションの起動
+serve -s build -l 3000
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### 3. IISでのホスティング
+1. `npm run build` でビルドを作成
+2. buildフォルダを IIS のサイトディレクトリにコピー
+3. IIS マネージャーで新しいサイトを作成
+4. 物理パスをbuildフォルダに設定
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+## データフォーマット
+```json
+[
+  {
+    "id": "12345678",
+    "name": "山田太郎", 
+    "department": "13D12345",
+    "strengths": [
+      { "id": 1, "score": 1 },
+      { "id": 16, "score": 2 },
+      { "id": 31, "score": 3 },
+      { "id": 4, "score": 4 },
+      { "id": 22, "score": 5 }
+    ]
+  }
+]
+```
 
-## Learn More
+## 技術スタック
+- React 19 + TypeScript
+- Tailwind CSS 3.4.1
+- Recharts (グラフ表示)
+- LocalStorage API
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 開発について
+詳細な開発手順については、[DEVELOPMENT.md](./DEVELOPMENT.md) および [CLAUDE.md](./CLAUDE.md) を参照してください。
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## ライセンス
+社内利用限定
+
+## サポート
+問題や質問がある場合は、開発チームまでお問い合わせください。
