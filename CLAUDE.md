@@ -4,11 +4,24 @@
 
 ### 🚀 初回起動時のセットアップ
 
-Claudeを起動したら、以下の手順でプロジェクトを開始してください：
+#### 新規クローンの場合
+```bash
+# 1. リポジトリをクローン
+git clone https://github.com/almlog/strengths-finder-standalone.git
+cd strengths-finder-standalone
 
+# 2. セットアップスクリプトを実行（推奨）
+# Windows:
+setup.bat
+
+# Mac/Linux:
+./setup.sh
+```
+
+#### 既存プロジェクトの場合
 ```bash
 # 1. プロジェクトディレクトリに移動
-cd C:\Users\shunpei_suzuki\github\20250431\strengths-finder-standalone
+cd strengths-finder-standalone
 
 # 2. 現在の状況を確認
 ls -la
@@ -22,6 +35,19 @@ npm start
 ```
 
 **開発サーバーURL**: http://localhost:3005
+
+### 💡 セットアップスクリプトの活用
+
+**setup.bat / setup.sh の利点:**
+- ✅ Node.js/npmの自動チェック
+- ✅ 依存関係の自動インストール  
+- ✅ エラー時の詳細ガイダンス
+- ✅ 開発サーバーの自動起動オプション
+
+**手動セットアップが必要な場合:**
+- カスタムNode.jsバージョンの使用
+- 特定の npm オプション指定
+- 企業プロキシ環境での実行
 
 ### 📂 プロジェクト構造の理解
 
