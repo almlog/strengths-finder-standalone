@@ -1,0 +1,351 @@
+// src/components/strengths/IndividualStrengths.tsx
+import React from 'react';
+import { User, AlertCircle, Crown } from 'lucide-react';
+import { useStrengths } from '../../contexts/StrengthsContext';
+import StrengthsService, { GROUP_LABELS, GROUP_COLORS } from '../../services/StrengthsService';
+import { Strength, StrengthGroup, Position } from '../../models/StrengthsTypes';
+import { 
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid,
+  Cell,
+  ScatterChart,
+  Scatter,
+  Rectangle
+} from 'recharts';
+
+// 役職ごとの王冠の色
+const POSITION_CROWN_COLORS: Record<Position, string> = {
+  [Position.GENERAL]: "", // 一般社員（表示なし）
+  [Position.GL]: "#FFD700", // 黄色
+  [Position.DEPUTY_MANAGER]: "#00C853", // 緑
+  [Position.MANAGER]: "#2196F3", // 青
+  [Position.DIRECTOR]: "#F44336", // 赤
+  [Position.CONTRACT]: "#ADD8E6", // 薄い青
+  [Position.BP]: "#90EE90", // 薄い緑
+};
+
+// 役職の日本語名
+const POSITION_LABELS: Record<Position, string> = {
+  [Position.GENERAL]: "一般社員",
+  [Position.GL]: "グループリーダー",
+  [Position.DEPUTY_MANAGER]: "副課長",
+  [Position.MANAGER]: "課長",
+  [Position.DIRECTOR]: "部長",
+  [Position.CONTRACT]: "契約社員",
+  [Position.BP]: "BP",
+};
+
+interface IndividualStrengthsProps {
+  memberId: string | null;
+}
+
+const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) => {
+  const { members } = useStrengths();
+  
+  if (!memberId) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-gray-500">
+        <User className="w-16 h-16 mb-4 text-gray-300" />
+        <p>左のメンバーリストから分析したいメンバーを選択してください</p>
+      </div>
+    );
+  }
+  const member = members.find(m => m.id === memberId);
+
+  if (!member) {
+    return (
+      <div className="flex items-center justify-center p-8 text-red-500">
+        <AlertCircle className="w-6 h-6 mr-2" />
+        <p>メンバーが見つかりません</p>
+      </div>
+    );
+  }
+
+  // 全ての資質データを取得
+  const allStrengths = StrengthsService.getAllStrengths();
+  
+  // メンバーの強みを取得
+  const memberStrengths = member.strengths.map(rankedStrength => {
+    const strength = StrengthsService.getStrengthById(rankedStrength.id);
+    return {
+      ...rankedStrength,
+      strength: strength
+    };
+  }).filter(item => item.strength !== undefined);
+
+  // メンバーの強みIDをマップとして保持（高速検索用）
+  const memberStrengthsMap = new Map();
+  memberStrengths.forEach(item => {
+    memberStrengthsMap.set(item.strength?.id, item.score);
+  });
+  
+  // 全資質のデータを作成（カテゴリごとに分類する）
+  const allStrengthsData = allStrengths.map(strength => {
+    // メンバーが持つ強みの場合はスコアを設定、そうでなければ0
+    const score = memberStrengthsMap.has(strength.id) ? memberStrengthsMap.get(strength.id) : 0;
+    return {
+      name: strength.name,
+      id: strength.id,
+      group: strength.group,
+      groupName: GROUP_LABELS[strength.group],
+      color: GROUP_COLORS[strength.group],
+      score: score,
+      // 不透明度はスコアに比例（スコアが0の場合は薄く表示）
+      // スコア1が一番濃く、スコアが高いほど薄くなる (1が最強の場合)
+      opacity: score ? (6 - score) / 5 : 0.1
+    };
+  });
+  
+  // カテゴリごとに資質をグループ化
+  const groupedStrengths = {
+    [StrengthGroup.EXECUTING]: allStrengthsData.filter(s => s.group === StrengthGroup.EXECUTING),
+    [StrengthGroup.INFLUENCING]: allStrengthsData.filter(s => s.group === StrengthGroup.INFLUENCING),
+    [StrengthGroup.RELATIONSHIP_BUILDING]: allStrengthsData.filter(s => s.group === StrengthGroup.RELATIONSHIP_BUILDING),
+    [StrengthGroup.STRATEGIC_THINKING]: allStrengthsData.filter(s => s.group === StrengthGroup.STRATEGIC_THINKING)
+  };
+  
+  // TOP5の強みを取得（スコア順に並び替え - スコア1が最初に来るように）
+  const sortedStrengths = [...memberStrengths]
+    .sort((a, b) => a.score - b.score) // スコアが小さい順（1が最強）
+    .map(item => ({
+      ...item,
+      // スコア1が一番濃く、スコアが高いほど薄くなる
+      opacity: (6 - item.score) / 5
+    }));
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-gray-50 p-4 rounded-lg">
+        <div className="flex items-center">
+          <h3 className="text-xl font-bold mb-2">{member.name}</h3>
+          {member.position && member.position !== Position.GENERAL && (
+            <div 
+              className="ml-2 relative group"
+              title={POSITION_LABELS[member.position]}
+            >
+              {member.position === Position.CONTRACT ? (
+                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: POSITION_CROWN_COLORS[member.position] }}></div>
+              ) : member.position === Position.BP ? (
+                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: POSITION_CROWN_COLORS[member.position] }}></div>
+              ) : (
+                <Crown 
+                  className="w-5 h-5" 
+                  color={POSITION_CROWN_COLORS[member.position]} 
+                  fill={POSITION_CROWN_COLORS[member.position]}
+                />
+              )}
+            </div>
+          )}
+        </div>
+        <p className="text-gray-600">部署コード: {member.department}</p>
+      </div>
+
+      {/* 強みのバランス（4つのカテゴリごとに4行で表示） */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h4 className="text-lg font-semibold mb-4">強みのバランス（全34資質）</h4>
+        
+        {/* 実行力 */}
+        <div className="mb-4">
+          <h5 className="font-medium flex items-center mb-2">
+            <span className="w-4 h-4 mr-2 rounded-full" style={{ backgroundColor: GROUP_COLORS[StrengthGroup.EXECUTING] }}></span>
+            {GROUP_LABELS[StrengthGroup.EXECUTING]}
+          </h5>
+          <div className="flex flex-wrap gap-1">
+            {groupedStrengths[StrengthGroup.EXECUTING].map(item => (
+              <div 
+                key={item.id} 
+                className="relative m-1 flex flex-col items-center justify-center rounded-lg"
+                style={{ 
+                  width: '50px',
+                  height: '50px',
+                  backgroundColor: item.color,
+                  opacity: item.opacity,
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer',
+                  border: item.score > 0 ? '2px solid white' : '1px solid #eee',
+                  boxShadow: item.score > 0 ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+                }}
+                title={`${item.name} (${item.groupName}): ${item.score > 0 ? item.score : '未選択'}`}
+              >
+                {item.score > 0 && (
+                  <div className="absolute top-0 right-0 bg-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
+                    {item.score}
+                  </div>
+                )}
+                <span className="text-xs text-center text-white font-medium" style={{ 
+                  textShadow: '0px 0px 2px rgba(0,0,0,0.7)',
+                  fontSize: '8px',
+                  lineHeight: '1.1'
+                }}>
+                  {item.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* 影響力 */}
+        <div className="mb-4">
+          <h5 className="font-medium flex items-center mb-2">
+            <span className="w-4 h-4 mr-2 rounded-full" style={{ backgroundColor: GROUP_COLORS[StrengthGroup.INFLUENCING] }}></span>
+            {GROUP_LABELS[StrengthGroup.INFLUENCING]}
+          </h5>
+          <div className="flex flex-wrap gap-1">
+            {groupedStrengths[StrengthGroup.INFLUENCING].map(item => (
+              <div 
+                key={item.id} 
+                className="relative m-1 flex flex-col items-center justify-center rounded-lg"
+                style={{ 
+                  width: '50px',
+                  height: '50px',
+                  backgroundColor: item.color,
+                  opacity: item.opacity,
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer',
+                  border: item.score > 0 ? '2px solid white' : '1px solid #eee',
+                  boxShadow: item.score > 0 ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+                }}
+                title={`${item.name} (${item.groupName}): ${item.score > 0 ? item.score : '未選択'}`}
+              >
+                {item.score > 0 && (
+                  <div className="absolute top-0 right-0 bg-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
+                    {item.score}
+                  </div>
+                )}
+                <span className="text-xs text-center text-white font-medium" style={{ 
+                  textShadow: '0px 0px 2px rgba(0,0,0,0.7)',
+                  fontSize: '8px',
+                  lineHeight: '1.1'
+                }}>
+                  {item.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* 人間関係構築力 */}
+        <div className="mb-4">
+          <h5 className="font-medium flex items-center mb-2">
+            <span className="w-4 h-4 mr-2 rounded-full" style={{ backgroundColor: GROUP_COLORS[StrengthGroup.RELATIONSHIP_BUILDING] }}></span>
+            {GROUP_LABELS[StrengthGroup.RELATIONSHIP_BUILDING]}
+          </h5>
+          <div className="flex flex-wrap gap-1">
+            {groupedStrengths[StrengthGroup.RELATIONSHIP_BUILDING].map(item => (
+              <div 
+                key={item.id} 
+                className="relative m-1 flex flex-col items-center justify-center rounded-lg"
+                style={{ 
+                  width: '50px',
+                  height: '50px',
+                  backgroundColor: item.color,
+                  opacity: item.opacity,
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer',
+                  border: item.score > 0 ? '2px solid white' : '1px solid #eee',
+                  boxShadow: item.score > 0 ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+                }}
+                title={`${item.name} (${item.groupName}): ${item.score > 0 ? item.score : '未選択'}`}
+              >
+                {item.score > 0 && (
+                  <div className="absolute top-0 right-0 bg-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
+                    {item.score}
+                  </div>
+                )}
+                <span className="text-xs text-center text-white font-medium" style={{ 
+                  textShadow: '0px 0px 2px rgba(0,0,0,0.7)',
+                  fontSize: '8px',
+                  lineHeight: '1.1'
+                }}>
+                  {item.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* 戦略的思考力 */}
+        <div className="mb-4">
+          <h5 className="font-medium flex items-center mb-2">
+            <span className="w-4 h-4 mr-2 rounded-full" style={{ backgroundColor: GROUP_COLORS[StrengthGroup.STRATEGIC_THINKING] }}></span>
+            {GROUP_LABELS[StrengthGroup.STRATEGIC_THINKING]}
+          </h5>
+          <div className="flex flex-wrap gap-1">
+            {groupedStrengths[StrengthGroup.STRATEGIC_THINKING].map(item => (
+              <div 
+                key={item.id} 
+                className="relative m-1 flex flex-col items-center justify-center rounded-lg"
+                style={{ 
+                  width: '50px',
+                  height: '50px',
+                  backgroundColor: item.color,
+                  opacity: item.opacity,
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer',
+                  border: item.score > 0 ? '2px solid white' : '1px solid #eee',
+                  boxShadow: item.score > 0 ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+                }}
+                title={`${item.name} (${item.groupName}): ${item.score > 0 ? item.score : '未選択'}`}
+              >
+                {item.score > 0 && (
+                  <div className="absolute top-0 right-0 bg-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
+                    {item.score}
+                  </div>
+                )}
+                <span className="text-xs text-center text-white font-medium" style={{ 
+                  textShadow: '0px 0px 2px rgba(0,0,0,0.7)',
+                  fontSize: '8px',
+                  lineHeight: '1.1'
+                }}>
+                  {item.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div className="text-xs text-gray-500 mt-2 text-center">
+          ※ 色の濃さはスコアの強さを表しています。スコア1が最強となり、スコアがない資質は薄く表示されています。
+        </div>
+      </div>
+
+      {/* 強み詳細説明 - スコア1から順に表示 */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h4 className="text-lg font-semibold mb-4">強みの詳細説明</h4>
+        <div className="space-y-4">
+          {sortedStrengths.map(item => {
+            const strength = item.strength;
+            if (!strength) return null;
+            
+            return (
+              <div 
+                key={strength.id} 
+                className="border-l-4 p-3 rounded-r-lg bg-gray-50"
+                style={{ borderLeftColor: GROUP_COLORS[strength.group] }}
+              >
+                <div className="flex items-center mb-1">
+                  <div className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center mr-2">
+                    {item.score}
+                  </div>
+                  <h5 className="font-medium">{strength.name}</h5>
+                  <span className="text-xs ml-2 bg-gray-200 px-2 py-1 rounded">
+                    {GROUP_LABELS[strength.group]}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-700">{strength.description}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default IndividualStrengths;
