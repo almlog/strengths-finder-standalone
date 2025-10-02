@@ -104,7 +104,7 @@ const ImportExportButtons: React.FC = () => {
 };
 
 const StrengthsFinderPage: React.FC = () => {
-  const { members, error } = useStrengths();
+  const { error } = useStrengths();
   const [activeTab, setActiveTab] = useState<AnalysisTab>('individual');
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
