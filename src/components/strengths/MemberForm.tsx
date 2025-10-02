@@ -11,7 +11,7 @@ interface MemberFormProps {
 }
 
 const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
-  const { members, addOrUpdateMember, customPositions, addCustomPosition, getPositionInfo } = useStrengths();
+  const { members, addOrUpdateMember, customPositions, addCustomPosition } = useStrengths();
   const [id, setId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [department, setDepartment] = useState<string>('');

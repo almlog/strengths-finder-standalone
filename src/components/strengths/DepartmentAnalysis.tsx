@@ -1,16 +1,15 @@
 // src/components/strengths/DepartmentAnalysis.tsx
-import React, { useState } from 'react';
+import React from 'react';
 import { Building, AlertCircle } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import StrengthsService, { GROUP_LABELS, GROUP_COLORS } from '../../services/StrengthsService';
 import { StrengthGroup } from '../../models/StrengthsTypes';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  Legend, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
