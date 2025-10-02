@@ -357,4 +357,5 @@ class StrengthsService {
   }
 }
 
-export default new StrengthsService();
+const strengthsServiceInstance = new StrengthsService();
+export default strengthsServiceInstance;
