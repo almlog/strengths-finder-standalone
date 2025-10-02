@@ -1,7 +1,7 @@
 {
   "name": "strengths-finder-standalone",
   "version": "1.0.0",
-  "homepage": ".",
+  "homepage": "https://almlog.github.io/strengths-finder-standalone",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
