@@ -1,33 +1,10 @@
 // src/components/strengths/MembersList.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Edit, Trash2, Check, Crown } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { STRENGTHS_DATA, GROUP_COLORS } from '../../services/StrengthsService';
 import { StrengthGroup, Position } from '../../models/StrengthsTypes';
-import { useState } from 'react';
 import MemberForm from './MemberForm';
-
-// 役職ごとの王冠の色
-const POSITION_CROWN_COLORS: Record<Position, string> = {
-  [Position.GENERAL]: "", // 一般社員（表示なし）
-  [Position.GL]: "#FFD700", // 黄色
-  [Position.DEPUTY_MANAGER]: "#00C853", // 緑
-  [Position.MANAGER]: "#2196F3", // 青
-  [Position.DIRECTOR]: "#F44336", // 赤
-  [Position.CONTRACT]: "#ADD8E6", // 薄い青
-  [Position.BP]: "#90EE90", // 薄い緑
-};
-
-// 役職の日本語名
-const POSITION_LABELS: Record<Position, string> = {
-  [Position.GENERAL]: "一般社員",
-  [Position.GL]: "グループリーダー",
-  [Position.DEPUTY_MANAGER]: "副課長",
-  [Position.MANAGER]: "課長",
-  [Position.DIRECTOR]: "部長",
-  [Position.CONTRACT]: "契約社員",
-  [Position.BP]: "BP",
-};
 
 interface MembersListProps {
   onSelect: (memberId: string) => void;
@@ -35,7 +12,7 @@ interface MembersListProps {
 }
 
 const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId }) => {
-  const { members, toggleMemberSelection, selectedMemberIds, deleteMember } = useStrengths();
+  const { members, toggleMemberSelection, selectedMemberIds, deleteMember, getPositionInfo } = useStrengths();
   const [editMemberId, setEditMemberId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
@@ -173,24 +150,29 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
                     <div className="flex-1" onClick={() => onSelect(member.id)}>
                       <div className="flex items-center">
                         <h4 className="text-md font-medium">{member.name}</h4>
-                        {member.position && member.position !== Position.GENERAL && (
-                          <div 
-                            className="ml-2 relative group"
-                            title={POSITION_LABELS[member.position]}
-                          >
-                            {member.position === Position.CONTRACT ? (
-                              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: POSITION_CROWN_COLORS[member.position] }}></div>
-                            ) : member.position === Position.BP ? (
-                              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: POSITION_CROWN_COLORS[member.position] }}></div>
-                            ) : (
-                              <Crown 
-                                className="w-4 h-4" 
-                                color={POSITION_CROWN_COLORS[member.position]} 
-                                fill={POSITION_CROWN_COLORS[member.position]}
-                              />
-                            )}
-                          </div>
-                        )}
+                        {(() => {
+                          const positionInfo = member.position ? getPositionInfo(member.position) : null;
+                          return positionInfo && member.position !== Position.GENERAL && (
+                            <div
+                              className="ml-2 relative group"
+                              title={positionInfo.displayName}
+                            >
+                              {positionInfo.icon === 'circle' ? (
+                                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: positionInfo.color }}></div>
+                              ) : positionInfo.icon === 'star' ? (
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill={positionInfo.color} stroke={positionInfo.color}>
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                </svg>
+                              ) : (
+                                <Crown
+                                  className="w-4 h-4"
+                                  color={positionInfo.color}
+                                  fill={positionInfo.color}
+                                />
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <p className="text-sm text-gray-600">部署コード: {member.department}</p>
                       <p className="text-xs text-gray-500 mt-1">

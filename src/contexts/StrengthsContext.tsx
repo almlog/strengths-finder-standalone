@@ -1,7 +1,7 @@
 // src/contexts/StrengthsContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import StrengthsService from '../services/StrengthsService';
-import { MemberStrengths, StrengthsAnalysisResult } from '../models/StrengthsTypes';
+import { MemberStrengths, StrengthsAnalysisResult, CustomPosition } from '../models/StrengthsTypes';
 
 interface StrengthsContextProps {
   members: MemberStrengths[];
@@ -10,12 +10,15 @@ interface StrengthsContextProps {
   analysisResult: StrengthsAnalysisResult | null;
   loading: boolean;
   error: string | null;
+  customPositions: CustomPosition[];
   addOrUpdateMember: (member: MemberStrengths) => void;
   deleteMember: (id: string) => void;
   toggleMemberSelection: (id: string) => void;
   setSelectedDepartment: (department: string) => void;
   analyzeSelected: () => void;
   analyzeDepartment: (department: string) => void;
+  addCustomPosition: (position: CustomPosition) => void;
+  getPositionInfo: (positionId: string) => { name: string; displayName: string; color: string; icon: string } | null;
   exportData: () => string;
   importData: (jsonData: string) => void;
 }
@@ -41,14 +44,18 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
   const [analysisResult, setAnalysisResult] = useState<StrengthsAnalysisResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [customPositions, setCustomPositions] = useState<CustomPosition[]>([]);
 
   // 初期データの読み込み
   useEffect(() => {
     try {
       const loadedMembers = StrengthsService.getMembers();
       setMembers(loadedMembers);
+      
+      const loadedCustomPositions = StrengthsService.getCustomPositions();
+      setCustomPositions(loadedCustomPositions);
     } catch (err) {
-      setError('メンバーデータの読み込みに失敗しました');
+      setError('データの読み込みに失敗しました');
       console.error(err);
     }
   }, []);
@@ -145,12 +152,31 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
     }
   };
 
+  // カスタム役職の追加
+  const addCustomPosition = (position: CustomPosition): void => {
+    try {
+      const updatedPositions = StrengthsService.saveCustomPosition(position);
+      setCustomPositions(updatedPositions);
+    } catch (err) {
+      setError('カスタム役職の保存に失敗しました');
+      console.error(err);
+    }
+  };
+
+  // 役職情報の取得（デフォルト + カスタム）
+  const getPositionInfo = (positionId: string) => {
+    return StrengthsService.getPositionInfo(positionId);
+  };
+
   // データのインポート
   const importData = (jsonData: string): void => {
     try {
       setError(null);
-      const importedMembers = StrengthsService.importMembers(jsonData);
+      const { members: importedMembers, customPositions: importedPositions } = StrengthsService.importMembers(jsonData);
       setMembers(importedMembers);
+      if (importedPositions) {
+        setCustomPositions(importedPositions);
+      }
     } catch (err) {
       if (err instanceof Error) {
         setError(`データのインポートに失敗しました: ${err.message}`);
@@ -168,12 +194,15 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
     analysisResult,
     loading,
     error,
+    customPositions,
     addOrUpdateMember,
     deleteMember,
     toggleMemberSelection,
     setSelectedDepartment,
     analyzeSelected,
     analyzeDepartment,
+    addCustomPosition,
+    getPositionInfo,
     exportData,
     importData
   };

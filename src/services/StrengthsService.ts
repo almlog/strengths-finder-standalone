@@ -1,5 +1,5 @@
 // src/services/StrengthsService.ts
-import { Strength, StrengthGroup, MemberStrengths, StrengthsAnalysisResult, RankedStrength } from '../models/StrengthsTypes';
+import { Strength, StrengthGroup, MemberStrengths, StrengthsAnalysisResult, CustomPosition, Position } from '../models/StrengthsTypes';
 
 // 34の資質データ
 export const STRENGTHS_DATA: Strength[] = [
@@ -62,8 +62,20 @@ export const GROUP_COLORS = {
   [StrengthGroup.STRATEGIC_THINKING]: "#4C9F70" // 緑系
 };
 
+// デフォルト役職情報
+const DEFAULT_POSITIONS = {
+  [Position.GENERAL]: { name: '一般', displayName: '一般社員', color: '#9E9E9E', icon: 'circle' as const },
+  [Position.GL]: { name: 'GL', displayName: 'グループリーダー', color: '#FFD700', icon: 'crown' as const },
+  [Position.DEPUTY_MANAGER]: { name: '副課長', displayName: '副課長', color: '#00C853', icon: 'crown' as const },
+  [Position.MANAGER]: { name: '課長', displayName: '課長', color: '#2196F3', icon: 'crown' as const },
+  [Position.DIRECTOR]: { name: '部長', displayName: '部長', color: '#F44336', icon: 'crown' as const },
+  [Position.CONTRACT]: { name: '契約', displayName: '契約社員', color: '#ADD8E6', icon: 'circle' as const },
+  [Position.BP]: { name: 'BP', displayName: 'ビジネスパートナー', color: '#90EE90', icon: 'circle' as const }
+};
+
 class StrengthsService {
   private readonly STORAGE_KEY = 'strengths_members';
+  private readonly CUSTOM_POSITIONS_KEY = 'strengths_custom_positions';
 
   /**
    * メンバーとその強みのリストを取得する
@@ -211,45 +223,137 @@ class StrengthsService {
    */
   public exportMembers(): string {
     const members = this.getMembers();
-    return JSON.stringify(members, null, 2);
+    const customPositions = this.getCustomPositions();
+
+    const exportData = {
+      _comment: [
+        "============================================",
+        "Strengths Finder データファイル",
+        "============================================",
+        "",
+        "【カスタム役職設定】",
+        "- アイコンタイプ: 'crown'(王冠) または 'circle'(丸)",
+        "- 色: カラーコード（例: #FF5722）",
+        "",
+        "【デフォルト役職の色参考】",
+        "  部長: #F44336 (赤)",
+        "  課長: #2196F3 (青)",
+        "  副課長: #00C853 (緑)",
+        "  GL: #FFD700 (黄色)",
+        "  契約社員: #ADD8E6 (薄い青)",
+        "  BP: #90EE90 (薄い緑)",
+        "============================================"
+      ],
+      customPositions: customPositions,
+      members: members
+    };
+
+    return JSON.stringify(exportData, null, 2);
   }
 
   /**
    * JSONからメンバーデータをインポート
    * @param jsonData JSONデータ
-   * @returns インポートされたメンバーリスト
+   * @returns インポートされたメンバーリストとカスタム役職
    */
-  public importMembers(jsonData: string): MemberStrengths[] {
+  public importMembers(jsonData: string): { members: MemberStrengths[], customPositions?: CustomPosition[] } {
     try {
-      const members = JSON.parse(jsonData) as MemberStrengths[];
-      
-      // バリデーション
-      if (!Array.isArray(members)) {
-        throw new Error('インポートデータが配列ではありません');
+      const data = JSON.parse(jsonData);
+      let members: MemberStrengths[];
+      let customPositions: CustomPosition[] | undefined;
+
+      // 新形式 (StrengthsData) か旧形式 (MemberStrengths[]) かを判定
+      if (Array.isArray(data)) {
+        members = data as MemberStrengths[];
+      } else if (data.members && Array.isArray(data.members)) {
+        members = data.members;
+        customPositions = data.customPositions;
+      } else {
+        throw new Error('インポートデータの形式が不正です');
       }
-      
+
       // 各メンバーの形式を検証
       members.forEach(member => {
         if (!member.id || !member.name || !member.department || !Array.isArray(member.strengths)) {
           throw new Error('メンバーデータの形式が不正です');
         }
-        
+
         // 強みのバリデーション
         member.strengths.forEach(strength => {
-          if (typeof strength.id !== 'number' || typeof strength.score !== 'number' || 
+          if (typeof strength.id !== 'number' || typeof strength.score !== 'number' ||
               strength.score < 1 || strength.score > 5) {
             throw new Error('強みデータの形式が不正です');
           }
         });
       });
-      
-      // 既存のデータを上書き
-      localStorage.setItem(this.STORAGE_KEY, jsonData);
-      return members;
+
+      // データを保存
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(members));
+      if (customPositions) {
+        localStorage.setItem(this.CUSTOM_POSITIONS_KEY, JSON.stringify(customPositions));
+      }
+
+      return { members, customPositions };
     } catch (error) {
       console.error('インポート中にエラーが発生しました:', error);
       throw error;
     }
+  }
+
+  /**
+   * カスタム役職を取得
+   */
+  public getCustomPositions(): CustomPosition[] {
+    const stored = localStorage.getItem(this.CUSTOM_POSITIONS_KEY);
+    if (!stored) return [];
+
+    try {
+      return JSON.parse(stored);
+    } catch (err) {
+      console.error('カスタム役職データの解析に失敗しました:', err);
+      return [];
+    }
+  }
+
+  /**
+   * カスタム役職を保存
+   */
+  public saveCustomPosition(position: CustomPosition): CustomPosition[] {
+    const positions = this.getCustomPositions();
+    const index = positions.findIndex(p => p.id === position.id);
+
+    if (index >= 0) {
+      positions[index] = position;
+    } else {
+      positions.push(position);
+    }
+
+    localStorage.setItem(this.CUSTOM_POSITIONS_KEY, JSON.stringify(positions));
+    return positions;
+  }
+
+  /**
+   * 役職情報を取得（デフォルト + カスタム）
+   */
+  public getPositionInfo(positionId: string): { name: string; displayName: string; color: string; icon: string } | null {
+    // デフォルト役職を確認（positionIdがPosition enumの値のいずれかに一致するか）
+    if (Object.values(Position).includes(positionId as Position)) {
+      return DEFAULT_POSITIONS[positionId as Position];
+    }
+
+    // カスタム役職を確認
+    const customPositions = this.getCustomPositions();
+    const customPos = customPositions.find(p => p.id === positionId);
+    if (customPos) {
+      return {
+        name: customPos.name,
+        displayName: customPos.displayName,
+        color: customPos.color,
+        icon: customPos.icon
+      };
+    }
+
+    return null;
   }
 }
 

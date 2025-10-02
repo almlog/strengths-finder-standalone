@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
-import StrengthsService, { STRENGTHS_DATA } from '../../services/StrengthsService';
+import { STRENGTHS_DATA } from '../../services/StrengthsService';
 
 interface MemberFormProps {
   memberId: string | null; // null: 新規追加, string: 編集
@@ -11,11 +11,13 @@ interface MemberFormProps {
 }
 
 const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
-  const { members, addOrUpdateMember } = useStrengths();
+  const { members, addOrUpdateMember, customPositions, addCustomPosition, getPositionInfo } = useStrengths();
   const [id, setId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [department, setDepartment] = useState<string>('');
-  const [position, setPosition] = useState<Position | undefined>(undefined);
+  const [position, setPosition] = useState<Position | string | undefined>(undefined);
+  const [customPositionName, setCustomPositionName] = useState<string>('');
+  const [isCustomPosition, setIsCustomPosition] = useState<boolean>(false);
   const [selectedStrengths, setSelectedStrengths] = useState<{ id: number; score: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +31,11 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
         setDepartment(member.department);
         setPosition(member.position);
         setSelectedStrengths([...member.strengths]);
+
+        // カスタム役職かどうかを判定
+        if (member.position && !Object.values(Position).includes(member.position as Position)) {
+          setIsCustomPosition(false); // カスタム役職でも標準モードで表示（選択肢に含まれる）
+        }
       }
     }
   }, [memberId, members]);
@@ -179,24 +186,88 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 役職
               </label>
-              <div className="relative">
-                <select
-                  value={position || ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setPosition(value ? value as Position : undefined);
-                  }}
-                  className="w-full border rounded p-2"
-                >
-                  <option value="">一般社員</option>
-                  <option value={Position.GL}>グループリーダー (GL)</option>
-                  <option value={Position.DEPUTY_MANAGER}>副課長</option>
-                  <option value={Position.MANAGER}>課長</option>
-                  <option value={Position.DIRECTOR}>部長</option>
-                  <option value={Position.CONTRACT}>契約社員</option>
-                  <option value={Position.BP}>BP</option>
-                </select>
+
+              {/* 役職タイプの選択 */}
+              <div className="mb-2">
+                <label className="inline-flex items-center mr-4">
+                  <input
+                    type="radio"
+                    checked={!isCustomPosition}
+                    onChange={() => {
+                      setIsCustomPosition(false);
+                      setCustomPositionName('');
+                    }}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">標準役職</span>
+                </label>
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    checked={isCustomPosition}
+                    onChange={() => setIsCustomPosition(true)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">カスタム役職</span>
+                </label>
               </div>
+
+              {!isCustomPosition ? (
+                <div className="relative">
+                  <select
+                    value={position || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setPosition(value ? value as Position : undefined);
+                    }}
+                    className="w-full border rounded p-2"
+                  >
+                    <option value="">一般社員</option>
+                    <option value={Position.GL}>グループリーダー (GL)</option>
+                    <option value={Position.DEPUTY_MANAGER}>副課長</option>
+                    <option value={Position.MANAGER}>課長</option>
+                    <option value={Position.DIRECTOR}>部長</option>
+                    <option value={Position.CONTRACT}>契約社員</option>
+                    <option value={Position.BP}>BP</option>
+                    {customPositions.map(cp => (
+                      <option key={cp.id} value={cp.id}>{cp.displayName}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    type="text"
+                    value={customPositionName}
+                    onChange={(e) => setCustomPositionName(e.target.value)}
+                    placeholder="役職名を入力（例: 副事業部長）"
+                    className="w-full border rounded p-2 mb-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (customPositionName.trim()) {
+                        const customId = `CUSTOM_${Date.now()}`;
+                        const newCustomPosition = {
+                          id: customId,
+                          name: customPositionName.trim(),
+                          displayName: customPositionName.trim(),
+                          color: '#9E9E9E',  // グレー（デフォルト）
+                          icon: 'crown' as const  // 王冠（デフォルト）
+                        };
+                        addCustomPosition(newCustomPosition);
+                        setPosition(customId);
+                        setIsCustomPosition(false);
+                        setCustomPositionName('');
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                  >
+                    カスタム役職を追加
+                  </button>
+                </div>
+              )}
+
               <p className="text-xs text-gray-500 mt-1">
                 役職に応じて表示アイコンが変わります
               </p>
