@@ -143,6 +143,7 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
             </div>
           )}
         </div>
+        <p className="text-gray-600">社員番号: {member.id}</p>
         <p className="text-gray-600">部署コード: {member.department}</p>
       </div>
 
