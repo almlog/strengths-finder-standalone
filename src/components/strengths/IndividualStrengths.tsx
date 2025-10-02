@@ -3,50 +3,14 @@ import React from 'react';
 import { User, AlertCircle, Crown } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import StrengthsService, { GROUP_LABELS, GROUP_COLORS } from '../../services/StrengthsService';
-import { Strength, StrengthGroup, Position } from '../../models/StrengthsTypes';
-import { 
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  CartesianGrid,
-  Cell,
-  ScatterChart,
-  Scatter,
-  Rectangle
-} from 'recharts';
-
-// 役職ごとの王冠の色
-const POSITION_CROWN_COLORS: Record<Position, string> = {
-  [Position.GENERAL]: "", // 一般社員（表示なし）
-  [Position.GL]: "#FFD700", // 黄色
-  [Position.DEPUTY_MANAGER]: "#00C853", // 緑
-  [Position.MANAGER]: "#2196F3", // 青
-  [Position.DIRECTOR]: "#F44336", // 赤
-  [Position.CONTRACT]: "#ADD8E6", // 薄い青
-  [Position.BP]: "#90EE90", // 薄い緑
-};
-
-// 役職の日本語名
-const POSITION_LABELS: Record<Position, string> = {
-  [Position.GENERAL]: "一般社員",
-  [Position.GL]: "グループリーダー",
-  [Position.DEPUTY_MANAGER]: "副課長",
-  [Position.MANAGER]: "課長",
-  [Position.DIRECTOR]: "部長",
-  [Position.CONTRACT]: "契約社員",
-  [Position.BP]: "BP",
-};
+import { StrengthGroup, Position } from '../../models/StrengthsTypes';
 
 interface IndividualStrengthsProps {
   memberId: string | null;
 }
 
 const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) => {
-  const { members } = useStrengths();
+  const { members, getPositionInfo } = useStrengths();
   
   if (!memberId) {
     return (
@@ -119,25 +83,30 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
       opacity: (6 - item.score) / 5
     }));
 
+  // 役職情報を取得
+  const positionInfo = member.position ? getPositionInfo(member.position) : null;
+
   return (
     <div className="space-y-6">
       <div className="bg-gray-50 p-4 rounded-lg">
         <div className="flex items-center">
           <h3 className="text-xl font-bold mb-2">{member.name}</h3>
-          {member.position && member.position !== Position.GENERAL && (
-            <div 
+          {positionInfo && member.position !== Position.GENERAL && (
+            <div
               className="ml-2 relative group"
-              title={POSITION_LABELS[member.position]}
+              title={positionInfo.displayName}
             >
-              {member.position === Position.CONTRACT ? (
-                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: POSITION_CROWN_COLORS[member.position] }}></div>
-              ) : member.position === Position.BP ? (
-                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: POSITION_CROWN_COLORS[member.position] }}></div>
+              {positionInfo.icon === 'circle' ? (
+                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: positionInfo.color }}></div>
+              ) : positionInfo.icon === 'star' ? (
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill={positionInfo.color} stroke={positionInfo.color}>
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
               ) : (
-                <Crown 
-                  className="w-5 h-5" 
-                  color={POSITION_CROWN_COLORS[member.position]} 
-                  fill={POSITION_CROWN_COLORS[member.position]}
+                <Crown
+                  className="w-5 h-5"
+                  color={positionInfo.color}
+                  fill={positionInfo.color}
                 />
               )}
             </div>
