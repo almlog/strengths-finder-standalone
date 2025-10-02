@@ -1,7 +1,12 @@
-# ストレングスファインダー分析ツール（スタンドアロン版）
+# ストレングスファインダー分析ツール
 
 ## 概要
-このツールは、チームメンバーのストレングスファインダー結果を管理・分析するためのスタンドアロンWebアプリケーションです。完全にクライアントサイドで動作し、個人情報はブラウザのローカルストレージにのみ保存されます。
+このツールは、チームメンバーのストレングスファインダー結果を管理・分析するためのWebアプリケーションです。完全にクライアントサイドで動作し、個人情報はブラウザのローカルストレージにのみ保存されます。
+
+## 🌐 公開URL
+**https://almlog.github.io/strengths-finder-standalone**
+
+GitHub Pagesでホスティングされており、インストール不要で即座に利用できます。
 
 ## 特徴
 - 🔒 **プライバシー重視**: すべてのデータはローカルに保存され、外部サーバーには送信されません
@@ -9,65 +14,30 @@
 - 💾 **データのインポート/エクスポート**: JSON形式でバックアップと共有が可能
 - 🎯 **34の資質対応**: ストレングスファインダーの全資質に対応
 - 📱 **レスポンシブデザイン**: デスクトップ・タブレット・モバイルに対応
+- 👥 **カスタム役職機能**: 標準役職に加え、自由に役職を追加可能
 
 ## クイックスタート
 
-### 🚀 簡単セットアップ（推奨）
+### オンライン利用（推奨）
+ブラウザで以下のURLにアクセスするだけで利用できます：
+**https://almlog.github.io/strengths-finder-standalone**
 
-#### Windows
+### ローカル開発環境のセットアップ
+
+#### 依存関係のインストール
 ```bash
-# リポジトリをクローン
 git clone https://github.com/almlog/strengths-finder-standalone.git
 cd strengths-finder-standalone
-
-# セットアップスクリプトを実行
-setup.bat
-```
-
-#### Mac / Linux
-```bash
-# リポジトリをクローン
-git clone https://github.com/almlog/strengths-finder-standalone.git
-cd strengths-finder-standalone
-
-# セットアップスクリプトを実行
-./setup.sh
-```
-
-セットアップスクリプトが以下を自動実行します：
-- ✅ **環境チェック**: Node.js 18.x以上、npm 9.x以上の確認
-- ✅ **依存関係のインストール**: npm install を自動実行
-- ✅ **セットアップ完了確認**: node_modules の存在確認
-- ✅ **開発サーバーの起動**: オプション選択で即座に開発開始可能
-
-### 🔧 セットアップスクリプトの詳細
-
-**Windows (setup.bat)**
-- 日本語対応（文字化け防止）
-- エラー時の詳細メッセージ表示
-- Node.js未インストール時のダウンロードリンク提供
-
-**Mac/Linux (setup.sh)**  
-- 色付きメッセージで見やすい表示
-- 自動的に実行権限を設定済み
-- エラーハンドリングとガイダンス機能
-
-**トラブルシューティング**
-- Node.jsが見つからない → 公式サイトからインストール
-- ポートが使用中 → 自動で別ポート（3006以降）を検索
-- npm install失敗 → キャッシュクリア後に再実行
-
-### 手動セットアップ
-```bash
-# 依存関係のインストール
 npm install
+```
 
-# 開発サーバーの起動
+#### 開発サーバーの起動
+```bash
 npm start
 ```
-**開発サーバー**: http://localhost:3005
+開発サーバー: http://localhost:3000
 
-### 本番用ビルド
+#### 本番用ビルド
 ```bash
 npm run build
 ```
@@ -76,8 +46,9 @@ npm run build
 
 ### メンバー管理
 - メンバーの追加・編集・削除
-- 社員番号、氏名、部署コードの管理
+- 社員番号、氏名、部署コード、役職の管理
 - 5つの強み（資質）の順位付け
+- カスタム役職の追加（JSONで色とアイコンをカスタマイズ可能）
 
 ### 分析機能
 - **個人分析**: 選択したメンバーの強みを視覚的に分析
@@ -90,60 +61,81 @@ npm run build
 - **インポート**: JSONファイルからデータを復元
 - **ローカルストレージ**: ブラウザにデータを自動保存
 
-## デプロイ方法
+## デプロイ
 
-### 1. 静的Webホスティング
-buildフォルダの内容を以下のいずれかにアップロード：
-- 社内Webサーバー
-- GitHub Pages
-- Azure Static Web Apps
-- AWS S3 + CloudFront
-- Netlify/Vercel
+このアプリケーションは GitHub Actions による自動デプロイが設定されています。
 
-### 2. ローカルサーバー
+### 自動デプロイ（GitHub Pages）
+`main` ブランチへのpush時に自動的に以下が実行されます：
+1. Node.js環境のセットアップ
+2. 依存関係のインストール (`npm ci`)
+3. プロダクションビルド (`npm run build`)
+4. GitHub Pagesへのデプロイ
+
+公開URL: **https://almlog.github.io/strengths-finder-standalone**
+
+### 手動デプロイ
+他の静的Webホスティングサービスにデプロイする場合：
+
 ```bash
-# serve パッケージのインストール（初回のみ）
-npm install -g serve
+# ビルドを作成
+npm run build
 
-# ビルドしたアプリケーションの起動
-serve -s build -l 3000
+# buildフォルダの内容を以下のいずれかにアップロード：
+# - 社内Webサーバー
+# - Azure Static Web Apps
+# - AWS S3 + CloudFront
+# - Netlify/Vercel
 ```
-
-### 3. IISでのホスティング
-1. `npm run build` でビルドを作成
-2. buildフォルダを IIS のサイトディレクトリにコピー
-3. IIS マネージャーで新しいサイトを作成
-4. 物理パスをbuildフォルダに設定
 
 ## データフォーマット
+
+### メンバーデータ
 ```json
-[
-  {
-    "id": "12345678",
-    "name": "山田太郎", 
-    "department": "13D12345",
-    "strengths": [
-      { "id": 1, "score": 1 },
-      { "id": 16, "score": 2 },
-      { "id": 31, "score": 3 },
-      { "id": 4, "score": 4 },
-      { "id": 22, "score": 5 }
-    ]
-  }
-]
+{
+  "customPositions": [
+    {
+      "id": "CUSTOM_1234567890",
+      "name": "副事業部長",
+      "displayName": "副事業部長",
+      "color": "#9E9E9E",
+      "icon": "crown"
+    }
+  ],
+  "members": [
+    {
+      "id": "12345678",
+      "name": "山田太郎",
+      "department": "13D12345",
+      "position": "MANAGER",
+      "strengths": [
+        { "id": 1, "score": 1 },
+        { "id": 16, "score": 2 },
+        { "id": 31, "score": 3 },
+        { "id": 4, "score": 4 },
+        { "id": 22, "score": 5 }
+      ]
+    }
+  ]
+}
 ```
+
+### カスタム役職のカスタマイズ
+エクスポートしたJSONファイル内でカスタム役職の色とアイコンを変更できます：
+- **color**: HEX形式のカラーコード（例: `#FF5722`）
+- **icon**: `"crown"` | `"circle"` | `"star"`
 
 ## 技術スタック
 - React 19 + TypeScript
 - Tailwind CSS 3.4.1
 - Recharts (グラフ表示)
 - LocalStorage API
+- GitHub Actions (CI/CD)
+- GitHub Pages (ホスティング)
 
-## 開発について
-詳細な開発手順については、[DEVELOPMENT.md](./DEVELOPMENT.md) および [CLAUDE.md](./CLAUDE.md) を参照してください。
+## 開発者
+**SUZUKI Shunpei**
+suzuki.shunpei@altx.co.jp
 
 ## ライセンス
 社内利用限定
-
-## サポート
-問題や質問がある場合は、開発チームまでお問い合わせください。
