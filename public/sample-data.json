@@ -1,0 +1,294 @@
+{
+  "_comment": [
+    "============================================",
+    "Strengths Finder データファイル",
+    "============================================",
+    "",
+    "【カスタム役職設定】",
+    "- アイコンタイプ: 'crown'(王冠) または 'circle'(丸)",
+    "- 色: カラーコード（例: #FF5722）",
+    "",
+    "【デフォルト役職の色参考】",
+    "  部長: #F44336 (赤)",
+    "  課長: #2196F3 (青)",
+    "  副課長: #00C853 (緑)",
+    "  GL: #FFD700 (黄色)",
+    "  契約社員: #ADD8E6 (薄い青)",
+    "  BP: #90EE90 (薄い緑)",
+    "============================================"
+  ],
+  "customPositions": [
+    {
+      "id": "CUSTOM_CAPTAIN",
+      "name": "船長",
+      "displayName": "船長",
+      "color": "#FF6B35",
+      "icon": "crown"
+    },
+    {
+      "id": "CUSTOM_VICE_CAPTAIN",
+      "name": "副船長",
+      "displayName": "副船長",
+      "color": "#F7931E",
+      "icon": "crown"
+    }
+  ],
+  "members": [
+    {
+      "id": "OP001",
+      "name": "モンキー・D・ルフィ",
+      "department": "ONE_PIECE",
+      "position": "CUSTOM_CAPTAIN",
+      "strengths": [
+        { "id": 20, "score": 1 },
+        { "id": 28, "score": 2 },
+        { "id": 32, "score": 3 },
+        { "id": 1, "score": 4 },
+        { "id": 14, "score": 5 }
+      ]
+    },
+    {
+      "id": "OP002",
+      "name": "ロロノア・ゾロ",
+      "department": "ONE_PIECE",
+      "position": "CUSTOM_VICE_CAPTAIN",
+      "strengths": [
+        { "id": 11, "score": 1 },
+        { "id": 1, "score": 2 },
+        { "id": 18, "score": 3 },
+        { "id": 3, "score": 4 },
+        { "id": 30, "score": 5 }
+      ]
+    },
+    {
+      "id": "OP003",
+      "name": "ナミ",
+      "department": "ONE_PIECE",
+      "position": "GL",
+      "strengths": [
+        { "id": 25, "score": 1 },
+        { "id": 4, "score": 2 },
+        { "id": 21, "score": 3 },
+        { "id": 16, "score": 4 },
+        { "id": 10, "score": 5 }
+      ]
+    },
+    {
+      "id": "OP004",
+      "name": "サンジ",
+      "department": "ONE_PIECE",
+      "strengths": [
+        { "id": 19, "score": 1 },
+        { "id": 9, "score": 2 },
+        { "id": 26, "score": 3 },
+        { "id": 15, "score": 4 },
+        { "id": 28, "score": 5 }
+      ]
+    },
+    {
+      "id": "OP005",
+      "name": "トニートニー・チョッパー",
+      "department": "ONE_PIECE",
+      "strengths": [
+        { "id": 9, "score": 1 },
+        { "id": 19, "score": 2 },
+        { "id": 8, "score": 3 },
+        { "id": 23, "score": 4 },
+        { "id": 17, "score": 5 }
+      ]
+    },
+    {
+      "id": "NA001",
+      "name": "うずまきナルト",
+      "department": "NARUTO",
+      "position": "MANAGER",
+      "strengths": [
+        { "id": 28, "score": 1 },
+        { "id": 20, "score": 2 },
+        { "id": 1, "score": 3 },
+        { "id": 32, "score": 4 },
+        { "id": 19, "score": 5 }
+      ]
+    },
+    {
+      "id": "NA002",
+      "name": "うちはサスケ",
+      "department": "NARUTO",
+      "position": "DEPUTY_MANAGER",
+      "strengths": [
+        { "id": 18, "score": 1 },
+        { "id": 11, "score": 2 },
+        { "id": 8, "score": 3 },
+        { "id": 3, "score": 4 },
+        { "id": 1, "score": 5 }
+      ]
+    },
+    {
+      "id": "NA003",
+      "name": "春野サクラ",
+      "department": "NARUTO",
+      "position": "GL",
+      "strengths": [
+        { "id": 26, "score": 1 },
+        { "id": 22, "score": 2 },
+        { "id": 9, "score": 3 },
+        { "id": 17, "score": 4 },
+        { "id": 11, "score": 5 }
+      ]
+    },
+    {
+      "id": "NA004",
+      "name": "はたけカカシ",
+      "department": "NARUTO",
+      "position": "DIRECTOR",
+      "strengths": [
+        { "id": 25, "score": 1 },
+        { "id": 21, "score": 2 },
+        { "id": 5, "score": 3 },
+        { "id": 16, "score": 4 },
+        { "id": 8, "score": 5 }
+      ]
+    },
+    {
+      "id": "DB001",
+      "name": "孫悟空",
+      "department": "DRAGON_BALL",
+      "position": "DIRECTOR",
+      "strengths": [
+        { "id": 1, "score": 1 },
+        { "id": 28, "score": 2 },
+        { "id": 3, "score": 3 },
+        { "id": 20, "score": 4 },
+        { "id": 8, "score": 5 }
+      ]
+    },
+    {
+      "id": "DB002",
+      "name": "ベジータ",
+      "department": "DRAGON_BALL",
+      "position": "MANAGER",
+      "strengths": [
+        { "id": 1, "score": 1 },
+        { "id": 3, "score": 2 },
+        { "id": 7, "score": 3 },
+        { "id": 11, "score": 4 },
+        { "id": 22, "score": 5 }
+      ]
+    },
+    {
+      "id": "DB003",
+      "name": "ピッコロ",
+      "department": "DRAGON_BALL",
+      "position": "DEPUTY_MANAGER",
+      "strengths": [
+        { "id": 25, "score": 1 },
+        { "id": 16, "score": 2 },
+        { "id": 5, "score": 3 },
+        { "id": 8, "score": 4 },
+        { "id": 21, "score": 5 }
+      ]
+    },
+    {
+      "id": "DB004",
+      "name": "クリリン",
+      "department": "DRAGON_BALL",
+      "position": "GL",
+      "strengths": [
+        { "id": 19, "score": 1 },
+        { "id": 15, "score": 2 },
+        { "id": 28, "score": 3 },
+        { "id": 9, "score": 4 },
+        { "id": 27, "score": 5 }
+      ]
+    },
+    {
+      "id": "HH001",
+      "name": "ゴン=フリークス",
+      "department": "HUNTER_HUNTER",
+      "position": "GL",
+      "strengths": [
+        { "id": 20, "score": 1 },
+        { "id": 28, "score": 2 },
+        { "id": 1, "score": 3 },
+        { "id": 14, "score": 4 },
+        { "id": 32, "score": 5 }
+      ]
+    },
+    {
+      "id": "HH002",
+      "name": "キルア=ゾルディック",
+      "department": "HUNTER_HUNTER",
+      "position": "GL",
+      "strengths": [
+        { "id": 25, "score": 1 },
+        { "id": 4, "score": 2 },
+        { "id": 21, "score": 3 },
+        { "id": 16, "score": 4 },
+        { "id": 3, "score": 5 }
+      ]
+    },
+    {
+      "id": "HH003",
+      "name": "クラピカ",
+      "department": "HUNTER_HUNTER",
+      "position": "DEPUTY_MANAGER",
+      "strengths": [
+        { "id": 18, "score": 1 },
+        { "id": 11, "score": 2 },
+        { "id": 10, "score": 3 },
+        { "id": 25, "score": 4 },
+        { "id": 5, "score": 5 }
+      ]
+    },
+    {
+      "id": "HH004",
+      "name": "レオリオ",
+      "department": "HUNTER_HUNTER",
+      "strengths": [
+        { "id": 19, "score": 1 },
+        { "id": 20, "score": 2 },
+        { "id": 28, "score": 3 },
+        { "id": 9, "score": 4 },
+        { "id": 15, "score": 5 }
+      ]
+    },
+    {
+      "id": "BC001",
+      "name": "緋村剣心",
+      "department": "RUROUNI_KENSHIN",
+      "position": "MANAGER",
+      "strengths": [
+        { "id": 26, "score": 1 },
+        { "id": 9, "score": 2 },
+        { "id": 19, "score": 3 },
+        { "id": 5, "score": 4 },
+        { "id": 17, "score": 5 }
+      ]
+    },
+    {
+      "id": "BC002",
+      "name": "神谷薫",
+      "department": "RUROUNI_KENSHIN",
+      "position": "GL",
+      "strengths": [
+        { "id": 28, "score": 1 },
+        { "id": 9, "score": 2 },
+        { "id": 19, "score": 3 },
+        { "id": 15, "score": 4 },
+        { "id": 22, "score": 5 }
+      ]
+    },
+    {
+      "id": "BC003",
+      "name": "相楽左之助",
+      "department": "RUROUNI_KENSHIN",
+      "strengths": [
+        { "id": 19, "score": 1 },
+        { "id": 20, "score": 2 },
+        { "id": 1, "score": 3 },
+        { "id": 28, "score": 4 },
+        { "id": 15, "score": 5 }
+      ]
+    }
+  ]
+}

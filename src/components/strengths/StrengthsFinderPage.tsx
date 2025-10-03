@@ -25,19 +25,30 @@ const ImportExportButtons: React.FC = () => {
     // Blobオブジェクトを作成
     const blob = new Blob([jsonData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
     // ダウンロードリンクを作成して自動クリック
     const a = document.createElement('a');
     a.href = url;
     a.download = `strengths-data-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
-    
+
     // クリーンアップ
     setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 0);
+  };
+
+  // サンプルデータのダウンロード処理
+  const handleSampleDownload = () => {
+    const sampleUrl = `${process.env.PUBLIC_URL}/sample-data.json`;
+    const a = document.createElement('a');
+    a.href = sampleUrl;
+    a.download = 'sample-data.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   // ファイル選択ダイアログを開く
@@ -71,6 +82,16 @@ const ImportExportButtons: React.FC = () => {
 
   return (
     <div className="flex space-x-2">
+      {/* サンプルダウンロードボタン */}
+      <button
+        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded flex items-center"
+        onClick={handleSampleDownload}
+        title="サンプルデータをダウンロード"
+      >
+        <Download className="w-4 h-4 mr-1" />
+        <span>サンプル</span>
+      </button>
+
       {/* エクスポートボタン */}
       <button
         className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded flex items-center"
@@ -80,7 +101,7 @@ const ImportExportButtons: React.FC = () => {
         <Download className="w-4 h-4 mr-1" />
         <span>エクスポート</span>
       </button>
-      
+
       {/* インポートボタン */}
       <button
         className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded flex items-center"
@@ -90,7 +111,7 @@ const ImportExportButtons: React.FC = () => {
         <Upload className="w-4 h-4 mr-1" />
         <span>インポート</span>
       </button>
-      
+
       {/* 非表示のファイル入力 */}
       <input
         type="file"
