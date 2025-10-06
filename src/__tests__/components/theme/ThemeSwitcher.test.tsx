@@ -102,10 +102,9 @@ describe('ThemeSwitcher', () => {
       const items = screen.getAllByRole('menuitem');
       const itemTexts = items.map(item => item.textContent);
 
+      // Phase 1: default & dark のみ
       expect(itemTexts.some(text => text?.includes('デフォルト'))).toBe(true);
       expect(itemTexts.some(text => text?.includes('ダーク'))).toBe(true);
-      expect(itemTexts.some(text => text?.includes('サイバーパンク'))).toBe(true);
-      expect(itemTexts.some(text => text?.includes('キュート'))).toBe(true);
     });
 
     it('メニューにautoモードオプションが表示される', async () => {
@@ -200,43 +199,9 @@ describe('ThemeSwitcher', () => {
       });
     });
 
-    it('cyberpunkテーマを選択できる', async () => {
-      render(
-        <ThemeProvider>
-          <ThemeSwitcher />
-        </ThemeProvider>
-      );
-
-      const button = screen.getByRole('button');
-      fireEvent.click(button);
-
-      const items = screen.getAllByRole('menuitem');
-      const cyberpunkOption = items[2]; // 3番目の項目がcyberpunk
-      fireEvent.click(cyberpunkOption);
-
-      await waitFor(() => {
-        expect(button.textContent).toContain('サイバーパンク');
-      });
-    });
-
-    it('cuteテーマを選択できる', async () => {
-      render(
-        <ThemeProvider>
-          <ThemeSwitcher />
-        </ThemeProvider>
-      );
-
-      const button = screen.getByRole('button');
-      fireEvent.click(button);
-
-      const items = screen.getAllByRole('menuitem');
-      const cuteOption = items[3]; // 4番目の項目がcute
-      fireEvent.click(cuteOption);
-
-      await waitFor(() => {
-        expect(button.textContent).toContain('キュート');
-      });
-    });
+    // Phase 2以降で追加予定
+    // it('cyberpunkテーマを選択できる', async () => { ... });
+    // it('cuteテーマを選択できる', async () => { ... });
 
     it('テーマ選択後にメニューが閉じる', async () => {
       render(
@@ -275,13 +240,13 @@ describe('ThemeSwitcher', () => {
         expect(button.textContent).toContain('ダーク');
       });
 
-      // Cyberpunk選択
+      // Default選択
       fireEvent.click(button);
       const items2 = screen.getAllByRole('menuitem');
-      fireEvent.click(items2[2]);
+      fireEvent.click(items2[0]);
 
       await waitFor(() => {
-        expect(button.textContent).toContain('サイバーパンク');
+        expect(button.textContent).toContain('デフォルト');
       });
     });
   });
@@ -297,8 +262,9 @@ describe('ThemeSwitcher', () => {
       const button = screen.getByRole('button');
       fireEvent.click(button);
 
-      const autoOption = screen.getByText(/自動/);
-      fireEvent.click(autoOption);
+      const items = screen.getAllByRole('menuitem');
+      const autoOption = items.find(item => item.textContent?.includes('自動 (OS設定)'));
+      fireEvent.click(autoOption!);
 
       await waitFor(() => {
         expect(button).toHaveAttribute('aria-expanded', 'false');
