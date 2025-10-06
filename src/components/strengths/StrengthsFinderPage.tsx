@@ -163,19 +163,19 @@ const StrengthsFinderPage: React.FC = () => {
 
       <div className="grid grid-cols-12 gap-6">
         {/* メンバーリスト */}
-        <div className="col-span-12 md:col-span-4 bg-white rounded-lg shadow p-4">
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <Users className="w-5 h-5 mr-2 text-blue-600" />
+        <div className="col-span-12 md:col-span-4 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-800 dark:text-gray-100">
+            <Users className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
             メンバー一覧
           </h3>
-          <MembersList 
+          <MembersList
             onSelect={setSelectedMemberId}
             selectedMemberId={selectedMemberId}
           />
         </div>
 
         {/* 分析エリア */}
-        <div className="col-span-12 md:col-span-8 bg-white rounded-lg shadow p-4">
+        <div className="col-span-12 md:col-span-8 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <Tabs activeTab={activeTab} onTabChange={handleTabChange}>
             <Tab id="individual" label={
               <div className="flex items-center">
