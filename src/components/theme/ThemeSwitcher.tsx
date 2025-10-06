@@ -5,10 +5,29 @@
  * @description テーマを切り替えるUIコンポーネント
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ThemeId } from '../../models/ThemeTypes';
-import { THEMES } from '../../services/ThemeService';
+
+/**
+ * テーマオプション定義
+ */
+const THEME_OPTIONS: Array<{ id: ThemeId; name: string }> = [
+  { id: 'default', name: 'デフォルト' },
+  { id: 'dark', name: 'ダーク' },
+  { id: 'cyberpunk', name: 'サイバーパンク' },
+  { id: 'cute', name: 'キュート' },
+] as const;
+
+/**
+ * テーマアイコンマップ
+ */
+const THEME_ICONS: Record<ThemeId, string> = {
+  default: '☀️',
+  dark: '🌙',
+  cyberpunk: '🤖',
+  cute: '🌸',
+} as const;
 
 /**
  * テーマスイッチャーコンポーネント
@@ -30,55 +49,47 @@ export const ThemeSwitcher: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // テーマオプション
-  const themeOptions: Array<{ id: ThemeId; name: string }> = [
-    { id: 'default', name: 'デフォルト' },
-    { id: 'dark', name: 'ダーク' },
-    { id: 'cyberpunk', name: 'サイバーパンク' },
-    { id: 'cute', name: 'キュート' },
-  ];
+  /**
+   * メニューを閉じる
+   */
+  const closeMenu = useCallback((): void => {
+    setIsOpen(false);
+    setFocusedIndex(-1);
+  }, []);
 
   /**
    * メニューを開く/閉じる
    */
-  const toggleMenu = (): void => {
-    setIsOpen(!isOpen);
-    if (!isOpen) {
-      setFocusedIndex(-1);
-    }
-  };
+  const toggleMenu = useCallback((): void => {
+    setIsOpen((prev) => !prev);
+    setFocusedIndex(-1);
+  }, []);
 
   /**
-   * メニューを閉じる
+   * 安全に関数を実行（エラーハンドリング共通化）
    */
-  const closeMenu = (): void => {
-    setIsOpen(false);
-    setFocusedIndex(-1);
-  };
+  const safeExecute = useCallback((fn: () => void, errorMessage: string): void => {
+    try {
+      fn();
+      closeMenu();
+    } catch (error) {
+      console.error(errorMessage, error);
+    }
+  }, [closeMenu]);
 
   /**
    * テーマを選択
    */
-  const handleThemeSelect = (themeId: ThemeId): void => {
-    try {
-      setTheme(themeId);
-      closeMenu();
-    } catch (error) {
-      console.error('Failed to select theme:', error);
-    }
-  };
+  const handleThemeSelect = useCallback((themeId: ThemeId): void => {
+    safeExecute(() => setTheme(themeId), 'Failed to select theme:');
+  }, [setTheme, safeExecute]);
 
   /**
    * Autoモードに切り替え
    */
-  const handleAutoMode = (): void => {
-    try {
-      setThemeMode('auto');
-      closeMenu();
-    } catch (error) {
-      console.error('Failed to set auto mode:', error);
-    }
-  };
+  const handleAutoMode = useCallback((): void => {
+    safeExecute(() => setThemeMode('auto'), 'Failed to set auto mode:');
+  }, [setThemeMode, safeExecute]);
 
   /**
    * 外側クリックでメニューを閉じる
@@ -105,7 +116,7 @@ export const ThemeSwitcher: React.FC = () => {
   /**
    * キーボード操作
    */
-  const handleKeyDown = (event: React.KeyboardEvent): void => {
+  const handleKeyDown = useCallback((event: React.KeyboardEvent): void => {
     if (!isOpen) {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
@@ -113,6 +124,8 @@ export const ThemeSwitcher: React.FC = () => {
       }
       return;
     }
+
+    const maxIndex = THEME_OPTIONS.length; // +1 for auto mode
 
     switch (event.key) {
       case 'Escape':
@@ -123,10 +136,7 @@ export const ThemeSwitcher: React.FC = () => {
 
       case 'ArrowDown':
         event.preventDefault();
-        setFocusedIndex((prev) => {
-          const maxIndex = themeOptions.length; // +1 for auto mode
-          return prev < maxIndex ? prev + 1 : prev;
-        });
+        setFocusedIndex((prev) => (prev < maxIndex ? prev + 1 : prev));
         break;
 
       case 'ArrowUp':
@@ -137,9 +147,9 @@ export const ThemeSwitcher: React.FC = () => {
       case 'Enter':
       case ' ':
         event.preventDefault();
-        if (focusedIndex >= 0 && focusedIndex < themeOptions.length) {
-          handleThemeSelect(themeOptions[focusedIndex].id);
-        } else if (focusedIndex === themeOptions.length) {
+        if (focusedIndex >= 0 && focusedIndex < THEME_OPTIONS.length) {
+          handleThemeSelect(THEME_OPTIONS[focusedIndex].id);
+        } else if (focusedIndex === maxIndex) {
           handleAutoMode();
         }
         break;
@@ -147,23 +157,12 @@ export const ThemeSwitcher: React.FC = () => {
       default:
         break;
     }
-  };
+  }, [isOpen, toggleMenu, closeMenu, focusedIndex, handleThemeSelect, handleAutoMode]);
 
   /**
    * テーマアイコン取得
    */
-  const getThemeIcon = (): string => {
-    switch (currentTheme.id) {
-      case 'dark':
-        return '🌙';
-      case 'cyberpunk':
-        return '🤖';
-      case 'cute':
-        return '🌸';
-      default:
-        return '☀️';
-    }
-  };
+  const getThemeIcon = (): string => THEME_ICONS[currentTheme.id];
 
   return (
     <div ref={dropdownRef} className="relative inline-block">
@@ -216,7 +215,7 @@ export const ThemeSwitcher: React.FC = () => {
         >
           <div className="py-1">
             {/* テーマオプション */}
-            {themeOptions.map((option, index) => (
+            {THEME_OPTIONS.map((option, index) => (
               <button
                 key={option.id}
                 role="menuitem"
@@ -259,7 +258,7 @@ export const ThemeSwitcher: React.FC = () => {
               aria-checked={themeMode === 'auto'}
               onClick={handleAutoMode}
               className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none ${
-                focusedIndex === themeOptions.length
+                focusedIndex === THEME_OPTIONS.length
                   ? 'bg-gray-100 dark:bg-gray-700'
                   : ''
               } ${
