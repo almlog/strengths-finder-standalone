@@ -1,0 +1,117 @@
+/**
+ * テーマCSS
+ *
+ * CSS変数を使用した動的テーマシステム
+ * ThemeContextによって自動的に更新される
+ */
+
+/* ルート要素でCSS変数を定義 */
+:root {
+  /* デフォルトテーマの色 */
+  --theme-primary: #2563EB;
+  --theme-secondary: #10B981;
+  --theme-background: #FFFFFF;
+  --theme-text: #1F2937;
+  --theme-border: #E5E7EB;
+}
+
+/* ダークモード用の色（prefers-color-schemeで自動適用） */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --theme-primary: #3B82F6;
+    --theme-secondary: #34D399;
+    --theme-background: #1F2937;
+    --theme-text: #F9FAFB;
+    --theme-border: #374151;
+  }
+}
+
+/* テーマカラーを使用したユーティリティクラス */
+.theme-bg-primary {
+  background-color: var(--theme-primary);
+}
+
+.theme-bg-secondary {
+  background-color: var(--theme-secondary);
+}
+
+.theme-bg {
+  background-color: var(--theme-background);
+}
+
+.theme-text {
+  color: var(--theme-text);
+}
+
+.theme-border {
+  border-color: var(--theme-border);
+}
+
+/* ボタンスタイル */
+.theme-button-primary {
+  background-color: var(--theme-primary);
+  color: white;
+  transition: opacity 0.2s;
+}
+
+.theme-button-primary:hover {
+  opacity: 0.9;
+}
+
+.theme-button-secondary {
+  background-color: var(--theme-secondary);
+  color: white;
+  transition: opacity 0.2s;
+}
+
+.theme-button-secondary:hover {
+  opacity: 0.9;
+}
+
+/* カードスタイル */
+.theme-card {
+  background-color: var(--theme-background);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+/* テキストスタイル */
+.theme-heading {
+  color: var(--theme-text);
+  font-weight: 700;
+}
+
+.theme-body {
+  color: var(--theme-text);
+}
+
+/* インプットスタイル */
+.theme-input {
+  background-color: var(--theme-background);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-border);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.theme-input:focus {
+  outline: 2px solid var(--theme-primary);
+  outline-offset: 2px;
+}
+
+/* リンクスタイル */
+.theme-link {
+  color: var(--theme-primary);
+  text-decoration: underline;
+}
+
+.theme-link:hover {
+  opacity: 0.8;
+}
+
+/* トランジション効果 */
+.theme-transition {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
