@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
+import { ThemeSwitcher } from '../theme/ThemeSwitcher';
 import MemberForm from './MemberForm';
 import MembersList from './MembersList';
 import DepartmentAnalysis from './DepartmentAnalysis';
@@ -137,11 +138,12 @@ const StrengthsFinderPage: React.FC = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center">
           <Award className="w-6 h-6 mr-2 text-blue-600" />
           ストレングスファインダー分析
         </h2>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 items-center">
+          <ThemeSwitcher />
           <ImportExportButtons />
           <button
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
