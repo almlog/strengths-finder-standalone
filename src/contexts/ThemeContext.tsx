@@ -230,7 +230,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   }, [settings.mode]);
 
   /**
-   * CSS変数を更新
+   * CSS変数とdarkクラスを更新
    */
   useEffect(() => {
     try {
@@ -249,6 +249,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       root.style.setProperty('--theme-background', theme.colors.background);
       root.style.setProperty('--theme-text', theme.colors.text);
       root.style.setProperty('--theme-border', theme.colors.border);
+
+      // Tailwind darkモード用: darkクラスの追加/削除
+      if (currentThemeId === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
     } catch (error) {
       console.error('Failed to update CSS variables:', error);
     }
