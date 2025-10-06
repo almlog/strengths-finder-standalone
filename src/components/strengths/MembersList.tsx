@@ -87,7 +87,7 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
 
   if (members.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
         メンバーが登録されていません。右上の「メンバーを追加」ボタンから登録してください。
       </div>
     );
@@ -97,9 +97,9 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
     <div className="space-y-4">
       {/* 部署コードフィルター */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">部署コードフィルター</label>
-        <select 
-          className="w-full border rounded p-2"
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">部署コードフィルター</label>
+        <select
+          className="w-full border dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           value={selectedDepartment}
           onChange={(e) => setSelectedDepartment(e.target.value)}
         >
@@ -121,8 +121,8 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
           return (
             <div 
               key={member.id}
-              className={`border-l-4 bg-white rounded-lg shadow-sm p-3 transition-all ${
-                isSelected ? 'bg-blue-50' : ''
+              className={`border-l-4 bg-white dark:bg-gray-700 rounded-lg shadow-sm p-3 transition-all ${
+                isSelected ? 'bg-blue-50 dark:bg-blue-900' : ''
               }`}
               style={{ borderLeftColor: borderColor }}
             >
@@ -138,7 +138,7 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
                     </button>
                     <button
                       onClick={cancelDelete}
-                      className="bg-gray-200 px-3 py-1 rounded text-sm"
+                      className="bg-gray-200 dark:bg-gray-600 px-3 py-1 rounded text-sm text-gray-900 dark:text-gray-100"
                     >
                       キャンセル
                     </button>
@@ -174,8 +174,8 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
                           );
                         })()}
                       </div>
-                      <p className="text-sm text-gray-600">部署コード: {member.department}</p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-sm text-gray-600 dark:text-gray-300">部署コード: {member.department}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {getStrengthNames(member.strengths)}
                       </p>
                     </div>
