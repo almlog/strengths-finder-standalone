@@ -85,7 +85,7 @@ const ImportExportButtons: React.FC = () => {
     <div className="flex space-x-2">
       {/* サンプルダウンロードボタン */}
       <button
-        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded flex items-center"
+        className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800 text-white px-3 py-2 rounded flex items-center"
         onClick={handleSampleDownload}
         title="サンプルデータをダウンロード"
       >
@@ -95,7 +95,7 @@ const ImportExportButtons: React.FC = () => {
 
       {/* エクスポートボタン */}
       <button
-        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded flex items-center"
+        className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white px-3 py-2 rounded flex items-center"
         onClick={handleExport}
         title="データをJSONファイルとしてエクスポート"
       >
@@ -105,7 +105,7 @@ const ImportExportButtons: React.FC = () => {
 
       {/* インポートボタン */}
       <button
-        className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded flex items-center"
+        className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-800 text-white px-3 py-2 rounded flex items-center"
         onClick={handleImportClick}
         title="JSONファイルからデータをインポート"
       >
@@ -146,7 +146,7 @@ const StrengthsFinderPage: React.FC = () => {
           <ThemeSwitcher />
           <ImportExportButtons />
           <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white px-4 py-2 rounded flex items-center"
             onClick={() => setShowMemberForm(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -156,7 +156,7 @@ const StrengthsFinderPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="mb-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded">
           {error}
         </div>
       )}
