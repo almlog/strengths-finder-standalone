@@ -88,9 +88,9 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
 
   return (
     <div className="space-y-6">
-      <div className="bg-gray-50 p-4 rounded-lg">
+      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
         <div className="flex items-center">
-          <h3 className="text-xl font-bold mb-2">{member.name}</h3>
+          <h3 className="text-xl font-bold mb-2 dark:text-gray-100">{member.name}</h3>
           {positionInfo && member.position !== Position.GENERAL && (
             <div
               className="ml-2 relative group"
@@ -112,13 +112,13 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
             </div>
           )}
         </div>
-        <p className="text-gray-600">社員番号: {member.id}</p>
-        <p className="text-gray-600">部署コード: {member.department}</p>
+        <p className="text-gray-600 dark:text-gray-400">社員番号: {member.id}</p>
+        <p className="text-gray-600 dark:text-gray-400">部署コード: {member.department}</p>
       </div>
 
       {/* 強みのバランス（4つのカテゴリごとに4行で表示） */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h4 className="text-lg font-semibold mb-4">強みのバランス（全34資質）</h4>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <h4 className="text-lg font-semibold mb-4 dark:text-gray-100">強みのバランス（全34資質）</h4>
         
         {/* 実行力 */}
         <div className="mb-4">
@@ -280,35 +280,35 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
           </div>
         </div>
         
-        <div className="text-xs text-gray-500 mt-2 text-center">
+        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
           ※ 色の濃さはスコアの強さを表しています。スコア1が最強となり、スコアがない資質は薄く表示されています。
         </div>
       </div>
 
       {/* 強み詳細説明 - スコア1から順に表示 */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h4 className="text-lg font-semibold mb-4">強みの詳細説明</h4>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <h4 className="text-lg font-semibold mb-4 dark:text-gray-100">強みの詳細説明</h4>
         <div className="space-y-4">
           {sortedStrengths.map(item => {
             const strength = item.strength;
             if (!strength) return null;
             
             return (
-              <div 
-                key={strength.id} 
-                className="border-l-4 p-3 rounded-r-lg bg-gray-50"
+              <div
+                key={strength.id}
+                className="border-l-4 p-3 rounded-r-lg bg-gray-50 dark:bg-gray-700"
                 style={{ borderLeftColor: GROUP_COLORS[strength.group] }}
               >
                 <div className="flex items-center mb-1">
                   <div className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center mr-2">
                     {item.score}
                   </div>
-                  <h5 className="font-medium">{strength.name}</h5>
-                  <span className="text-xs ml-2 bg-gray-200 px-2 py-1 rounded">
+                  <h5 className="font-medium dark:text-gray-100">{strength.name}</h5>
+                  <span className="text-xs ml-2 bg-gray-200 dark:bg-gray-600 dark:text-gray-300 px-2 py-1 rounded">
                     {GROUP_LABELS[strength.group]}
                   </span>
                 </div>
-                <p className="text-sm text-gray-700">{strength.description}</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">{strength.description}</p>
               </div>
             );
           })}

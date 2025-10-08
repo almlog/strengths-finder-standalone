@@ -149,7 +149,7 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
                   <div className="flex items-start justify-between">
                     <div className="flex-1" onClick={() => onSelect(member.id)}>
                       <div className="flex items-center">
-                        <h4 className="text-md font-medium">{member.name}</h4>
+                        <h4 className="text-md font-medium dark:text-gray-100">{member.name}</h4>
                         {(() => {
                           const positionInfo = member.position ? getPositionInfo(member.position) : null;
                           return positionInfo && member.position !== Position.GENERAL && (

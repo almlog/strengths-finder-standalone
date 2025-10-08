@@ -28,6 +28,7 @@ GitHub Pagesでホスティングされており、インストール不要で�
 - 🎯 **34の資質対応**: ストレングスファインダーの全資質に対応
 - 📱 **レスポンシブデザイン**: デスクトップ・タブレット・モバイルに対応
 - 👥 **カスタム役職機能**: 標準役職に加え、自由に役職を追加可能
+- 🌙 **ダークモード対応**: Light/Darkテーマの切り替えが可能（設定は自動保存）
 
 ## クイックスタート
 
@@ -140,7 +141,7 @@ npm run build
 
 ## 技術スタック
 - React 19 + TypeScript
-- Tailwind CSS 3.4.1
+- Tailwind CSS 3.4.1 (Dark Mode対応)
 - Recharts (グラフ表示)
 - LocalStorage API
 - GitHub Actions (CI/CD)
