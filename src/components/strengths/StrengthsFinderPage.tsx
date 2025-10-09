@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
+import { ThemeSwitcher } from '../theme/ThemeSwitcher';
 import MemberForm from './MemberForm';
 import MembersList from './MembersList';
 import DepartmentAnalysis from './DepartmentAnalysis';
@@ -84,7 +85,7 @@ const ImportExportButtons: React.FC = () => {
     <div className="flex space-x-2">
       {/* サンプルダウンロードボタン */}
       <button
-        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded flex items-center"
+        className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800 text-white px-3 py-2 rounded flex items-center"
         onClick={handleSampleDownload}
         title="サンプルデータをダウンロード"
       >
@@ -94,7 +95,7 @@ const ImportExportButtons: React.FC = () => {
 
       {/* エクスポートボタン */}
       <button
-        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded flex items-center"
+        className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white px-3 py-2 rounded flex items-center"
         onClick={handleExport}
         title="データをJSONファイルとしてエクスポート"
       >
@@ -104,7 +105,7 @@ const ImportExportButtons: React.FC = () => {
 
       {/* インポートボタン */}
       <button
-        className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded flex items-center"
+        className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-800 text-white px-3 py-2 rounded flex items-center"
         onClick={handleImportClick}
         title="JSONファイルからデータをインポート"
       >
@@ -137,14 +138,15 @@ const StrengthsFinderPage: React.FC = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center">
           <Award className="w-6 h-6 mr-2 text-blue-600" />
           ストレングスファインダー分析
         </h2>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 items-center">
+          <ThemeSwitcher />
           <ImportExportButtons />
           <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white px-4 py-2 rounded flex items-center"
             onClick={() => setShowMemberForm(true)}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -154,26 +156,26 @@ const StrengthsFinderPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="mb-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded">
           {error}
         </div>
       )}
 
       <div className="grid grid-cols-12 gap-6">
         {/* メンバーリスト */}
-        <div className="col-span-12 md:col-span-4 bg-white rounded-lg shadow p-4">
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <Users className="w-5 h-5 mr-2 text-blue-600" />
+        <div className="col-span-12 md:col-span-4 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-800 dark:text-gray-100">
+            <Users className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
             メンバー一覧
           </h3>
-          <MembersList 
+          <MembersList
             onSelect={setSelectedMemberId}
             selectedMemberId={selectedMemberId}
           />
         </div>
 
         {/* 分析エリア */}
-        <div className="col-span-12 md:col-span-8 bg-white rounded-lg shadow p-4">
+        <div className="col-span-12 md:col-span-8 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <Tabs activeTab={activeTab} onTabChange={handleTabChange}>
             <Tab id="individual" label={
               <div className="flex items-center">

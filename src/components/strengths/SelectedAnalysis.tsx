@@ -33,8 +33,8 @@ const SelectedAnalysis: React.FC = () => {
   // 選択されていない場合はプレースホルダーを表示
   if (selectedMemberIds.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-gray-500">
-        <CheckSquare className="w-16 h-16 mb-4 text-gray-300" />
+      <div className="flex flex-col items-center justify-center p-8 text-gray-500 dark:text-gray-400">
+        <CheckSquare className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
         <p>左のメンバーリストからチェックボックスで分析したいメンバーを選択してください</p>
       </div>
     );
@@ -43,16 +43,16 @@ const SelectedAnalysis: React.FC = () => {
   if (!analysisResult && !loading) {
     return (
       <div className="space-y-4 p-4">
-        <h3 className="text-lg font-semibold">選択したメンバー ({selectedMemberIds.length}名)</h3>
+        <h3 className="text-lg font-semibold dark:text-gray-100">選択したメンバー ({selectedMemberIds.length}名)</h3>
         <div className="flex flex-wrap gap-2 mb-4">
           {selectedMembers.map(member => (
-            <div 
+            <div
               key={member.id}
-              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center"
+              className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full flex items-center"
             >
               <span>{member.name}</span>
-              <button 
-                className="ml-2 text-blue-600 hover:text-blue-800"
+              <button
+                className="ml-2 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100"
                 onClick={() => toggleMemberSelection(member.id)}
               >
                 ×
@@ -61,7 +61,7 @@ const SelectedAnalysis: React.FC = () => {
           ))}
         </div>
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
           onClick={analyzeSelected}
         >
           分析実行
@@ -118,20 +118,20 @@ const SelectedAnalysis: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h3 className="text-lg font-semibold flex items-center">
-          <Users className="w-5 h-5 mr-2 text-blue-600" />
+      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+        <h3 className="text-lg font-semibold flex items-center dark:text-gray-100">
+          <Users className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
           選択メンバーの分析 ({selectedMemberIds.length}名)
         </h3>
         <div className="flex flex-wrap gap-2 mt-2">
           {selectedMembers.map(member => (
-            <div 
+            <div
               key={member.id}
-              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center text-sm"
+              className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full flex items-center text-sm"
             >
               <span>{member.name}</span>
-              <button 
-                className="ml-2 text-blue-600 hover:text-blue-800"
+              <button
+                className="ml-2 text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-100"
                 onClick={() => toggleMemberSelection(member.id)}
               >
                 ×
@@ -141,7 +141,7 @@ const SelectedAnalysis: React.FC = () => {
         </div>
         <div className="mt-4">
           <button
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
             onClick={analyzeSelected}
           >
             再分析
@@ -151,8 +151,8 @@ const SelectedAnalysis: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* グループ分布 */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <h4 className="text-md font-semibold mb-3">強みグループ分布</h4>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <h4 className="text-md font-semibold mb-3 dark:text-gray-100">強みグループ分布</h4>
           <div style={{ width: '100%', height: 500 }}>
             <ResponsiveContainer>
               <PieChart>
@@ -175,8 +175,8 @@ const SelectedAnalysis: React.FC = () => {
         </div>
 
         {/* 上位の強み */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <h4 className="text-md font-semibold mb-3">上位の強み</h4>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <h4 className="text-md font-semibold mb-3 dark:text-gray-100">上位の強み</h4>
           <div style={{ width: '100%', height: 500 }}>
             <ResponsiveContainer>
               <BarChart
@@ -191,15 +191,15 @@ const SelectedAnalysis: React.FC = () => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
                       return (
-                        <div className="bg-white p-3 border rounded shadow-lg">
-                          <p className="font-medium">{data.name}</p>
-                          <p className="text-blue-600">{`${data.value}人`}</p>
+                        <div className="bg-white dark:bg-gray-700 p-3 border dark:border-gray-600 rounded shadow-lg">
+                          <p className="font-medium dark:text-gray-100">{data.name}</p>
+                          <p className="text-blue-600 dark:text-blue-400">{`${data.value}人`}</p>
                           {data.members && data.members.length > 0 && (
                             <div className="mt-2">
-                              <p className="font-medium">所持メンバー:</p>
+                              <p className="font-medium dark:text-gray-100">所持メンバー:</p>
                               <ul className="list-disc pl-5 mt-1">
                                 {data.members.map((member: string, index: number) => (
-                                  <li key={index} className="text-sm">{member}</li>
+                                  <li key={index} className="text-sm dark:text-gray-300">{member}</li>
                                 ))}
                               </ul>
                             </div>
@@ -218,8 +218,8 @@ const SelectedAnalysis: React.FC = () => {
       </div>
 
       {/* チームの代表的な強み（すべての資質） */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h4 className="text-md font-semibold mb-3">チームの代表的な強み</h4>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <h4 className="text-md font-semibold mb-3 dark:text-gray-100">チームの代表的な強み</h4>
         <div className="space-y-3">
           {Object.entries(analysisResult.strengthsFrequency)
             .filter(([_, count]) => count > 0)
@@ -231,28 +231,28 @@ const SelectedAnalysis: React.FC = () => {
               if (!strength || members.length === 0) return null;
               
               return (
-                <div 
-                  key={strengthId} 
-                  className="flex items-start border-l-4 p-3 rounded-r-lg bg-gray-50 relative group"
+                <div
+                  key={strengthId}
+                  className="flex items-start border-l-4 p-3 rounded-r-lg bg-gray-50 dark:bg-gray-700 relative group"
                   style={{ borderLeftColor: GROUP_COLORS[strength.group] }}
                 >
-                  <div className="font-bold text-xl text-gray-400 mr-3">{count}人</div>
+                  <div className="font-bold text-xl text-gray-400 dark:text-gray-500 mr-3">{count}人</div>
                   <div className="flex-grow">
                     <div className="flex items-center">
-                      <h5 className="font-medium">{strength.name}</h5>
-                      <span className="text-xs ml-2 bg-gray-200 px-2 py-1 rounded">
+                      <h5 className="font-medium dark:text-gray-100">{strength.name}</h5>
+                      <span className="text-xs ml-2 bg-gray-200 dark:bg-gray-600 dark:text-gray-300 px-2 py-1 rounded">
                         {GROUP_LABELS[strength.group]}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-700 mt-1">{strength.description}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{strength.description}</p>
                   </div>
-                  
+
                   {/* 所有者名のツールチップ */}
-                  <div className="absolute invisible group-hover:visible bg-white p-3 border rounded shadow-lg right-0 z-10 w-64">
-                    <p className="font-medium">所持メンバー:</p>
+                  <div className="absolute invisible group-hover:visible bg-white dark:bg-gray-600 p-3 border dark:border-gray-500 rounded shadow-lg right-0 z-10 w-64">
+                    <p className="font-medium dark:text-gray-100">所持メンバー:</p>
                     <ul className="list-disc pl-5 mt-1">
                       {members.map((member: string, index: number) => (
-                        <li key={index} className="text-sm">{member}</li>
+                        <li key={index} className="text-sm dark:text-gray-300">{member}</li>
                       ))}
                     </ul>
                   </div>
