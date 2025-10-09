@@ -112,7 +112,7 @@ export const ThemeSwitcher: React.FC = () => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, closeMenu]);
 
   /**
    * キーボード操作
@@ -219,7 +219,7 @@ export const ThemeSwitcher: React.FC = () => {
             {THEME_OPTIONS.map((option, index) => (
               <button
                 key={option.id}
-                role="menuitem"
+                role="menuitemradio"
                 aria-checked={currentTheme.id === option.id && themeMode === 'manual'}
                 onClick={() => handleThemeSelect(option.id)}
                 className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none ${
@@ -255,7 +255,7 @@ export const ThemeSwitcher: React.FC = () => {
 
             {/* Autoモードオプション */}
             <button
-              role="menuitem"
+              role="menuitemradio"
               aria-checked={themeMode === 'auto'}
               onClick={handleAutoMode}
               className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none ${
