@@ -13,6 +13,10 @@ import { Tabs, Tab } from '../ui/Tabs';
 
 type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths';
 
+// スクロール処理の遅延時間（ms）
+// DOMの更新を待つために必要
+const SCROLL_DELAY_MS = 100;
+
 // インポート・エクスポートボタンコンポーネント
 const ImportExportButtons: React.FC = () => {
   const { exportData, importData } = useStrengths();
@@ -130,6 +134,7 @@ const StrengthsFinderPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AnalysisTab>('individual');
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const analysisAreaRef = useRef<HTMLDivElement>(null);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as AnalysisTab);
@@ -137,18 +142,21 @@ const StrengthsFinderPage: React.FC = () => {
 
   const handleMemberSelect = (memberId: string | null) => {
     setSelectedMemberId(memberId);
-    // メンバー選択時にページトップへスクロール
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // メンバー選択時に分析エリアにスクロール
+    // DOMの更新を待ってからスクロールするため遅延を設定
+    setTimeout(() => {
+      analysisAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, SCROLL_DELAY_MS);
   };
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center">
           <Award className="w-6 h-6 mr-2 text-blue-600" />
           メンバープロファイル分析
         </h2>
-        <div className="flex space-x-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
           <ThemeSwitcher />
           <ImportExportButtons />
           <button
@@ -181,7 +189,7 @@ const StrengthsFinderPage: React.FC = () => {
         </div>
 
         {/* 分析エリア */}
-        <div className="col-span-12 md:col-span-8 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div ref={analysisAreaRef} className="col-span-12 md:col-span-8 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <Tabs activeTab={activeTab} onTabChange={handleTabChange}>
             <Tab id="individual" label={
               <div className="flex items-center">
