@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import { STRENGTHS_DATA } from '../../services/StrengthsService';
+import { getAllPersonalities } from '../../services/Personality16Service';
 
 interface MemberFormProps {
   memberId: string | null; // null: 新規追加, string: 編集
@@ -21,6 +22,10 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
   const [selectedStrengths, setSelectedStrengths] = useState<{ id: number; score: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // 16Personalities state
+  const [personalityId, setPersonalityId] = useState<number | undefined>(undefined);
+  const [personalityVariant, setPersonalityVariant] = useState<'A' | 'T' | undefined>(undefined);
+
   // 編集モードの場合は既存データを取得
   useEffect(() => {
     if (memberId) {
@@ -31,6 +36,10 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
         setDepartment(member.department);
         setPosition(member.position);
         setSelectedStrengths([...member.strengths]);
+
+        // 16Personalities data
+        setPersonalityId(member.personalityId);
+        setPersonalityVariant(member.personalityVariant);
 
         // カスタム役職かどうかを判定
         if (member.position && !Object.values(Position).includes(member.position as Position)) {
@@ -76,9 +85,11 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
       name: name.trim(),
       department: department.trim(),
       position,
-      strengths: selectedStrengths
+      strengths: selectedStrengths,
+      personalityId,
+      personalityVariant
     };
-    
+
     addOrUpdateMember(member);
     onClose();
   };
@@ -271,6 +282,90 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 役職に応じて表示アイコンが変わります
               </p>
+            </div>
+          </div>
+
+          {/* 16Personalities section */}
+          <div className="mb-6 border-t dark:border-gray-600 pt-6">
+            <h4 className="text-md font-semibold text-gray-700 dark:text-gray-300 mb-4">
+              16Personalities（任意）
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  性格タイプ
+                </label>
+                <select
+                  value={personalityId || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value) {
+                      setPersonalityId(parseInt(value));
+                    } else {
+                      setPersonalityId(undefined);
+                      setPersonalityVariant(undefined); // Clear variant when clearing type
+                    }
+                  }}
+                  className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
+                >
+                  <option value="">未設定</option>
+                  {getAllPersonalities().map(personality => (
+                    <option key={personality.id} value={personality.id}>
+                      {personality.code} - {personality.name}（{personality.roleName}）
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  16種類の性格タイプから選択
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  アイデンティティ
+                </label>
+                <div className="flex items-center space-x-4 mt-2">
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      name="variant"
+                      value=""
+                      checked={!personalityVariant}
+                      onChange={() => setPersonalityVariant(undefined)}
+                      disabled={!personalityId}
+                      className="mr-2"
+                    />
+                    <span className="text-sm dark:text-gray-300">未設定</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      name="variant"
+                      value="A"
+                      checked={personalityVariant === 'A'}
+                      onChange={() => setPersonalityVariant('A')}
+                      disabled={!personalityId}
+                      className="mr-2"
+                    />
+                    <span className="text-sm dark:text-gray-300">A - 自己主張型</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      name="variant"
+                      value="T"
+                      checked={personalityVariant === 'T'}
+                      onChange={() => setPersonalityVariant('T')}
+                      disabled={!personalityId}
+                      className="mr-2"
+                    />
+                    <span className="text-sm dark:text-gray-300">T - 慎重型</span>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {!personalityId ? 'まず性格タイプを選択してください' : '自己主張型（Assertive）または慎重型（Turbulent）'}
+                </p>
+              </div>
             </div>
           </div>
 

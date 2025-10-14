@@ -39,6 +39,8 @@
       "name": "モンキー・D・ルフィ",
       "department": "ONE_PIECE",
       "position": "CUSTOM_CAPTAIN",
+      "personalityId": 8,
+      "personalityVariant": "T",
       "strengths": [
         { "id": 20, "score": 1 },
         { "id": 28, "score": 2 },
@@ -52,6 +54,8 @@
       "name": "ロロノア・ゾロ",
       "department": "ONE_PIECE",
       "position": "CUSTOM_VICE_CAPTAIN",
+      "personalityId": 13,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 11, "score": 1 },
         { "id": 1, "score": 2 },
@@ -65,6 +69,8 @@
       "name": "ナミ",
       "department": "ONE_PIECE",
       "position": "GL",
+      "personalityId": 3,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 25, "score": 1 },
         { "id": 4, "score": 2 },
@@ -77,6 +83,8 @@
       "id": "OP004",
       "name": "サンジ",
       "department": "ONE_PIECE",
+      "personalityId": 12,
+      "personalityVariant": "T",
       "strengths": [
         { "id": 19, "score": 1 },
         { "id": 9, "score": 2 },
@@ -89,6 +97,8 @@
       "id": "OP005",
       "name": "トニートニー・チョッパー",
       "department": "ONE_PIECE",
+      "personalityId": 14,
+      "personalityVariant": "T",
       "strengths": [
         { "id": 9, "score": 1 },
         { "id": 19, "score": 2 },
@@ -98,10 +108,40 @@
       ]
     },
     {
+      "id": "OP006",
+      "name": "ウソップ",
+      "department": "ONE_PIECE",
+      "personalityId": 4,
+      "personalityVariant": "T",
+      "strengths": [
+        { "id": 28, "score": 1 },
+        { "id": 20, "score": 2 },
+        { "id": 16, "score": 3 },
+        { "id": 4, "score": 4 },
+        { "id": 18, "score": 5 }
+      ]
+    },
+    {
+      "id": "OP007",
+      "name": "ニコ・ロビン",
+      "department": "ONE_PIECE",
+      "personalityId": 1,
+      "personalityVariant": "T",
+      "strengths": [
+        { "id": 27, "score": 1 },
+        { "id": 31, "score": 2 },
+        { "id": 5, "score": 3 },
+        { "id": 34, "score": 4 },
+        { "id": 30, "score": 5 }
+      ]
+    },
+    {
       "id": "NA001",
       "name": "うずまきナルト",
       "department": "NARUTO",
       "position": "MANAGER",
+      "personalityId": 8,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 28, "score": 1 },
         { "id": 20, "score": 2 },
@@ -115,6 +155,8 @@
       "name": "うちはサスケ",
       "department": "NARUTO",
       "position": "DEPUTY_MANAGER",
+      "personalityId": 1,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 18, "score": 1 },
         { "id": 11, "score": 2 },
@@ -128,6 +170,8 @@
       "name": "春野サクラ",
       "department": "NARUTO",
       "position": "GL",
+      "personalityId": 12,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 26, "score": 1 },
         { "id": 22, "score": 2 },
@@ -141,6 +185,8 @@
       "name": "はたけカカシ",
       "department": "NARUTO",
       "position": "DIRECTOR",
+      "personalityId": 2,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 25, "score": 1 },
         { "id": 21, "score": 2 },
@@ -150,10 +196,40 @@
       ]
     },
     {
+      "id": "NA005",
+      "name": "日向ヒナタ",
+      "department": "NARUTO",
+      "personalityId": 14,
+      "personalityVariant": "A",
+      "strengths": [
+        { "id": 19, "score": 1 },
+        { "id": 22, "score": 2 },
+        { "id": 26, "score": 3 },
+        { "id": 9, "score": 4 },
+        { "id": 24, "score": 5 }
+      ]
+    },
+    {
+      "id": "NA006",
+      "name": "奈良シカマル",
+      "department": "NARUTO",
+      "personalityId": 2,
+      "personalityVariant": "T",
+      "strengths": [
+        { "id": 27, "score": 1 },
+        { "id": 32, "score": 2 },
+        { "id": 34, "score": 3 },
+        { "id": 5, "score": 4 },
+        { "id": 29, "score": 5 }
+      ]
+    },
+    {
       "id": "DB001",
       "name": "孫悟空",
       "department": "DRAGON_BALL",
       "position": "DIRECTOR",
+      "personalityId": 16,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 1, "score": 1 },
         { "id": 28, "score": 2 },
@@ -167,6 +243,8 @@
       "name": "ベジータ",
       "department": "DRAGON_BALL",
       "position": "MANAGER",
+      "personalityId": 11,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 1, "score": 1 },
         { "id": 3, "score": 2 },
@@ -180,6 +258,8 @@
       "name": "ピッコロ",
       "department": "DRAGON_BALL",
       "position": "DEPUTY_MANAGER",
+      "personalityId": 9,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 25, "score": 1 },
         { "id": 16, "score": 2 },
@@ -193,6 +273,8 @@
       "name": "クリリン",
       "department": "DRAGON_BALL",
       "position": "GL",
+      "personalityId": 10,
+      "personalityVariant": "T",
       "strengths": [
         { "id": 19, "score": 1 },
         { "id": 15, "score": 2 },
@@ -202,10 +284,40 @@
       ]
     },
     {
+      "id": "DB005",
+      "name": "ブルマ",
+      "department": "DRAGON_BALL",
+      "personalityId": 3,
+      "personalityVariant": "T",
+      "strengths": [
+        { "id": 27, "score": 1 },
+        { "id": 16, "score": 2 },
+        { "id": 32, "score": 3 },
+        { "id": 13, "score": 4 },
+        { "id": 31, "score": 5 }
+      ]
+    },
+    {
+      "id": "DB006",
+      "name": "トランクス",
+      "department": "DRAGON_BALL",
+      "personalityId": 7,
+      "personalityVariant": "A",
+      "strengths": [
+        { "id": 9, "score": 1 },
+        { "id": 1, "score": 2 },
+        { "id": 6, "score": 3 },
+        { "id": 24, "score": 4 },
+        { "id": 16, "score": 5 }
+      ]
+    },
+    {
       "id": "HH001",
       "name": "ゴン=フリークス",
       "department": "HUNTER_HUNTER",
       "position": "GL",
+      "personalityId": 8,
+      "personalityVariant": "T",
       "strengths": [
         { "id": 20, "score": 1 },
         { "id": 28, "score": 2 },
@@ -219,6 +331,8 @@
       "name": "キルア=ゾルディック",
       "department": "HUNTER_HUNTER",
       "position": "GL",
+      "personalityId": 2,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 25, "score": 1 },
         { "id": 4, "score": 2 },
@@ -232,6 +346,8 @@
       "name": "クラピカ",
       "department": "HUNTER_HUNTER",
       "position": "DEPUTY_MANAGER",
+      "personalityId": 5,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 18, "score": 1 },
         { "id": 11, "score": 2 },
@@ -244,6 +360,8 @@
       "id": "HH004",
       "name": "レオリオ",
       "department": "HUNTER_HUNTER",
+      "personalityId": 15,
+      "personalityVariant": "A",
       "strengths": [
         { "id": 19, "score": 1 },
         { "id": 20, "score": 2 },
@@ -253,10 +371,40 @@
       ]
     },
     {
+      "id": "HH005",
+      "name": "ヒソカ",
+      "department": "HUNTER_HUNTER",
+      "personalityId": 4,
+      "personalityVariant": "A",
+      "strengths": [
+        { "id": 28, "score": 1 },
+        { "id": 11, "score": 2 },
+        { "id": 32, "score": 3 },
+        { "id": 13, "score": 4 },
+        { "id": 17, "score": 5 }
+      ]
+    },
+    {
+      "id": "HH006",
+      "name": "ビスケット・クルーガー",
+      "department": "HUNTER_HUNTER",
+      "personalityId": 11,
+      "personalityVariant": "T",
+      "strengths": [
+        { "id": 8, "score": 1 },
+        { "id": 6, "score": 2 },
+        { "id": 13, "score": 3 },
+        { "id": 24, "score": 4 },
+        { "id": 1, "score": 5 }
+      ]
+    },
+    {
       "id": "BC001",
       "name": "緋村剣心",
       "department": "RUROUNI_KENSHIN",
       "position": "MANAGER",
+      "personalityId": 6,
+      "personalityVariant": "T",
       "strengths": [
         { "id": 26, "score": 1 },
         { "id": 9, "score": 2 },
@@ -270,6 +418,8 @@
       "name": "神谷薫",
       "department": "RUROUNI_KENSHIN",
       "position": "GL",
+      "personalityId": 12,
+      "personalityVariant": "T",
       "strengths": [
         { "id": 28, "score": 1 },
         { "id": 9, "score": 2 },
@@ -282,12 +432,42 @@
       "id": "BC003",
       "name": "相楽左之助",
       "department": "RUROUNI_KENSHIN",
+      "personalityId": 15,
+      "personalityVariant": "T",
       "strengths": [
         { "id": 19, "score": 1 },
         { "id": 20, "score": 2 },
         { "id": 1, "score": 3 },
         { "id": 28, "score": 4 },
         { "id": 15, "score": 5 }
+      ]
+    },
+    {
+      "id": "BC004",
+      "name": "斎藤一",
+      "department": "RUROUNI_KENSHIN",
+      "personalityId": 9,
+      "personalityVariant": "T",
+      "strengths": [
+        { "id": 8, "score": 1 },
+        { "id": 6, "score": 2 },
+        { "id": 5, "score": 3 },
+        { "id": 7, "score": 4 },
+        { "id": 13, "score": 5 }
+      ]
+    },
+    {
+      "id": "BC005",
+      "name": "四乃森蒼紫",
+      "department": "RUROUNI_KENSHIN",
+      "personalityId": 5,
+      "personalityVariant": "T",
+      "strengths": [
+        { "id": 6, "score": 1 },
+        { "id": 34, "score": 2 },
+        { "id": 25, "score": 3 },
+        { "id": 1, "score": 4 },
+        { "id": 11, "score": 5 }
       ]
     }
   ]

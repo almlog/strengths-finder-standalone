@@ -13,7 +13,7 @@
 ---
 
 ## プロジェクト概要
-ストレングスファインダー分析ツールは、元の勤怠管理分析ツールから切り出したスタンドアロンWebアプリケーションです。
+メンバープロファイル分析は、元の勤怠管理分析ツールから切り出したスタンドアロンWebアプリケーションです。メンバーの強み（ストレングスファインダー）と性格（16Personalities）を可視化・分析します。
 
 ## 開発環境の準備
 
@@ -42,7 +42,7 @@ strengths-finder-standalone/
 ├── public/                    # 静的ファイル
 ├── src/
 │   ├── components/
-│   │   ├── strengths/         # ストレングスファインダー関連コンポーネント
+│   │   ├── strengths/         # プロファイル分析関連コンポーネント
 │   │   │   ├── StrengthsFinderPage.tsx    # メインページ
 │   │   │   ├── MemberForm.tsx             # メンバー追加/編集フォーム
 │   │   │   ├── MembersList.tsx            # メンバー一覧
@@ -53,7 +53,7 @@ strengths-finder-standalone/
 │   │   └── ui/
 │   │       └── Tabs.tsx                   # タブコンポーネント
 │   ├── contexts/
-│   │   └── StrengthsContext.tsx           # ストレングスファインダー用コンテキスト
+│   │   └── StrengthsContext.tsx           # プロファイル分析用コンテキスト
 │   ├── models/
 │   │   └── StrengthsTypes.ts              # 型定義
 │   ├── services/

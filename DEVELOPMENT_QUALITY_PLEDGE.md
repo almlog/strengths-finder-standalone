@@ -1,7 +1,7 @@
 # 開発品質誓約書
 
 **作成日**: 2025-10-06
-**対象プロジェクト**: strengths-finder-standalone
+**対象プロジェクト**: メンバープロファイル分析 (strengths-finder-standalone)
 
 ---
 
@@ -87,7 +87,7 @@
 ```typescript
 it('ThemeProviderが正しく適用されている', () => {
   render(<App />);
-  expect(screen.getByText(/ストレングスファインダー分析/)).toBeInTheDocument();
+  expect(screen.getByText(/メンバープロファイル分析/)).toBeInTheDocument();
   // → アプリが起動するだけで合格にしていた
 });
 ```

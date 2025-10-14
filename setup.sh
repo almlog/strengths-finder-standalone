@@ -9,7 +9,7 @@ print_header() { echo -e "\033[36m$1\033[0m"; }
 clear
 echo
 print_header "============================================"
-print_header "   ストレングスファインダー分析ツール"
+print_header "     メンバープロファイル分析"
 print_header "        セットアップスクリプト"
 print_header "============================================"
 echo

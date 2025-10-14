@@ -4,6 +4,7 @@ import { User, AlertCircle, Crown } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import StrengthsService, { GROUP_LABELS, GROUP_COLORS } from '../../services/StrengthsService';
 import { StrengthGroup, Position } from '../../models/StrengthsTypes';
+import Personality16Card from './Personality16Card';
 
 interface IndividualStrengthsProps {
   memberId: string | null;
@@ -88,32 +89,43 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
 
   return (
     <div className="space-y-6">
-      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-        <div className="flex items-center">
-          <h3 className="text-xl font-bold mb-2 dark:text-gray-100">{member.name}</h3>
-          {positionInfo && member.position !== Position.GENERAL && (
-            <div
-              className="ml-2 relative group"
-              title={positionInfo.displayName}
-            >
-              {positionInfo.icon === 'circle' ? (
-                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: positionInfo.color }}></div>
-              ) : positionInfo.icon === 'star' ? (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill={positionInfo.color} stroke={positionInfo.color}>
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                </svg>
-              ) : (
-                <Crown
-                  className="w-5 h-5"
-                  color={positionInfo.color}
-                  fill={positionInfo.color}
-                />
-              )}
-            </div>
-          )}
+      {/* 名前情報と16Personalities を横並びに */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-4">
+          <div className="flex items-center">
+            <h3 className="text-xl font-bold mb-2 dark:text-gray-100">{member.name}</h3>
+            {positionInfo && member.position !== Position.GENERAL && (
+              <div
+                className="ml-2 relative group"
+                title={positionInfo.displayName}
+              >
+                {positionInfo.icon === 'circle' ? (
+                  <div className="w-5 h-5 rounded-full" style={{ backgroundColor: positionInfo.color }}></div>
+                ) : positionInfo.icon === 'star' ? (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill={positionInfo.color} stroke={positionInfo.color}>
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                ) : (
+                  <Crown
+                    className="w-5 h-5"
+                    color={positionInfo.color}
+                    fill={positionInfo.color}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">社員番号: {member.id}</p>
+          <p className="text-gray-600 dark:text-gray-400">部署コード: {member.department}</p>
         </div>
-        <p className="text-gray-600 dark:text-gray-400">社員番号: {member.id}</p>
-        <p className="text-gray-600 dark:text-gray-400">部署コード: {member.department}</p>
+
+        {/* 16Personalities Card - Only shown if personality data exists */}
+        {member.personalityId && (
+          <Personality16Card
+            personalityId={member.personalityId}
+            variant={member.personalityVariant}
+          />
+        )}
       </div>
 
       {/* 強みのバランス（4つのカテゴリごとに4行で表示） */}
