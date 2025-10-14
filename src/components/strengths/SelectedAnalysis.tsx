@@ -15,6 +15,18 @@ import {
   Pie,
   Cell
 } from 'recharts';
+import {
+  analyzeTeamPersonalities,
+  PERSONALITY_TYPES_DATA,
+  getRoleGroupColor,
+  RoleGroup,
+} from '../../services/Personality16Service';
+
+// Variant colors for consistent theming
+const VARIANT_COLORS = {
+  A: '#10B981', // Green - Assertive
+  T: '#3B82F6', // Blue - Turbulent
+} as const;
 
 const SelectedAnalysis: React.FC = () => {
   const { 
@@ -115,6 +127,80 @@ const SelectedAnalysis: React.FC = () => {
     })
     .sort((a, b) => b.value - a.value)
     .slice(0, 10); // 上位10個のみ表示
+
+  // 16Personalities analysis for selected members
+  const personalityAnalysis = analyzeTeamPersonalities(selectedMembers);
+  const hasPersonalityData = personalityAnalysis.totalMembers > 0;
+
+  // Prepare personality type data (only types with members)
+  const personalityTypeData = Object.entries(personalityAnalysis.typeDistribution)
+    .filter(([_, count]) => count > 0)
+    .map(([typeId, count]) => {
+      const personality = PERSONALITY_TYPES_DATA.find(p => p.id === parseInt(typeId));
+      const members = personalityAnalysis.typeMembers[parseInt(typeId)] || [];
+      return {
+        id: parseInt(typeId),
+        code: personality?.code || '',
+        name: personality?.name || '',
+        count,
+        color: personality?.colorLight || '#999',
+        members,
+        roleName: personality?.roleName || '',
+      };
+    })
+    .sort((a, b) => b.count - a.count);
+
+  // Prepare role distribution data
+  const roleDistributionData = Object.entries(personalityAnalysis.roleDistribution)
+    .filter(([_, count]) => count > 0)
+    .map(([role, count]) => {
+      const roleGroup = role as RoleGroup;
+      const roleNameMap: { [key in RoleGroup]: string } = {
+        analyst: '分析家',
+        diplomat: '外交官',
+        sentinel: '番人',
+        explorer: '探検家',
+      };
+      const members = personalityAnalysis.roleMembers[roleGroup] || [];
+      return {
+        role: roleNameMap[roleGroup],
+        count,
+        percentage: ((count / personalityAnalysis.totalMembers) * 100).toFixed(1),
+        color: getRoleGroupColor(roleGroup, false),
+        members,
+      };
+    });
+
+  // Prepare variant distribution data
+  const variantDistributionData = [
+    {
+      variant: '自己主張型 (A)',
+      count: personalityAnalysis.variantDistribution.A,
+      percentage: personalityAnalysis.totalMembers > 0
+        ? ((personalityAnalysis.variantDistribution.A / personalityAnalysis.totalMembers) * 100).toFixed(1)
+        : '0',
+      color: VARIANT_COLORS.A,
+      members: personalityAnalysis.variantMembers.A,
+    },
+    {
+      variant: '慎重型 (T)',
+      count: personalityAnalysis.variantDistribution.T,
+      percentage: personalityAnalysis.totalMembers > 0
+        ? ((personalityAnalysis.variantDistribution.T / personalityAnalysis.totalMembers) * 100).toFixed(1)
+        : '0',
+      color: VARIANT_COLORS.T,
+      members: personalityAnalysis.variantMembers.T,
+    },
+    {
+      variant: '未設定',
+      count: personalityAnalysis.variantDistribution.unset,
+      percentage: personalityAnalysis.totalMembers > 0
+        ? ((personalityAnalysis.variantDistribution.unset / personalityAnalysis.totalMembers) * 100).toFixed(1)
+        : '0',
+      color: '#9CA3AF', // Gray
+      members: personalityAnalysis.variantMembers.unset,
+    },
+  ].filter(item => item.count > 0);
 
   return (
     <div className="space-y-6">
@@ -271,6 +357,153 @@ const SelectedAnalysis: React.FC = () => {
             })}
         </div>
       </div>
+
+      {/* 16Personalities Analysis Section */}
+      {hasPersonalityData && (
+        <>
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <h3 className="text-xl font-bold dark:text-gray-100">16Personalities 分析</h3>
+            <p className="text-gray-600 dark:text-gray-400">性格タイプデータを持つメンバー数: {personalityAnalysis.totalMembers}人</p>
+          </div>
+
+          {/* Role and Variant Distribution Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Role Distribution */}
+            {roleDistributionData.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <h4 className="text-lg font-semibold mb-4 dark:text-gray-100">役割グループ分布</h4>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={roleDistributionData}
+                      dataKey="count"
+                      nameKey="role"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      label={({ role, percentage }) => `${role} ${percentage}%`}
+                    >
+                      {roleDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white dark:bg-gray-800 p-3 border dark:border-gray-600 rounded shadow-lg">
+                              <p className="font-bold dark:text-gray-100">{data.role}</p>
+                              <p className="dark:text-gray-300">人数: {data.count}人</p>
+                              <p className="dark:text-gray-300">割合: {data.percentage}%</p>
+                              {data.members && data.members.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="font-medium dark:text-gray-100">所持メンバー:</p>
+                                  <ul className="list-disc pl-5 mt-1">
+                                    {data.members.map((member: string, index: number) => (
+                                      <li key={index} className="text-sm dark:text-gray-300">{member}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Variant Distribution */}
+            {variantDistributionData.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <h4 className="text-lg font-semibold mb-4 dark:text-gray-100">アイデンティティ分布</h4>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={variantDistributionData}
+                      dataKey="count"
+                      nameKey="variant"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      label={({ variant, percentage }) => `${variant} ${percentage}%`}
+                    >
+                      {variantDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white dark:bg-gray-800 p-3 border dark:border-gray-600 rounded shadow-lg">
+                              <p className="font-bold dark:text-gray-100">{data.variant}</p>
+                              <p className="dark:text-gray-300">人数: {data.count}人</p>
+                              <p className="dark:text-gray-300">割合: {data.percentage}%</p>
+                              {data.members && data.members.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="font-medium dark:text-gray-100">所持メンバー:</p>
+                                  <ul className="list-disc pl-5 mt-1">
+                                    {data.members.map((member: string, index: number) => (
+                                      <li key={index} className="text-sm dark:text-gray-300">{member}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Personality Type Cards */}
+          {personalityTypeData.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <h4 className="text-lg font-semibold mb-4 dark:text-gray-100">性格タイプ分布</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {personalityTypeData.map((type) => (
+                  <div
+                    key={type.code}
+                    className="border dark:border-gray-600 rounded p-3 relative group"
+                    style={{
+                      borderLeftColor: type.color,
+                      borderLeftWidth: '4px',
+                    }}
+                  >
+                    <div className="font-bold text-lg dark:text-gray-100">{type.code}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{type.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">{type.roleName}</div>
+                    <div className="text-2xl font-bold mt-2 dark:text-gray-100">{type.count}人</div>
+
+                    {/* Member tooltip */}
+                    {type.members && type.members.length > 0 && (
+                      <div className="absolute invisible group-hover:visible bg-white dark:bg-gray-600 p-3 border dark:border-gray-500 rounded shadow-lg right-0 top-0 z-10 w-64">
+                        <p className="font-medium dark:text-gray-100">所持メンバー:</p>
+                        <ul className="list-disc pl-5 mt-1">
+                          {type.members.map((member: string, index: number) => (
+                            <li key={index} className="text-sm dark:text-gray-300">{member}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
     </div>
   );

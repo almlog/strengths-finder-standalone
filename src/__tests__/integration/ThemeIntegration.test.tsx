@@ -24,7 +24,7 @@ describe('テーマ統合テスト', () => {
       render(<App />);
 
       // アプリが正常にレンダリングされる
-      expect(screen.getByText(/ストレングスファインダー分析/)).toBeInTheDocument();
+      expect(screen.getByText(/メンバープロファイル分析/)).toBeInTheDocument();
     });
 
     it('ThemeSwitcherが表示される', () => {
@@ -124,7 +124,7 @@ describe('テーマ統合テスト', () => {
       render(<App />);
 
       // 両方のコンテキストが利用可能
-      expect(screen.getByText(/ストレングスファインダー分析/)).toBeInTheDocument();
+      expect(screen.getByText(/メンバープロファイル分析/)).toBeInTheDocument();
 
       const buttons = screen.getAllByRole('button');
       const themeSwitcher = buttons.find(btn =>
@@ -146,7 +146,7 @@ describe('テーマ統合テスト', () => {
       render(<App />);
 
       // アプリは正常に起動する
-      expect(screen.getByText(/ストレングスファインダー分析/)).toBeInTheDocument();
+      expect(screen.getByText(/メンバープロファイル分析/)).toBeInTheDocument();
 
       // LocalStorageを復元
       Object.defineProperty(window, 'localStorage', {
@@ -162,7 +162,7 @@ describe('テーマ統合テスト', () => {
       render(<App />);
 
       // デフォルトテーマで起動する
-      expect(screen.getByText(/ストレングスファインダー分析/)).toBeInTheDocument();
+      expect(screen.getByText(/メンバープロファイル分析/)).toBeInTheDocument();
     });
   });
 

@@ -24,3 +24,6 @@ yarn-error.log*
 
 # persona
 .claude_persona.md
+
+# 16Personalities integration design documents (temporary, not for deployment)
+16Personalities/

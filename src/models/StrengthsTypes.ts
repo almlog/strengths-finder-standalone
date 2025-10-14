@@ -49,6 +49,10 @@ export interface MemberStrengths {
   department: string;
   position?: Position | string; // デフォルト役職またはカスタム役職ID
   strengths: RankedStrength[]; // Top 5 ranked strengths
+
+  // 16Personalities情報（任意）
+  personalityId?: number;        // 1-16（マスターデータのID）
+  personalityVariant?: 'A' | 'T'; // A: 自己主張型, T: 慎重型
 }
   
   export interface StrengthsAnalysisResult {

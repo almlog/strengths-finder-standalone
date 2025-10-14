@@ -135,12 +135,18 @@ const StrengthsFinderPage: React.FC = () => {
     setActiveTab(tab as AnalysisTab);
   };
 
+  const handleMemberSelect = (memberId: string | null) => {
+    setSelectedMemberId(memberId);
+    // メンバー選択時にページトップへスクロール
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center">
           <Award className="w-6 h-6 mr-2 text-blue-600" />
-          ストレングスファインダー分析
+          メンバープロファイル分析
         </h2>
         <div className="flex space-x-2 items-center">
           <ThemeSwitcher />
@@ -169,7 +175,7 @@ const StrengthsFinderPage: React.FC = () => {
             メンバー一覧
           </h3>
           <MembersList
-            onSelect={setSelectedMemberId}
+            onSelect={handleMemberSelect}
             selectedMemberId={selectedMemberId}
           />
         </div>
@@ -204,7 +210,7 @@ const StrengthsFinderPage: React.FC = () => {
             <Tab id="strengths" label={
               <div className="flex items-center">
                 <Search className="w-4 h-4 mr-1" />
-                <span>資質分析</span>
+                <span>所有者分析</span>
               </div>
             }>
               <StrengthsAnalysis />

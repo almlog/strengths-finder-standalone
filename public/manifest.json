@@ -1,6 +1,6 @@
 {
-  "short_name": "StrengthsFinder",
-  "name": "ストレングスファインダー分析ツール",
+  "short_name": "ProfileAnalysis",
+  "name": "メンバープロファイル分析",
   "icons": [
     {
       "src": "favicon.ico",
