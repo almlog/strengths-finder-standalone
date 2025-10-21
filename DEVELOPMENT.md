@@ -46,18 +46,24 @@ strengths-finder-standalone/
 │   │   │   ├── StrengthsFinderPage.tsx    # メインページ
 │   │   │   ├── MemberForm.tsx             # メンバー追加/編集フォーム
 │   │   │   ├── MembersList.tsx            # メンバー一覧
-│   │   │   ├── IndividualStrengths.tsx    # 個人分析
+│   │   │   ├── IndividualStrengths.tsx    # 個人分析（プロファイル分析統合）
 │   │   │   ├── DepartmentAnalysis.tsx     # 部署分析
 │   │   │   ├── SelectedAnalysis.tsx       # 選択メンバー分析
 │   │   │   └── StrengthsAnalysis.tsx      # 資質分析
+│   │   ├── analysis/          # 🆕 性格分析機能
+│   │   │   └── ProfileAnalysisCard.tsx    # プロファイル分析カード
 │   │   └── ui/
 │   │       └── Tabs.tsx                   # タブコンポーネント
 │   ├── contexts/
-│   │   └── StrengthsContext.tsx           # プロファイル分析用コンテキスト
+│   │   ├── StrengthsContext.tsx           # プロファイル分析用コンテキスト
+│   │   └── ThemeContext.tsx               # テーマ管理コンテキスト
 │   ├── models/
-│   │   └── StrengthsTypes.ts              # 型定義
+│   │   ├── StrengthsTypes.ts              # 型定義
+│   │   └── PersonalityAnalysis.ts         # 🆕 性格分析型定義
 │   ├── services/
-│   │   └── StrengthsService.ts            # ビジネスロジック
+│   │   ├── StrengthsService.ts            # ビジネスロジック
+│   │   ├── Personality16Service.ts        # 16Personalities サービス
+│   │   └── PersonalityAnalysisEngine.ts   # 🆕 性格分析エンジン
 │   ├── App.tsx                            # メインアプリケーション
 │   ├── index.tsx                          # エントリーポイント
 │   └── index.css                          # グローバルスタイル
