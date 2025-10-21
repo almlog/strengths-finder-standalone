@@ -5,6 +5,9 @@ import { useStrengths } from '../../contexts/StrengthsContext';
 import StrengthsService, { GROUP_LABELS, GROUP_COLORS } from '../../services/StrengthsService';
 import { StrengthGroup, Position } from '../../models/StrengthsTypes';
 import Personality16Card from './Personality16Card';
+import ProfileAnalysisCard from '../analysis/ProfileAnalysisCard';
+import { Member as AnalysisMember, MBTIType } from '../../models/PersonalityAnalysis';
+import { PERSONALITY_TYPES_DATA } from '../../services/Personality16Service';
 
 interface IndividualStrengthsProps {
   memberId: string | null;
@@ -12,7 +15,39 @@ interface IndividualStrengthsProps {
 
 const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) => {
   const { members, getPositionInfo } = useStrengths();
-  
+
+  const member = members.find(m => m.id === memberId);
+
+  // ProfileAnalysisCard用のMemberオブジェクトを作成（Hooksルールのため早期returnの前に配置）
+  const analysisMember: AnalysisMember | null = React.useMemo(() => {
+    if (!member) return null;
+
+    // personalityIdからMBTITypeへの変換
+    const getMBTIType = (personalityId?: number): MBTIType | undefined => {
+      if (!personalityId) return undefined;
+      const personality = PERSONALITY_TYPES_DATA.find(p => p.id === personalityId);
+      return personality?.code as MBTIType | undefined;
+    };
+
+    const mbtiType = getMBTIType(member.personalityId);
+
+    // MBTIまたは資質のいずれかが存在する場合のみAnalysisMemberを作成
+    if (!mbtiType && (!member.strengths || member.strengths.length === 0)) {
+      return null;
+    }
+
+    return {
+      id: member.id,
+      name: member.name,
+      department: member.department,
+      mbtiType: mbtiType,
+      strengths: member.strengths.map(s => ({
+        id: s.id,
+        score: s.score
+      }))
+    };
+  }, [member]);
+
   if (!memberId) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-gray-500">
@@ -21,7 +56,6 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
       </div>
     );
   }
-  const member = members.find(m => m.id === memberId);
 
   if (!member) {
     return (
@@ -128,20 +162,22 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
         )}
       </div>
 
-      {/* 強みのバランス（4つのカテゴリごとに4行で表示） */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <h4 className="text-lg font-semibold mb-4 dark:text-gray-100">強みのバランス（全34資質）</h4>
-        
-        {/* 実行力 */}
-        <div className="mb-4">
-          <h5 className="font-medium flex items-center mb-2">
-            <span className="w-4 h-4 mr-2 rounded-full" style={{ backgroundColor: GROUP_COLORS[StrengthGroup.EXECUTING] }}></span>
-            {GROUP_LABELS[StrengthGroup.EXECUTING]}
-          </h5>
-          <div className="flex flex-wrap gap-1">
-            {groupedStrengths[StrengthGroup.EXECUTING].map(item => (
-              <div 
-                key={item.id} 
+      {/* 強みのバランスとプロファイル分析を横並びに */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 強みのバランス（4つのカテゴリごとに4行で表示） */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <h4 className="text-lg font-semibold mb-4 dark:text-gray-100">強みのバランス（全34資質）</h4>
+
+          {/* 実行力 */}
+          <div className="mb-4">
+            <h5 className="font-medium flex items-center mb-2">
+              <span className="w-4 h-4 mr-2 rounded-full" style={{ backgroundColor: GROUP_COLORS[StrengthGroup.EXECUTING] }}></span>
+              {GROUP_LABELS[StrengthGroup.EXECUTING]}
+            </h5>
+            <div className="flex flex-wrap gap-1">
+              {groupedStrengths[StrengthGroup.EXECUTING].map(item => (
+                <div
+                  key={item.id} 
                 className="relative m-1 flex flex-col items-center justify-center rounded-lg"
                 style={{ 
                   width: '50px',
@@ -290,11 +326,17 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
               </div>
             ))}
           </div>
+          </div>
+
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+            ※ 色の濃さはスコアの強さを表しています。スコア1が最強となり、スコアがない資質は薄く表示されています。
+          </div>
         </div>
-        
-        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-          ※ 色の濃さはスコアの強さを表しています。スコア1が最強となり、スコアがない資質は薄く表示されています。
-        </div>
+
+        {/* ProfileAnalysisCard - Show when MBTI or strengths data exists */}
+        {analysisMember && (
+          <ProfileAnalysisCard member={analysisMember} />
+        )}
       </div>
 
       {/* 強み詳細説明 - スコア1から順に表示 */}
