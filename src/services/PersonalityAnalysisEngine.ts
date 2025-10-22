@@ -92,6 +92,27 @@ const STRENGTHS_ONLY_SCORES = {
   },
 };
 
+/**
+ * プロファイルサマリーのスコア境界値
+ */
+const PROFILE_SUMMARY_THRESHOLDS = {
+  SYNERGY: {
+    HIGH: 85,      // 統合型
+    BALANCED: 55,  // バランス型
+    // < 55: 多面型
+  },
+  TEAM_FIT: {
+    COLLABORATIVE: 70,  // チーム協調型
+    BALANCED: 50,       // バランス型
+    // < 50: 個人作業型
+  },
+  LEADERSHIP: {
+    LEADER: 70,      // リーダー型
+    BALANCED: 50,    // バランス型
+    // < 50: 専門家型
+  },
+};
+
 class PersonalityAnalysisEngine {
   private profiles: Map<MBTIType, MBTIProfile> = new Map();
   private initialized: boolean = false;
@@ -149,7 +170,7 @@ class PersonalityAnalysisEngine {
     const teamFitScore = this.calculateTeamFit(member.mbtiType!, member.strengths!);
     const leadershipPotential = this.calculateLeadership(member.mbtiType!, member.strengths!);
 
-    const topStrengthNames = member.strengths!
+    const topStrengthNames = [...member.strengths!]
       .sort((a, b) => a.score - b.score)
       .slice(0, 5)
       .map(s => {
@@ -157,24 +178,35 @@ class PersonalityAnalysisEngine {
         return strength ? strength.name : `資質${s.id}`;
       });
 
-    return {
-      analysisMode: 'full',
-      mbtiType: member.mbtiType,
-      primaryRole: profile.teamDynamics.naturalRole,
+    // MBTI × 資質の統合的な役割を生成
+    const primaryRole = this.inferRoleFromMBTIAndStrengths(member.mbtiType!, member.strengths!);
+
+    // スコアベースの強化されたプロファイルサマリーを生成
+    const profileSummary = this.buildEnhancedProfileSummary(
+      profile,
+      topStrengthNames,
       synergyScore,
       teamFitScore,
       leadershipPotential,
-      profileSummary: this.buildFullProfileSummary(profile, topStrengthNames),
+      primaryRole
+    );
+
+    return {
+      analysisMode: 'full',
+      mbtiType: member.mbtiType,
+      primaryRole,
+      synergyScore,
+      teamFitScore,
+      leadershipPotential,
+      profileSummary,
       strengths: profile.characteristics.strengths,
       workStyle: profile.characteristics.workStyle,
       communicationStyle: profile.characteristics.communicationStyle,
       idealEnvironment: profile.teamDynamics.bestEnvironment,
       motivators: profile.motivation.motivators,
       stressors: profile.motivation.stressors,
-      compatibleTypes: [
-        ...profile.mbtiCompatibility.naturalPartners,
-        ...profile.mbtiCompatibility.complementary,
-      ],
+      naturalPartners: profile.mbtiCompatibility.naturalPartners,
+      complementaryPartners: profile.mbtiCompatibility.complementary,
       topStrengthNames,
       analysisDate: new Date().toISOString(),
       version: 'v1.0.0',
@@ -208,10 +240,8 @@ class PersonalityAnalysisEngine {
       idealEnvironment: profile.teamDynamics.bestEnvironment,
       motivators: profile.motivation.motivators,
       stressors: profile.motivation.stressors,
-      compatibleTypes: [
-        ...profile.mbtiCompatibility.naturalPartners,
-        ...profile.mbtiCompatibility.complementary,
-      ],
+      naturalPartners: profile.mbtiCompatibility.naturalPartners,
+      complementaryPartners: profile.mbtiCompatibility.complementary,
       analysisDate: new Date().toISOString(),
       version: 'v1.0.0',
     };
@@ -224,7 +254,7 @@ class PersonalityAnalysisEngine {
     const teamFitScore = this.calculateTeamFitFromStrengths(member.strengths!);
     const leadershipPotential = this.calculateLeadershipFromStrengths(member.strengths!);
 
-    const topStrengthNames = member.strengths!
+    const topStrengthNames = [...member.strengths!]
       .sort((a, b) => a.score - b.score)
       .slice(0, 5)
       .map(s => {
@@ -393,7 +423,8 @@ class PersonalityAnalysisEngine {
   // ===========================================================================
 
   /**
-   * 完全モードのプロファイル統合メッセージ
+   * 完全モードのプロファイル統合メッセージ（レガシー）
+   * @deprecated buildEnhancedProfileSummary を使用してください
    */
   private buildFullProfileSummary(profile: MBTIProfile, topStrengths: string[]): string[] {
     return [
@@ -402,6 +433,118 @@ class PersonalityAnalysisEngine {
       `特に${profile.teamDynamics.naturalRole}として、チームに貢献できます。`,
       `${profile.characteristics.communicationStyle}`,
     ];
+  }
+
+  /**
+   * スコアベースの強化されたプロファイル統合メッセージ
+   *
+   * @param profile MBTIプロファイル
+   * @param topStrengths TOP資質名
+   * @param synergyScore MBTI×資質の相性スコア
+   * @param teamFitScore チーム適合度スコア
+   * @param leadershipPotential リーダーシップ潜在力スコア
+   * @param primaryRole 統合的な役割
+   * @returns 4文構成のプロファイルサマリー
+   */
+  private buildEnhancedProfileSummary(
+    profile: MBTIProfile,
+    topStrengths: string[],
+    synergyScore: number,
+    teamFitScore: number,
+    leadershipPotential: number,
+    primaryRole: string
+  ): string[] {
+    return [
+      this.buildSynergyMessage(profile, topStrengths, synergyScore),
+      this.buildWorkStyleMessage(teamFitScore),
+      this.buildRoleContributionMessage(primaryRole, topStrengths),
+      this.buildLeadershipMessage(leadershipPotential, topStrengths),
+    ];
+  }
+
+  /**
+   * 第1文: 相乗効果メッセージ
+   */
+  private buildSynergyMessage(
+    profile: MBTIProfile,
+    topStrengths: string[],
+    synergyScore: number
+  ): string {
+    const mbtiName = profile.name;
+    const mbtiType = profile.type;
+    const strength1 = topStrengths[0];
+    const strength2 = topStrengths[1];
+
+    if (synergyScore >= PROFILE_SUMMARY_THRESHOLDS.SYNERGY.HIGH) {
+      // 統合型
+      return `${mbtiName}（${mbtiType}）の特性と「${strength1}」「${strength2}」が高い相乗効果を発揮します。一貫した強みのパターンが明確です。`;
+    } else if (synergyScore >= PROFILE_SUMMARY_THRESHOLDS.SYNERGY.BALANCED) {
+      // バランス型
+      return `${mbtiName}（${mbtiType}）の特性に「${strength1}」「${strength2}」が柔軟性を加えます。バランスの取れたアプローチが可能です。`;
+    } else {
+      // 多面型
+      return `${mbtiName}（${mbtiType}）の特性と「${strength1}」「${strength2}」の組み合わせが、独自の強みを生み出します。多様な視点を持ち合わせています。`;
+    }
+  }
+
+  /**
+   * 第2文: 働き方メッセージ
+   */
+  private buildWorkStyleMessage(teamFitScore: number): string {
+    if (teamFitScore >= PROFILE_SUMMARY_THRESHOLDS.TEAM_FIT.COLLABORATIVE) {
+      // チーム協調型
+      return 'チームと協力し、コミュニケーションを通じて相乗効果を生み出すことが得意です。協働で最大の成果を発揮します。';
+    } else if (teamFitScore >= PROFILE_SUMMARY_THRESHOLDS.TEAM_FIT.BALANCED) {
+      // バランス型
+      return '独立作業と協働の両方に対応でき、状況に応じて柔軟にスタイルを切り替えます。適応力が高いです。';
+    } else {
+      // 個人作業型
+      return '独立して深く考え、集中できる環境で最大の成果を発揮します。自律的に業務を進めることが得意です。';
+    }
+  }
+
+  /**
+   * 第3文: 役割貢献メッセージ
+   */
+  private buildRoleContributionMessage(primaryRole: string, topStrengths: string[]): string {
+    // 役割キーワードに基づいた貢献内容マッピング
+    const roleContributions: Record<string, string> = {
+      '戦略的思考のエキスパート': '複雑な問題の本質を見抜き、長期的な解決策を提示します',
+      '計画実行のスペシャリスト': '綿密な計画を立て、着実に目標を達成します',
+      '戦略的リーダー': 'チームを牽引し、戦略的な方向性を示します',
+      '分析型ファシリテーター': 'データに基づき、チームの意思決定をサポートします',
+      'ビジョン構築者': '理想的な未来像を描き、チームに方向性を示します',
+      '理想実現の推進者': '価値を重視し、目標に向けて着実に推進します',
+      '人を導くリーダー': '人々を理解し、共感を通じてチームを導きます',
+      '共感型サポーター': 'メンバーの感情を理解し、チームの一体感を高めます',
+      '組織設計者': '効率的な仕組みを作り、組織を最適化します',
+      '確実な実行者': '責任を持って確実に業務を遂行します',
+      '規律あるリーダー': '秩序を保ち、規律正しくチームを率います',
+      'チームの要': 'メンバーをつなぎ、チームの調和を保ちます',
+      '柔軟な戦略家': '状況に応じて柔軟に戦略を調整します',
+      '即応の実行者': '迅速に行動し、その場で最適な判断を下します',
+      'アクションリーダー': '率先して行動し、チームを活性化します',
+      '現場調整役': '現場の状況を把握し、柔軟に対応します',
+    };
+
+    const contribution = roleContributions[primaryRole] || 'チームに価値を提供します';
+    return `${primaryRole}として、${contribution}。`;
+  }
+
+  /**
+   * 第4文: リーダーシップメッセージ
+   */
+  private buildLeadershipMessage(leadershipPotential: number, topStrengths: string[]): string {
+    if (leadershipPotential >= PROFILE_SUMMARY_THRESHOLDS.LEADERSHIP.LEADER) {
+      // リーダー型
+      return 'チームを牽引し、明確な方向性を示すリーダーシップを発揮します。意思決定と推進力が強みです。';
+    } else if (leadershipPotential >= PROFILE_SUMMARY_THRESHOLDS.LEADERSHIP.BALANCED) {
+      // バランス型
+      return '必要に応じてリーダーシップを発揮し、専門性でチームを導くことができます。状況に応じて柔軟に役割を調整します。';
+    } else {
+      // 専門家型
+      return '専門性を深め、特定分野のエキスパートとして価値を提供します。深い知識と洞察でチームに貢献します。';
+    }
   }
 
   /**
@@ -440,13 +583,146 @@ class PersonalityAnalysisEngine {
     const hasLeadership = topIds.some(id => LEADERSHIP_STRENGTHS.includes(id));
     const hasTeam = topIds.some(id => TEAM_ORIENTED_STRENGTHS.includes(id));
 
+    // リーダーシップ資質の優先判定
     if (hasLeadership && hasExecution) return 'リーダー・推進者';
+    if (hasLeadership) return 'リーダー・推進者';
+
     if (hasAnalytical && hasExecution) return '戦略家・実行者';
     if (hasTeam && hasExecution) return 'チームプレイヤー';
     if (hasAnalytical) return 'アナリスト・思考家';
     if (hasExecution) return '実行者・達成者';
 
     return '多才なプロフェッショナル';
+  }
+
+  /**
+   * MBTI × 資質から統合的な役割を推定
+   *
+   * @param mbtiType MBTIタイプ
+   * @param strengths TOP5資質
+   * @returns 統合的な役割
+   */
+  private inferRoleFromMBTIAndStrengths(
+    mbtiType: MBTIType,
+    strengths: Member['strengths']
+  ): string {
+    if (!strengths || strengths.length === 0) {
+      // 資質がない場合はMBTIプロファイルの役割を返す
+      const profile = this.profiles.get(mbtiType);
+      return profile ? profile.teamDynamics.naturalRole : '不明';
+    }
+
+    // MBTIグループを判定
+    const mbtiGroup = this.classifyMBTIGroup(mbtiType);
+
+    // 資質プロファイルを分析
+    const strengthProfile = this.analyzeStrengthProfile(strengths);
+
+    // マトリクスから役割を選択
+    return this.selectRoleFromMatrix(mbtiGroup, strengthProfile);
+  }
+
+  /**
+   * MBTIタイプを4つのグループに分類
+   *
+   * @param mbtiType MBTIタイプ
+   * @returns MBTIグループ名
+   */
+  private classifyMBTIGroup(mbtiType: MBTIType): string {
+    const hasN = mbtiType.charAt(1) === 'N';
+    const hasS = mbtiType.charAt(1) === 'S';
+    const hasT = mbtiType.charAt(2) === 'T';
+    const hasF = mbtiType.charAt(2) === 'F';
+    const hasJ = mbtiType.charAt(3) === 'J';
+    const hasP = mbtiType.charAt(3) === 'P';
+
+    // 分析家グループ (NT): INTJ, INTP, ENTJ, ENTP
+    if (hasN && hasT) return 'NT';
+
+    // 外交官グループ (NF): INFJ, INFP, ENFJ, ENFP
+    if (hasN && hasF) return 'NF';
+
+    // 番人グループ (SJ): ISTJ, ISFJ, ESTJ, ESFJ
+    if (hasS && hasJ) return 'SJ';
+
+    // 探検家グループ (SP): ISTP, ISFP, ESTP, ESFP
+    if (hasS && hasP) return 'SP';
+
+    return 'UNKNOWN';
+  }
+
+  /**
+   * TOP5資質の傾向を分析
+   *
+   * @param strengths TOP5資質
+   * @returns 最も強い資質グループ
+   */
+  private analyzeStrengthProfile(strengths: Member['strengths']): string {
+    if (!strengths || strengths.length === 0) return 'NONE';
+
+    const topIds = strengths.slice(0, 5).map(s => s.id);
+
+    // 各グループの資質数をカウント
+    const analyticalCount = topIds.filter(id => ANALYTICAL_STRENGTHS.includes(id)).length;
+    const executionCount = topIds.filter(id => EXECUTION_STRENGTHS.includes(id)).length;
+    const leadershipCount = topIds.filter(id => LEADERSHIP_STRENGTHS.includes(id)).length;
+    const teamCount = topIds.filter(id => TEAM_ORIENTED_STRENGTHS.includes(id)).length;
+
+    // 最も多いグループを特定
+    const maxCount = Math.max(analyticalCount, executionCount, leadershipCount, teamCount);
+
+    if (maxCount === 0) return 'MIXED';
+
+    // 同率の場合は優先順位: リーダーシップ > 戦略的思考 > 実行力 > 人間関係
+    if (leadershipCount === maxCount) return 'LEADERSHIP';
+    if (analyticalCount === maxCount) return 'ANALYTICAL';
+    if (executionCount === maxCount) return 'EXECUTION';
+    if (teamCount === maxCount) return 'RELATIONSHIP';
+
+    return 'MIXED';
+  }
+
+  /**
+   * MBTIグループ × 資質プロファイルのマトリクスから役割を選択
+   *
+   * @param mbtiGroup MBTIグループ (NT/NF/SJ/SP)
+   * @param strengthProfile 資質プロファイル
+   * @returns 統合的な役割
+   */
+  private selectRoleFromMatrix(mbtiGroup: string, strengthProfile: string): string {
+    // 役割マトリクス
+    const roleMatrix: Record<string, Record<string, string>> = {
+      NT: {
+        ANALYTICAL: '戦略的思考のエキスパート',
+        EXECUTION: '計画実行のスペシャリスト',
+        LEADERSHIP: '戦略的リーダー',
+        RELATIONSHIP: '分析型ファシリテーター',
+        MIXED: '戦略家・設計者',
+      },
+      NF: {
+        ANALYTICAL: 'ビジョン構築者',
+        EXECUTION: '理想実現の推進者',
+        LEADERSHIP: '人を導くリーダー',
+        RELATIONSHIP: '共感型サポーター',
+        MIXED: 'アイデアマン・モチベーター',
+      },
+      SJ: {
+        ANALYTICAL: '組織設計者',
+        EXECUTION: '確実な実行者',
+        LEADERSHIP: '規律あるリーダー',
+        RELATIONSHIP: 'チームの要',
+        MIXED: '管理者・実行者',
+      },
+      SP: {
+        ANALYTICAL: '柔軟な戦略家',
+        EXECUTION: '即応の実行者',
+        LEADERSHIP: 'アクションリーダー',
+        RELATIONSHIP: '現場調整役',
+        MIXED: '実践者・問題解決者',
+      },
+    };
+
+    return roleMatrix[mbtiGroup]?.[strengthProfile] || '多才なプロフェッショナル';
   }
 
   /**
@@ -788,8 +1064,465 @@ class PersonalityAnalysisEngine {
     this.profiles.set('ENFJ', enfj);
     this.profiles.set('INTP', intp);
 
-    // TODO: Phase 3 - 残り10タイプの実装
-    // 未実装: ENTP, INFP, ISTJ, ISFJ, ESTJ, ESFJ, ISTP, ISFP, ESTP, ESFP
+    // ========================================
+    // ENTP: 討論者
+    // ========================================
+    const entp: MBTIProfile = {
+      type: 'ENTP',
+      name: '討論者',
+      description: '知的好奇心旺盛で議論好き、頭の回転が速い',
+      characteristics: {
+        strengths: ['創造性', '論理的思考', '柔軟性', '討論能力', '問題解決力', '革新性'],
+        weaknesses: ['一貫性', '細部への注意', '感情への配慮', '計画の実行'],
+        workStyle: 'アイデアを生み出し、議論を通じて革新的な解決策を探求',
+        communicationStyle: '挑戦的で刺激的、議論を楽しむ',
+        learningStyle: '様々な可能性を探求し、理論を実験的に検証',
+        decisionMaking: '論理と革新性を重視し、従来の枠を超える',
+      },
+      motivation: {
+        motivators: ['知的挑戦', '革新', '議論と討論', '自由な発想', '多様な経験'],
+        demotivators: ['単調さ', '厳格なルール', '細部への拘束', '感情的な圧力'],
+        stressors: ['退屈', '制約', '感情的な対立', '非論理性'],
+        stressRelief: ['刺激的な議論', '新しいプロジェクト', '社交活動'],
+      },
+      teamDynamics: {
+        naturalRole: 'イノベーター・戦略家',
+        bestEnvironment: '革新的で柔軟な環境、知的刺激がある職場',
+        idealTeamSize: '中規模チーム（5-8人）',
+        conflictStyle: '論理的に議論し、新しい視点を提示',
+      },
+      strengthsSynergy: {
+        highSynergy: [2, 27, 31, 21, 29, 16, 32, 15],      // 活発性、分析思考、着想、適応性、学習欲、コミュニケーション、戦略性、自己確信
+        moderateSynergy: [3, 4, 10, 11, 12, 13, 14, 23, 26, 28, 30, 33, 34, 1, 6, 17, 18, 22, 24],  // 回復志向、アレンジ、公平性、指令性、競争性、最上志向、自我、個別化、社交性、原点思考、収集心、未来志向、内省、達成欲、責任感、ポジティブ、包含、共感性、成長促進
+        lowSynergy: [5, 7, 8, 9, 19, 20, 25],              // 慎重さ、信念、規律性、目標志向、親密性、調和性、運命思考
+      },
+      mbtiCompatibility: {
+        naturalPartners: ['INFJ', 'INTJ'],
+        complementary: ['INTP', 'ENFP', 'ENTJ'],
+        challenging: ['ISFJ', 'ISTJ', 'ESFJ'],
+      },
+      careerPaths: {
+        idealFields: ['起業', 'コンサルティング', 'マーケティング', '研究開発', 'ベンチャーキャピタル'],
+        roleExamples: ['起業家', 'イノベーションコンサルタント', 'プロダクトマネージャー', '戦略アドバイザー'],
+        developmentAreas: ['一貫性', '細部への注意', '感情への配慮'],
+      },
+    };
+
+    this.profiles.set('ENTP', entp);
+
+    // ========================================
+    // INFP: 仲介者
+    // ========================================
+    const infp: MBTIProfile = {
+      type: 'INFP',
+      name: '仲介者',
+      description: '理想主義的で、強い価値観と創造性を持つ',
+      characteristics: {
+        strengths: ['創造性', '共感力', '理想主義', '柔軟性', '価値観の明確さ', '深い洞察'],
+        weaknesses: ['実行力', '批判への敏感さ', '現実的判断', '自己主張'],
+        workStyle: '意義を重視し、価値観に沿った創造的な仕事を好む',
+        communicationStyle: '思慮深く、個人的で真摯な表現',
+        learningStyle: '意味とつながりを探求し、個人的な関連性を見出す',
+        decisionMaking: '価値観と直感を最優先し、理想に基づく',
+      },
+      motivation: {
+        motivators: ['意義のある仕事', '創造的表現', '価値観の実現', '他者への貢献', '真実性'],
+        demotivators: ['価値観の対立', '批判', '表面的な作業', '厳格なルール'],
+        stressors: ['対立', '批判', '価値観の侵害', '非人道的な環境'],
+        stressRelief: ['創造的活動', '一人の時間', '自然との触れ合い'],
+      },
+      teamDynamics: {
+        naturalRole: '仲介者・創造者',
+        bestEnvironment: '協力的で価値観を重視する環境、柔軟な職場',
+        idealTeamSize: '小規模チーム（3-5人）',
+        conflictStyle: '共感と対話で理解を深め、価値観の一致を目指す',
+      },
+      strengthsSynergy: {
+        highSynergy: [22, 31, 21, 7, 23, 24, 25, 34],      // 共感性、着想、適応性、信念、個別化、成長促進、運命思考、内省
+        moderateSynergy: [16, 17, 18, 19, 20, 26, 28, 29, 30, 32, 33, 1, 3, 4, 5, 6, 10, 13, 14],  // コミュニケーション、ポジティブ、包含、親密性、調和性、社交性、原点思考、学習欲、収集心、戦略性、未来志向、達成欲、回復志向、アレンジ、慎重さ、責任感、公平性、最上志向、自我
+        lowSynergy: [2, 8, 9, 11, 12, 15, 27],             // 活発性、規律性、目標志向、指令性、競争性、自己確信、分析思考
+      },
+      mbtiCompatibility: {
+        naturalPartners: ['ENFJ', 'ENTJ'],
+        complementary: ['INFJ', 'ENFP', 'INTP'],
+        challenging: ['ESTJ', 'ESTP', 'ISTJ'],
+      },
+      careerPaths: {
+        idealFields: ['クリエイティブライティング', 'カウンセリング', 'アート・デザイン', '非営利団体', '教育'],
+        roleExamples: ['ライター', 'カウンセラー', 'デザイナー', 'ソーシャルワーカー', '芸術家'],
+        developmentAreas: ['実行力', '現実的判断', '自己主張'],
+      },
+    };
+
+    this.profiles.set('INFP', infp);
+
+    // ========================================
+    // ISTJ: 管理者
+    // ========================================
+    const istj: MBTIProfile = {
+      type: 'ISTJ',
+      name: '管理者',
+      description: '実用的で事実重視、信頼できる責任感の持ち主',
+      characteristics: {
+        strengths: ['責任感', '正確性', '計画性', '忠実性', '実用性', '規律性'],
+        weaknesses: ['柔軟性', '創造性', '感情表現', '変化への適応'],
+        workStyle: '体系的で詳細志向、確立された方法を好む',
+        communicationStyle: '明確で事実的、直接的',
+        learningStyle: '実践的な経験と詳細な情報を通じて学ぶ',
+        decisionMaking: '事実とデータに基づき、実績のある方法を選ぶ',
+      },
+      motivation: {
+        motivators: ['責任の遂行', '秩序と構造', '具体的な成果', '伝統と安定', '正確性'],
+        demotivators: ['混乱', '非効率', '変化への強制', '曖昧さ'],
+        stressors: ['予期せぬ変更', '無秩序', '非効率', '責任の不履行'],
+        stressRelief: ['ルーティン', '一人の時間', '実用的な活動'],
+      },
+      teamDynamics: {
+        naturalRole: '管理者・実行者',
+        bestEnvironment: '構造化され明確なルールがある環境、安定した職場',
+        idealTeamSize: '小〜中規模チーム（3-7人）',
+        conflictStyle: '事実に基づき、確立された手順で解決',
+      },
+      strengthsSynergy: {
+        highSynergy: [6, 8, 9, 5, 10, 28, 1, 3],           // 責任感、規律性、目標志向、慎重さ、公平性、原点思考、達成欲、回復志向
+        moderateSynergy: [4, 7, 13, 27, 29, 30, 32, 34, 11, 12, 14, 15, 16, 19, 20, 22, 23, 24, 26],  // アレンジ、信念、最上志向、分析思考、学習欲、収集心、戦略性、内省、指令性、競争性、自我、自己確信、コミュニケーション、親密性、調和性、共感性、個別化、成長促進、社交性
+        lowSynergy: [2, 17, 18, 21, 25, 31, 33],           // 活発性、ポジティブ、包含、適応性、運命思考、着想、未来志向
+      },
+      mbtiCompatibility: {
+        naturalPartners: ['ESTP', 'ESFP'],
+        complementary: ['ESTJ', 'ISFJ', 'INTJ'],
+        challenging: ['ENFP', 'ENTP', 'INFP'],
+      },
+      careerPaths: {
+        idealFields: ['会計・監査', 'プロジェクト管理', '品質管理', '法務', '行政'],
+        roleExamples: ['会計士', 'プロジェクトマネージャー', '監査役', '法務担当', '管理職'],
+        developmentAreas: ['柔軟性', '創造性', '感情表現'],
+      },
+    };
+
+    this.profiles.set('ISTJ', istj);
+
+    // ========================================
+    // ISFJ: 擁護者
+    // ========================================
+    const isfj: MBTIProfile = {
+      type: 'ISFJ',
+      name: '擁護者',
+      description: '献身的で温かく、他者を守る保護者',
+      characteristics: {
+        strengths: ['献身性', '共感力', '責任感', '忠実性', '細やかな配慮', '実用性'],
+        weaknesses: ['自己主張', '変化への抵抗', '批判への敏感さ', '過度の責任感'],
+        workStyle: '協力的で支援的、詳細に注意を払う',
+        communicationStyle: '温かく配慮深い、調和を重視',
+        learningStyle: '実践的な経験と段階的な指導を通じて学ぶ',
+        decisionMaking: '他者への影響を考慮し、実績のある方法を選ぶ',
+      },
+      motivation: {
+        motivators: ['他者への貢献', '調和の維持', '責任の遂行', '感謝されること', '安定性'],
+        demotivators: ['対立', '批判', '変化への強制', '不公平'],
+        stressors: ['対立', '批判', '過度の責任', '価値観の侵害'],
+        stressRelief: ['日常のルーティン', '奉仕活動', '親しい人との時間'],
+      },
+      teamDynamics: {
+        naturalRole: 'サポーター・調整者',
+        bestEnvironment: '協力的で安定した環境、感謝される職場',
+        idealTeamSize: '小〜中規模チーム（3-7人）',
+        conflictStyle: '調和を保ちながら、丁寧に問題を解決',
+      },
+      strengthsSynergy: {
+        highSynergy: [6, 22, 20, 24, 10, 28, 19, 23],      // 責任感、共感性、調和性、成長促進、公平性、原点思考、親密性、個別化
+        moderateSynergy: [3, 4, 5, 7, 8, 18, 25, 26, 1, 13, 16, 17, 27, 29, 30, 32, 34, 9, 14],  // 回復志向、アレンジ、慎重さ、信念、規律性、包含、運命思考、社交性、達成欲、最上志向、コミュニケーション、ポジティブ、分析思考、学習欲、収集心、戦略性、内省、目標志向、自我
+        lowSynergy: [2, 11, 12, 15, 21, 31, 33],           // 活発性、指令性、競争性、自己確信、適応性、着想、未来志向
+      },
+      mbtiCompatibility: {
+        naturalPartners: ['ESTP', 'ESFP'],
+        complementary: ['ISTJ', 'ESFJ', 'INFJ'],
+        challenging: ['ENTP', 'ENFP', 'INTP'],
+      },
+      careerPaths: {
+        idealFields: ['医療・看護', '教育', '人事・総務', 'カスタマーサポート', '社会福祉'],
+        roleExamples: ['看護師', '教師', '人事担当', 'カスタマーサービス', 'ソーシャルワーカー'],
+        developmentAreas: ['自己主張', '変化への適応', '境界線設定'],
+      },
+    };
+
+    this.profiles.set('ISFJ', isfj);
+
+    // ========================================
+    // ESTJ: 幹部
+    // ========================================
+    const estj: MBTIProfile = {
+      type: 'ESTJ',
+      name: '幹部',
+      description: '優れた管理能力を持つ、秩序と伝統を重んじる指導者',
+      characteristics: {
+        strengths: ['組織力', '決断力', '責任感', '実用性', 'リーダーシップ', '効率性'],
+        weaknesses: ['柔軟性', '共感力', '創造性', '批判への対応'],
+        workStyle: '体系的で効率的、明確なルールと構造を重視',
+        communicationStyle: '直接的で明確、指示的',
+        learningStyle: '実践的な経験と確立された方法を通じて学ぶ',
+        decisionMaking: '事実とデータに基づき、効率を重視して決断',
+      },
+      motivation: {
+        motivators: ['秩序の維持', '目標達成', 'リーダーシップ発揮', '効率化', '実績の構築'],
+        demotivators: ['混乱', '非効率', '曖昧さ', '変化への抵抗'],
+        stressors: ['無秩序', '非効率', '責任の不履行', 'ルール違反'],
+        stressRelief: ['運動', '組織化', '実用的な活動'],
+      },
+      teamDynamics: {
+        naturalRole: '管理者・組織者',
+        bestEnvironment: '構造化され効率的な環境、明確な職場',
+        idealTeamSize: '中〜大規模チーム（5-15人）',
+        conflictStyle: '直接対処し、ルールと事実に基づいて解決',
+      },
+      strengthsSynergy: {
+        highSynergy: [1, 6, 8, 9, 10, 11, 27, 28],         // 達成欲、責任感、規律性、目標志向、公平性、指令性、分析思考、原点思考
+        moderateSynergy: [3, 4, 5, 7, 12, 13, 14, 15, 16, 26, 29, 30, 32, 2, 17, 19, 20, 23, 34],  // 回復志向、アレンジ、慎重さ、信念、競争性、最上志向、自我、自己確信、コミュニケーション、社交性、学習欲、収集心、戦略性、活発性、ポジティブ、親密性、調和性、個別化、内省
+        lowSynergy: [18, 21, 22, 24, 25, 31, 33],          // 包含、適応性、共感性、成長促進、運命思考、着想、未来志向
+      },
+      mbtiCompatibility: {
+        naturalPartners: ['INTP', 'ISTP'],
+        complementary: ['ISTJ', 'ENTJ', 'ESFJ'],
+        challenging: ['INFP', 'ENFP', 'ISFP'],
+      },
+      careerPaths: {
+        idealFields: ['経営管理', 'プロジェクトマネジメント', '製造・運用管理', '軍事・警察', '行政'],
+        roleExamples: ['管理職', 'プロジェクトマネージャー', 'オペレーションマネージャー', '経営者'],
+        developmentAreas: ['柔軟性', '共感力', '創造性'],
+      },
+    };
+
+    this.profiles.set('ESTJ', estj);
+
+    // ========================================
+    // ESFJ: 領事官
+    // ========================================
+    const esfj: MBTIProfile = {
+      type: 'ESFJ',
+      name: '領事官',
+      description: '思いやりがあり社交的、調和を大切にする世話好き',
+      characteristics: {
+        strengths: ['共感力', '協調性', '責任感', '組織力', 'コミュニケーション能力', '献身性'],
+        weaknesses: ['批判への敏感さ', '変化への抵抗', '過度の心配', '自己主張'],
+        workStyle: '協力的で支援的、調和を重視する',
+        communicationStyle: '温かく励ましに満ち、人間関係を大切にする',
+        learningStyle: '実践的な経験と協力を通じて学ぶ',
+        decisionMaking: '他者への影響と調和を考慮し、実績ある方法を選ぶ',
+      },
+      motivation: {
+        motivators: ['他者への貢献', '調和の維持', '感謝されること', '社会的つながり', '伝統の尊重'],
+        demotivators: ['対立', '批判', '孤立', '不公平'],
+        stressors: ['批判', '対立', '調和の崩壊', '感謝されないこと'],
+        stressRelief: ['人との交流', '奉仕活動', '伝統的な活動'],
+      },
+      teamDynamics: {
+        naturalRole: '調整者・サポーター',
+        bestEnvironment: '協力的で調和的な環境、人を重視する職場',
+        idealTeamSize: '中〜大規模チーム（5-15人）',
+        conflictStyle: '調和を保ちながら、全員の意見を尊重して解決',
+      },
+      strengthsSynergy: {
+        highSynergy: [22, 20, 6, 16, 17, 18, 24, 26],      // 共感性、調和性、責任感、コミュニケーション、ポジティブ、包含、成長促進、社交性
+        moderateSynergy: [3, 4, 5, 7, 8, 10, 19, 23, 25, 28, 1, 2, 14, 15, 27, 29, 30, 32, 9],  // 回復志向、アレンジ、慎重さ、信念、規律性、公平性、親密性、個別化、運命思考、原点思考、達成欲、活発性、自我、自己確信、分析思考、学習欲、収集心、戦略性、目標志向
+        lowSynergy: [11, 12, 13, 21, 31, 33, 34],          // 指令性、競争性、最上志向、適応性、着想、未来志向、内省
+      },
+      mbtiCompatibility: {
+        naturalPartners: ['ISFP', 'ISTP'],
+        complementary: ['ISFJ', 'ESTJ', 'ENFJ'],
+        challenging: ['INTP', 'ENTP', 'INTJ'],
+      },
+      careerPaths: {
+        idealFields: ['人事・総務', '教育', '医療・看護', 'カスタマーサービス', 'イベント企画'],
+        roleExamples: ['人事担当', '教師', '看護師', 'イベントプランナー', 'カスタマーサポート'],
+        developmentAreas: ['自己主張', '変化への適応', '批判への対処'],
+      },
+    };
+
+    this.profiles.set('ESFJ', esfj);
+
+    // ========================================
+    // ISTP: 巨匠
+    // ========================================
+    const istp: MBTIProfile = {
+      type: 'ISTP',
+      name: '巨匠',
+      description: '大胆で実践的、手を動かして探求する職人',
+      characteristics: {
+        strengths: ['問題解決力', '実用性', '柔軟性', '冷静さ', '技術力', '独立性'],
+        weaknesses: ['長期計画', '感情表現', 'ルールへの従順', 'コミットメント'],
+        workStyle: '実践的で柔軟、問題が起きたときに即座に対応',
+        communicationStyle: '簡潔で事実的、必要最小限',
+        learningStyle: '実際に手を動かし、試行錯誤しながら学ぶ',
+        decisionMaking: '論理と実用性に基づき、即座に判断',
+      },
+      motivation: {
+        motivators: ['実践的な問題解決', '自由と自律性', '新しい技術', '即座の成果', '挑戦'],
+        demotivators: ['厳格なルール', '感情的な議論', '長期計画の強制', '退屈な作業'],
+        stressors: ['制約', '感情的な圧力', '長期コミットメント', '非効率'],
+        stressRelief: ['実践的な活動', 'スポーツ', '一人の時間'],
+      },
+      teamDynamics: {
+        naturalRole: '問題解決者・技術専門家',
+        bestEnvironment: '柔軟で実践的な環境、自律性がある職場',
+        idealTeamSize: '小規模チーム（2-5人）',
+        conflictStyle: '冷静に分析し、実用的な解決策を提示',
+      },
+      strengthsSynergy: {
+        highSynergy: [27, 3, 21, 5, 4, 34, 15],            // 分析思考、回復志向、適応性、慎重さ、アレンジ、内省、自己確信
+        moderateSynergy: [1, 6, 9, 11, 12, 13, 14, 16, 29, 30, 31, 32, 28, 10, 19, 20, 23, 26, 2, 33],  // 達成欲、責任感、目標志向、指令性、競争性、最上志向、自我、コミュニケーション、学習欲、収集心、着想、戦略性、原点思考、公平性、親密性、調和性、個別化、社交性、活発性、未来志向
+        lowSynergy: [7, 8, 17, 18, 22, 24, 25],            // 信念、規律性、ポジティブ、包含、共感性、成長促進、運命思考
+      },
+      mbtiCompatibility: {
+        naturalPartners: ['ESFJ', 'ESTJ'],
+        complementary: ['ESTP', 'ISTJ', 'INTJ'],
+        challenging: ['ENFJ', 'INFJ', 'ENFP'],
+      },
+      careerPaths: {
+        idealFields: ['エンジニアリング', '技術開発', 'メカニック', '救急・危機管理', 'スポーツ'],
+        roleExamples: ['エンジニア', 'パイロット', 'メカニック', '救急隊員', 'アスリート'],
+        developmentAreas: ['長期計画', '感情表現', 'コミットメント'],
+      },
+    };
+
+    this.profiles.set('ISTP', istp);
+
+    // ========================================
+    // ISFP: 冒険家
+    // ========================================
+    const isfp: MBTIProfile = {
+      type: 'ISFP',
+      name: '冒険家',
+      description: '柔軟で魅力的、芸術的センスを持つ自由な魂',
+      characteristics: {
+        strengths: ['創造性', '柔軟性', '共感力', '美的センス', '調和性', '実践性'],
+        weaknesses: ['長期計画', '自己主張', '批判への敏感さ', '構造への抵抗'],
+        workStyle: '柔軟で実践的、美的センスと調和を重視',
+        communicationStyle: '控えめで温かい、行動で示す',
+        learningStyle: '実践的な経験と感覚を通じて学ぶ',
+        decisionMaking: '価値観と現在の状況を重視し、柔軟に判断',
+      },
+      motivation: {
+        motivators: ['創造的表現', '美的経験', '自由と柔軟性', '調和', '個人的なつながり'],
+        demotivators: ['対立', '批判', '厳格なルール', '長期計画の強制'],
+        stressors: ['批判', '対立', '制約', '価値観の侵害'],
+        stressRelief: ['芸術的活動', '自然との触れ合い', '静かな時間'],
+      },
+      teamDynamics: {
+        naturalRole: '創造者・調和促進者',
+        bestEnvironment: '柔軟で美的な環境、調和を重視する職場',
+        idealTeamSize: '小規模チーム（2-5人）',
+        conflictStyle: '調和を保ちながら、柔軟に対応',
+      },
+      strengthsSynergy: {
+        highSynergy: [22, 21, 20, 23, 31, 7, 19, 25],      // 共感性、適応性、調和性、個別化、着想、信念、親密性、運命思考
+        moderateSynergy: [3, 4, 16, 17, 18, 24, 26, 28, 29, 30, 32, 34, 1, 5, 6, 10, 13, 14, 33],  // 回復志向、アレンジ、コミュニケーション、ポジティブ、包含、成長促進、社交性、原点思考、学習欲、収集心、戦略性、内省、達成欲、慎重さ、責任感、公平性、最上志向、自我、未来志向
+        lowSynergy: [2, 8, 9, 11, 12, 15, 27],             // 活発性、規律性、目標志向、指令性、競争性、自己確信、分析思考
+      },
+      mbtiCompatibility: {
+        naturalPartners: ['ESFJ', 'ENFJ'],
+        complementary: ['ESFP', 'INFP', 'ISFJ'],
+        challenging: ['ENTJ', 'ESTJ', 'INTJ'],
+      },
+      careerPaths: {
+        idealFields: ['アート・デザイン', '音楽', '写真・映像', 'セラピー', '美容・ファッション'],
+        roleExamples: ['アーティスト', 'デザイナー', 'ミュージシャン', 'セラピスト', 'スタイリスト'],
+        developmentAreas: ['長期計画', '自己主張', '批判への対処'],
+      },
+    };
+
+    this.profiles.set('ISFP', isfp);
+
+    // ========================================
+    // ESTP: 起業家
+    // ========================================
+    const estp: MBTIProfile = {
+      type: 'ESTP',
+      name: '起業家',
+      description: 'エネルギッシュで行動的、リスクを恐れない挑戦者',
+      characteristics: {
+        strengths: ['行動力', '適応力', '問題解決力', '現実的思考', 'リスクテイク', '社交性'],
+        weaknesses: ['長期計画', '忍耐力', '感情への配慮', 'ルールへの従順'],
+        workStyle: '行動志向で柔軟、即座に対応する',
+        communicationStyle: '率直で説得力があり、エネルギッシュ',
+        learningStyle: '実践と経験を通じて、即座に学ぶ',
+        decisionMaking: '現在の事実と論理に基づき、迅速に判断',
+      },
+      motivation: {
+        motivators: ['行動と結果', '刺激と挑戦', '自由と柔軟性', '即座の成果', '競争'],
+        demotivators: ['退屈', '厳格なルール', '理論的な議論', '長期計画'],
+        stressors: ['退屈', '制約', '長期コミットメント', '感情的な複雑さ'],
+        stressRelief: ['身体活動', '社交', '新しい経験'],
+      },
+      teamDynamics: {
+        naturalRole: 'アクションリーダー・実行者',
+        bestEnvironment: '活動的で柔軟な環境、即座の成果がある職場',
+        idealTeamSize: '中規模チーム（5-10人）',
+        conflictStyle: '直接対決し、実用的に解決',
+      },
+      strengthsSynergy: {
+        highSynergy: [2, 21, 3, 12, 15, 27, 11, 26],       // 活発性、適応性、回復志向、競争性、自己確信、分析思考、指令性、社交性
+        moderateSynergy: [1, 4, 5, 9, 10, 13, 14, 16, 17, 23, 28, 29, 30, 32, 6, 18, 19, 20, 31],  // 達成欲、アレンジ、慎重さ、目標志向、公平性、最上志向、自我、コミュニケーション、ポジティブ、個別化、原点思考、学習欲、収集心、戦略性、責任感、包含、親密性、調和性、着想
+        lowSynergy: [7, 8, 22, 24, 25, 33, 34],            // 信念、規律性、共感性、成長促進、運命思考、未来志向、内省
+      },
+      mbtiCompatibility: {
+        naturalPartners: ['ISFJ', 'ISTJ'],
+        complementary: ['ISTP', 'ESFP', 'ESTJ'],
+        challenging: ['INFJ', 'INFP', 'INTJ'],
+      },
+      careerPaths: {
+        idealFields: ['営業', '起業', 'スポーツ', '救急・危機管理', 'エンターテイメント'],
+        roleExamples: ['営業マネージャー', '起業家', 'スポーツ選手', '救急隊員', 'イベントプロデューサー'],
+        developmentAreas: ['長期計画', '忍耐力', '感情への配慮'],
+      },
+    };
+
+    this.profiles.set('ESTP', estp);
+
+    // ========================================
+    // ESFP: エンターテイナー
+    // ========================================
+    const esfp: MBTIProfile = {
+      type: 'ESFP',
+      name: 'エンターテイナー',
+      description: '自発的でエネルギッシュ、人生を楽しむ娯楽者',
+      characteristics: {
+        strengths: ['社交性', '柔軟性', '共感力', '実践性', 'エンターテイメント性', '熱意'],
+        weaknesses: ['長期計画', '批判への敏感さ', '構造への抵抗', '集中力'],
+        workStyle: '社交的で柔軟、人との関わりを楽しむ',
+        communicationStyle: '表現豊かで温かく、エネルギッシュ',
+        learningStyle: '実践と対話を通じて、楽しみながら学ぶ',
+        decisionMaking: '現在の感情と価値観を重視し、柔軟に判断',
+      },
+      motivation: {
+        motivators: ['楽しさと刺激', '人とのつながり', '即座の報酬', '自由な表現', '新しい経験'],
+        demotivators: ['退屈', '批判', '厳格なルール', '孤立した作業'],
+        stressors: ['批判', '対立', '退屈', '制約'],
+        stressRelief: ['社交活動', 'エンターテイメント', '身体活動'],
+      },
+      teamDynamics: {
+        naturalRole: 'モチベーター・エンターテイナー',
+        bestEnvironment: '活気があり協力的な環境、柔軟な職場',
+        idealTeamSize: '中〜大規模チーム（5-15人）',
+        conflictStyle: '調和を保ちながら、楽観的に対応',
+      },
+      strengthsSynergy: {
+        highSynergy: [2, 17, 22, 26, 21, 18, 16, 23],      // 活発性、ポジティブ、共感性、社交性、適応性、包含、コミュニケーション、個別化
+        moderateSynergy: [3, 4, 10, 14, 19, 20, 24, 25, 28, 29, 31, 1, 6, 11, 12, 13, 15, 30, 32],  // 回復志向、アレンジ、公平性、自我、親密性、調和性、成長促進、運命思考、原点思考、学習欲、着想、達成欲、責任感、指令性、競争性、最上志向、自己確信、収集心、戦略性
+        lowSynergy: [5, 7, 8, 9, 27, 33, 34],              // 慎重さ、信念、規律性、目標志向、分析思考、未来志向、内省
+      },
+      mbtiCompatibility: {
+        naturalPartners: ['ISFJ', 'ISTJ'],
+        complementary: ['ISFP', 'ESTP', 'ESFJ'],
+        challenging: ['INTJ', 'INTP', 'INFJ'],
+      },
+      careerPaths: {
+        idealFields: ['エンターテイメント', '営業', 'イベント企画', 'ホスピタリティ', '教育'],
+        roleExamples: ['パフォーマー', '営業担当', 'イベントプランナー', 'ツアーガイド', 'トレーナー'],
+        developmentAreas: ['長期計画', '批判への対処', '構造化'],
+      },
+    };
+
+    this.profiles.set('ESFP', esfp);
   }
 }
 

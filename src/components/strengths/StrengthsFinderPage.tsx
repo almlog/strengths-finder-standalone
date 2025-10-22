@@ -9,6 +9,7 @@ import DepartmentAnalysis from './DepartmentAnalysis';
 import SelectedAnalysis from './SelectedAnalysis';
 import IndividualStrengths from './IndividualStrengths';
 import StrengthsAnalysis from './StrengthsAnalysis';
+import ImportConflictDialog, { ImportConflictInfo, ImportStrategy } from './ImportConflictDialog';
 import { Tabs, Tab } from '../ui/Tabs';
 
 type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths';
@@ -21,6 +22,9 @@ const SCROLL_DELAY_MS = 100;
 const ImportExportButtons: React.FC = () => {
   const { exportData, importData } = useStrengths();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState<ImportConflictInfo | null>(null);
+  const [resolveConflict, setResolveConflict] = useState<((strategy: ImportStrategy) => void) | null>(null);
 
   // データのエクスポート処理
   const handleExport = () => {
@@ -64,21 +68,43 @@ const ImportExportButtons: React.FC = () => {
   };
 
   // ファイル選択後の処理
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const jsonData = event.target?.result as string;
-        importData(jsonData);
+
+        // 衝突解決コールバックを提供してインポート
+        await importData(jsonData, (conflictData) => {
+          return new Promise<ImportStrategy>((resolve) => {
+            // ダイアログに表示する情報を設定
+            setConflictInfo({
+              existingCount: conflictData.existingMembers.length,
+              newCount: conflictData.newMembers.length,
+              duplicateIds: conflictData.duplicateIds,
+            });
+
+            // ユーザーの選択を解決するコールバックを保存
+            setResolveConflict(() => (strategy: ImportStrategy) => {
+              setShowConflictDialog(false);
+              setConflictInfo(null);
+              setResolveConflict(null);
+              resolve(strategy);
+            });
+
+            // ダイアログを表示
+            setShowConflictDialog(true);
+          });
+        });
       } catch (err) {
         console.error('ファイルの読み込みに失敗しました:', err);
       }
     };
     reader.readAsText(file);
-    
+
     // ファイル選択をリセット（同じファイルを再度選択できるように）
     if (e.target) {
       e.target.value = '';
@@ -86,46 +112,56 @@ const ImportExportButtons: React.FC = () => {
   };
 
   return (
-    <div className="flex space-x-2">
-      {/* サンプルダウンロードボタン */}
-      <button
-        className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800 text-white px-3 py-2 rounded flex items-center"
-        onClick={handleSampleDownload}
-        title="サンプルデータをダウンロード"
-      >
-        <Download className="w-4 h-4 mr-1" />
-        <span>サンプル</span>
-      </button>
+    <>
+      <div className="flex space-x-2">
+        {/* サンプルダウンロードボタン */}
+        <button
+          className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800 text-white px-3 py-2 rounded flex items-center"
+          onClick={handleSampleDownload}
+          title="サンプルデータをダウンロード"
+        >
+          <Download className="w-4 h-4 mr-1" />
+          <span>サンプル</span>
+        </button>
 
-      {/* エクスポートボタン */}
-      <button
-        className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white px-3 py-2 rounded flex items-center"
-        onClick={handleExport}
-        title="データをJSONファイルとしてエクスポート"
-      >
-        <Download className="w-4 h-4 mr-1" />
-        <span>エクスポート</span>
-      </button>
+        {/* エクスポートボタン */}
+        <button
+          className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white px-3 py-2 rounded flex items-center"
+          onClick={handleExport}
+          title="データをJSONファイルとしてエクスポート"
+        >
+          <Download className="w-4 h-4 mr-1" />
+          <span>エクスポート</span>
+        </button>
 
-      {/* インポートボタン */}
-      <button
-        className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-800 text-white px-3 py-2 rounded flex items-center"
-        onClick={handleImportClick}
-        title="JSONファイルからデータをインポート"
-      >
-        <Upload className="w-4 h-4 mr-1" />
-        <span>インポート</span>
-      </button>
+        {/* インポートボタン */}
+        <button
+          className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-800 text-white px-3 py-2 rounded flex items-center"
+          onClick={handleImportClick}
+          title="JSONファイルからデータをインポート"
+        >
+          <Upload className="w-4 h-4 mr-1" />
+          <span>インポート</span>
+        </button>
 
-      {/* 非表示のファイル入力 */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept=".json"
-        className="hidden"
-      />
-    </div>
+        {/* 非表示のファイル入力 */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".json"
+          className="hidden"
+        />
+      </div>
+
+      {/* インポート競合ダイアログ */}
+      {showConflictDialog && conflictInfo && resolveConflict && (
+        <ImportConflictDialog
+          conflictInfo={conflictInfo}
+          onSelect={resolveConflict}
+        />
+      )}
+    </>
   );
 };
 

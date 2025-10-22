@@ -120,10 +120,10 @@ describe('PersonalityAnalysisEngine - 完全モード分析', () => {
       mbtiType: 'INTJ',
       strengths: [
         { id: 1, score: 1 },  // 達成欲
-        { id: 4, score: 2 },  // 分析思考
-        { id: 8, score: 3 },  // コミュニケーション
-        { id: 20, score: 4 }, // 内省
-        { id: 29, score: 5 }, // 戦略性
+        { id: 27, score: 2 }, // 分析思考
+        { id: 16, score: 3 }, // コミュニケーション
+        { id: 34, score: 4 }, // 内省
+        { id: 32, score: 5 }, // 戦略性
       ],
     };
 
@@ -221,11 +221,11 @@ describe('PersonalityAnalysisEngine - 資質のみモード', () => {
       name: '資質のみユーザー',
       department: 'TEST',
       strengths: [
-        { id: 7, score: 1 },  // 指令性 (リーダーシップ)
-        { id: 8, score: 2 },  // コミュニケーション (リーダーシップ)
-        { id: 1, score: 3 },  // 達成欲 (実行力)
-        { id: 34, score: 4 }, // 目標志向 (リーダーシップ+実行力)
-        { id: 5, score: 5 },  // アレンジ (リーダーシップ)
+        { id: 11, score: 1 }, // 指令性 (リーダーシップ)
+        { id: 12, score: 2 }, // 競争性 (リーダーシップ)
+        { id: 13, score: 3 }, // 最上志向 (リーダーシップ)
+        { id: 14, score: 4 }, // 自我 (リーダーシップ)
+        { id: 17, score: 5 }, // ポジティブ (リーダーシップ)
       ],
     };
 
@@ -242,11 +242,11 @@ describe('PersonalityAnalysisEngine - 資質のみモード', () => {
       name: '資質のみユーザー2',
       department: 'TEST',
       strengths: [
-        { id: 4, score: 1 },  // 分析思考
-        { id: 20, score: 2 }, // 内省
-        { id: 16, score: 3 }, // 着想
-        { id: 21, score: 4 }, // 学習欲
-        { id: 29, score: 5 }, // 戦略性
+        { id: 27, score: 1 }, // 分析思考
+        { id: 34, score: 2 }, // 内省
+        { id: 31, score: 3 }, // 着想
+        { id: 29, score: 4 }, // 学習欲
+        { id: 32, score: 5 }, // 戦略性
       ],
     };
 
@@ -322,8 +322,8 @@ describe('PersonalityAnalysisEngine - 資質のみモード', () => {
       name: '資質のみユーザー6',
       department: 'TEST',
       strengths: [
-        { id: 7, score: 1 },  // 指令性 (リーダーシップ)
-        { id: 27, score: 2 }, // 自己確信 (リーダーシップ)
+        { id: 11, score: 1 }, // 指令性 (リーダーシップ)
+        { id: 12, score: 2 }, // 競争性 (リーダーシップ)
         { id: 1, score: 3 },
         { id: 2, score: 4 },
         { id: 3, score: 5 },

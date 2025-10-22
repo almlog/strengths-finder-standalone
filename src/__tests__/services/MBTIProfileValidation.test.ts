@@ -15,8 +15,8 @@ describe('MBTIプロファイルデータのバリデーション', () => {
     'ISTP', 'ISFP', 'ESTP', 'ESFP',
   ];
 
-  // 実装済みタイプ（現在6タイプ）
-  const implementedTypes: MBTIType[] = ['INTJ', 'ENFP', 'ENTJ', 'INFJ', 'ENFJ', 'INTP'];
+  // 実装済みタイプ（Phase 3目標: 16タイプ全て）
+  const implementedTypes: MBTIType[] = allMBTITypes;
 
   describe('実装済みタイプの検証', () => {
     implementedTypes.forEach((mbtiType) => {
@@ -216,8 +216,8 @@ describe('MBTIプロファイルデータのバリデーション', () => {
 
   describe('データの網羅性チェック', () => {
     it('実装済みタイプ数を確認', () => {
-      // 現在6タイプ実装済み（将来的には16タイプ全て実装予定）
-      expect(implementedTypes.length).toBe(6);
+      // Phase 3目標: 16タイプ全て実装
+      expect(implementedTypes.length).toBe(16);
     });
 
     it('未実装タイプを確認', () => {
@@ -230,8 +230,8 @@ describe('MBTIプロファイルデータのバリデーション', () => {
         console.warn(`未実装のMBTIタイプ: ${unimplementedTypes.join(', ')}`);
       }
 
-      // 将来的には0になるべき
-      expect(unimplementedTypes.length).toBeLessThan(16);
+      // Phase 3目標: すべて実装されているべき
+      expect(unimplementedTypes.length).toBe(0);
     });
   });
 });

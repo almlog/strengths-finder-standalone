@@ -3,6 +3,13 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import StrengthsService from '../services/StrengthsService';
 import { MemberStrengths, StrengthsAnalysisResult, CustomPosition } from '../models/StrengthsTypes';
 
+export interface ImportConflictData {
+  existingMembers: MemberStrengths[];
+  newMembers: MemberStrengths[];
+  duplicateIds: string[];
+  customPositions?: CustomPosition[];
+}
+
 interface StrengthsContextProps {
   members: MemberStrengths[];
   selectedMemberIds: string[];
@@ -20,7 +27,7 @@ interface StrengthsContextProps {
   addCustomPosition: (position: CustomPosition) => void;
   getPositionInfo: (positionId: string) => { name: string; displayName: string; color: string; icon: string } | null;
   exportData: () => string;
-  importData: (jsonData: string) => void;
+  importData: (jsonData: string, onConflict?: (conflictData: ImportConflictData) => 'replace' | 'add' | 'merge' | 'cancel' | Promise<'replace' | 'add' | 'merge' | 'cancel'>) => Promise<void>;
 }
 
 const StrengthsContext = createContext<StrengthsContextProps | undefined>(undefined);
@@ -169,13 +176,79 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
   };
 
   // データのインポート
-  const importData = (jsonData: string): void => {
+  const importData = async (
+    jsonData: string,
+    onConflict?: (conflictData: ImportConflictData) => 'replace' | 'add' | 'merge' | 'cancel' | Promise<'replace' | 'add' | 'merge' | 'cancel'>
+  ): Promise<void> => {
     try {
       setError(null);
       const { members: importedMembers, customPositions: importedPositions } = StrengthsService.importMembers(jsonData);
-      setMembers(importedMembers);
-      if (importedPositions) {
-        setCustomPositions(importedPositions);
+
+      // 重複チェック
+      const existingIds = new Set(members.map(m => m.id));
+      const duplicateIds = importedMembers
+        .filter(m => existingIds.has(m.id))
+        .map(m => m.id);
+
+      // 重複がない、またはonConflictが提供されていない場合は単純置換
+      if (duplicateIds.length === 0 || !onConflict) {
+        setMembers(importedMembers);
+        if (importedPositions) {
+          setCustomPositions(importedPositions);
+        }
+        return;
+      }
+
+      // 重複がある場合はコールバックで戦略を取得
+      const strategy = await onConflict({
+        existingMembers: members,
+        newMembers: importedMembers,
+        duplicateIds,
+        customPositions: importedPositions,
+      });
+
+      // 戦略に応じて処理
+      switch (strategy) {
+        case 'replace':
+          // 全置換
+          setMembers(importedMembers);
+          if (importedPositions) {
+            setCustomPositions(importedPositions);
+          }
+          break;
+
+        case 'add':
+          // 新規のみ追加（重複を除外）
+          const newMembersOnly = importedMembers.filter(m => !duplicateIds.includes(m.id));
+          setMembers([...members, ...newMembersOnly]);
+          if (importedPositions) {
+            // カスタム役職もマージ（重複しないものだけ追加）
+            const existingPositionIds = new Set(customPositions.map(p => p.id));
+            const newPositionsOnly = importedPositions.filter(p => !existingPositionIds.has(p.id));
+            setCustomPositions([...customPositions, ...newPositionsOnly]);
+          }
+          break;
+
+        case 'merge':
+          // マージ（重複は更新、新規は追加）
+          const existingMap = new Map(members.map(m => [m.id, m]));
+          importedMembers.forEach(m => {
+            existingMap.set(m.id, m); // 上書きまたは追加
+          });
+          setMembers(Array.from(existingMap.values()));
+          if (importedPositions) {
+            // カスタム役職もマージ（重複は更新、新規は追加）
+            const positionMap = new Map(customPositions.map(p => [p.id, p]));
+            importedPositions.forEach(p => {
+              positionMap.set(p.id, p);
+            });
+            setCustomPositions(Array.from(positionMap.values()));
+          }
+          break;
+
+        case 'cancel':
+          // キャンセル - 何もしない
+          break;
       }
     } catch (err) {
       if (err instanceof Error) {

@@ -5,13 +5,13 @@
 import {
   canAnalyze,
   determineAnalysisMode,
-  STRENGTH_NAMES,
   TEAM_ORIENTED_STRENGTHS,
   LEADERSHIP_STRENGTHS,
   ANALYTICAL_STRENGTHS,
   EXECUTION_STRENGTHS,
   Member,
 } from '../../models/PersonalityAnalysis';
+import StrengthsService from '../../services/StrengthsService';
 
 describe('PersonalityAnalysis - canAnalyze', () => {
   it('MBTIとSFの両方がある場合: true', () => {
@@ -141,15 +141,17 @@ describe('PersonalityAnalysis - determineAnalysisMode', () => {
 });
 
 describe('PersonalityAnalysis - 定数の妥当性', () => {
-  it('STRENGTH_NAMESが34個定義されている', () => {
-    const keys = Object.keys(STRENGTH_NAMES).map(Number);
-    expect(keys.length).toBe(34);
+  it('StrengthsServiceが34個の資質を提供している', () => {
+    const allStrengths = StrengthsService.getAllStrengths();
+    expect(allStrengths.length).toBe(34);
 
     // 1から34まで連続している
     for (let i = 1; i <= 34; i++) {
-      expect(keys).toContain(i);
-      expect(STRENGTH_NAMES[i]).toBeTruthy();
-      expect(typeof STRENGTH_NAMES[i]).toBe('string');
+      const strength = StrengthsService.getStrengthById(i);
+      expect(strength).toBeDefined();
+      expect(strength!.id).toBe(i);
+      expect(strength!.name).toBeTruthy();
+      expect(typeof strength!.name).toBe('string');
     }
   });
 
