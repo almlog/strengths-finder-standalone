@@ -506,10 +506,16 @@ class PersonalityAnalysisEngine {
   }
 
   /**
-   * サンプルプロファイルを読み込み（開発用）
+   * MBTIプロファイルを読み込み
+   *
+   * @description
+   * 現在6タイプ実装済み（INTJ, ENFP, ENTJ, INFJ, ENFJ, INTP）
+   * 残り10タイプは Phase 3 で実装予定
    */
   private loadSampleProfiles(): void {
+    // ========================================
     // INTJ: 建築家
+    // ========================================
     const intj: MBTIProfile = {
       type: 'INTJ',
       name: '建築家',
@@ -551,9 +557,12 @@ class PersonalityAnalysisEngine {
       },
     };
 
+    // 登録
     this.profiles.set('INTJ', intj);
 
-    // ENFP（運動家）
+    // ========================================
+    // ENFP: 運動家
+    // ========================================
     const enfp: MBTIProfile = {
       type: 'ENFP',
       name: '運動家',
@@ -595,7 +604,9 @@ class PersonalityAnalysisEngine {
       },
     };
 
-    // ENTJ（指揮官）
+    // ========================================
+    // ENTJ: 指揮官
+    // ========================================
     const entj: MBTIProfile = {
       type: 'ENTJ',
       name: '指揮官',
@@ -637,7 +648,9 @@ class PersonalityAnalysisEngine {
       },
     };
 
-    // INFJ（提唱者）
+    // ========================================
+    // INFJ: 提唱者
+    // ========================================
     const infj: MBTIProfile = {
       type: 'INFJ',
       name: '提唱者',
@@ -679,7 +692,9 @@ class PersonalityAnalysisEngine {
       },
     };
 
-    // ENFJ（主人公）
+    // ========================================
+    // ENFJ: 主人公
+    // ========================================
     const enfj: MBTIProfile = {
       type: 'ENFJ',
       name: '主人公',
@@ -721,7 +736,9 @@ class PersonalityAnalysisEngine {
       },
     };
 
-    // INTP（論理学者）
+    // ========================================
+    // INTP: 論理学者
+    // ========================================
     const intp: MBTIProfile = {
       type: 'INTP',
       name: '論理学者',
@@ -763,14 +780,16 @@ class PersonalityAnalysisEngine {
       },
     };
 
+    // プロファイル登録（実装済み: 6タイプ / 全16タイプ）
+    this.profiles.set('INTJ', intj);
     this.profiles.set('ENFP', enfp);
     this.profiles.set('ENTJ', entj);
     this.profiles.set('INFJ', infj);
     this.profiles.set('ENFJ', enfj);
     this.profiles.set('INTP', intp);
 
-    // TODO: 残り10タイプも同様に定義
-    // Phase 3でmbti-profiles.jsonから読み込む予定
+    // TODO: Phase 3 - 残り10タイプの実装
+    // 未実装: ENTP, INFP, ISTJ, ISFJ, ESTJ, ESFJ, ISTP, ISFP, ESTP, ESFP
   }
 }
 
