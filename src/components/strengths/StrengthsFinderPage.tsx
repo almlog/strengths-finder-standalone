@@ -166,7 +166,7 @@ const ImportExportButtons: React.FC = () => {
 };
 
 const StrengthsFinderPage: React.FC = () => {
-  const { error } = useStrengths();
+  const { error, successMessage, clearMessages } = useStrengths();
   const [activeTab, setActiveTab] = useState<AnalysisTab>('individual');
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
@@ -206,8 +206,28 @@ const StrengthsFinderPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded">
+        <div className="mb-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded relative">
           {error}
+          <button
+            onClick={clearMessages}
+            className="absolute top-2 right-2 text-red-700 dark:text-red-200 hover:text-red-900 dark:hover:text-red-100"
+            aria-label="Close error message"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="mb-4 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-200 px-4 py-3 rounded relative">
+          {successMessage}
+          <button
+            onClick={clearMessages}
+            className="absolute top-2 right-2 text-green-700 dark:text-green-200 hover:text-green-900 dark:hover:text-green-100"
+            aria-label="Close success message"
+          >
+            ✕
+          </button>
         </div>
       )}
 
