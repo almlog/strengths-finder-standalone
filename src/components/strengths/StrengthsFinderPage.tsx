@@ -77,6 +77,12 @@ const ImportExportButtons: React.FC = () => {
       try {
         const jsonData = event.target?.result as string;
 
+        // データが正常に読み込まれたか検証
+        if (!jsonData || jsonData.trim().length === 0) {
+          console.error('ファイルが空または読み込みに失敗しました');
+          return;
+        }
+
         // 衝突解決コールバックを提供してインポート
         await importData(jsonData, (conflictData) => {
           return new Promise<ImportStrategy>((resolve) => {
@@ -101,14 +107,24 @@ const ImportExportButtons: React.FC = () => {
         });
       } catch (err) {
         console.error('ファイルの読み込みに失敗しました:', err);
+      } finally {
+        // ファイル読み込み完了後にファイル選択をリセット
+        // （同じファイルを再度選択できるように）
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     };
-    reader.readAsText(file);
 
-    // ファイル選択をリセット（同じファイルを再度選択できるように）
-    if (e.target) {
-      e.target.value = '';
-    }
+    reader.onerror = () => {
+      console.error('ファイルの読み込み中にエラーが発生しました');
+      // エラー時もファイル選択をリセット
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    };
+
+    reader.readAsText(file);
   };
 
   return (
