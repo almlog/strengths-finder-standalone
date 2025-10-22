@@ -17,6 +17,7 @@ interface StrengthsContextProps {
   analysisResult: StrengthsAnalysisResult | null;
   loading: boolean;
   error: string | null;
+  successMessage: string | null;
   customPositions: CustomPosition[];
   addOrUpdateMember: (member: MemberStrengths) => void;
   deleteMember: (id: string) => void;
@@ -28,6 +29,7 @@ interface StrengthsContextProps {
   getPositionInfo: (positionId: string) => { name: string; displayName: string; color: string; icon: string } | null;
   exportData: () => string;
   importData: (jsonData: string, onConflict?: (conflictData: ImportConflictData) => 'replace' | 'add' | 'merge' | 'cancel' | Promise<'replace' | 'add' | 'merge' | 'cancel'>) => Promise<void>;
+  clearMessages: () => void;
 }
 
 const StrengthsContext = createContext<StrengthsContextProps | undefined>(undefined);
@@ -51,6 +53,7 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
   const [analysisResult, setAnalysisResult] = useState<StrengthsAnalysisResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [customPositions, setCustomPositions] = useState<CustomPosition[]>([]);
 
   // 初期データの読み込み
@@ -182,6 +185,7 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
   ): Promise<void> => {
     try {
       setError(null);
+      setSuccessMessage(null);
       const { members: importedMembers, customPositions: importedPositions } = StrengthsService.importMembers(jsonData);
 
       // 重複チェック
@@ -196,6 +200,7 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
         if (importedPositions) {
           setCustomPositions(importedPositions);
         }
+        setSuccessMessage(`${importedMembers.length}件のメンバーデータを正常にインポートしました`);
         return;
       }
 
@@ -215,6 +220,7 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
           if (importedPositions) {
             setCustomPositions(importedPositions);
           }
+          setSuccessMessage(`${importedMembers.length}件のメンバーデータで既存データを置き換えました`);
           break;
 
         case 'add':
@@ -227,6 +233,7 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
             const newPositionsOnly = importedPositions.filter(p => !existingPositionIds.has(p.id));
             setCustomPositions([...customPositions, ...newPositionsOnly]);
           }
+          setSuccessMessage(`${newMembersOnly.length}件の新規メンバーを追加しました（重複${duplicateIds.length}件はスキップ）`);
           break;
 
         case 'merge':
@@ -244,10 +251,13 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
             });
             setCustomPositions(Array.from(positionMap.values()));
           }
+          const newCount = importedMembers.filter(m => !duplicateIds.includes(m.id)).length;
+          setSuccessMessage(`${duplicateIds.length}件を更新、${newCount}件を新規追加しました`);
           break;
 
         case 'cancel':
           // キャンセル - 何もしない
+          setSuccessMessage('インポートをキャンセルしました');
           break;
       }
     } catch (err) {
@@ -260,6 +270,12 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
     }
   };
 
+  // メッセージのクリア
+  const clearMessages = () => {
+    setError(null);
+    setSuccessMessage(null);
+  };
+
   const value = {
     members,
     selectedMemberIds,
@@ -267,6 +283,7 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
     analysisResult,
     loading,
     error,
+    successMessage,
     customPositions,
     addOrUpdateMember,
     deleteMember,
@@ -277,7 +294,8 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
     addCustomPosition,
     getPositionInfo,
     exportData,
-    importData
+    importData,
+    clearMessages
   };
 
   return (
