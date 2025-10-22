@@ -194,8 +194,8 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
         .filter(m => existingIds.has(m.id))
         .map(m => m.id);
 
-      // 重複がない、またはonConflictが提供されていない場合は単純置換
-      if (duplicateIds.length === 0 || !onConflict) {
+      // 既存データがない場合は、何も聞かずにインポート
+      if (members.length === 0) {
         setMembers(importedMembers);
         if (importedPositions) {
           setCustomPositions(importedPositions);
@@ -204,7 +204,13 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
         return;
       }
 
-      // 重複がある場合はコールバックで戦略を取得
+      // 既存データがある場合は、必ずユーザーに確認
+      if (!onConflict) {
+        setError('既存データがあります。インポート方法を選択してください。');
+        return;
+      }
+
+      // コールバックで戦略を取得（重複の有無に関わらず）
       const strategy = await onConflict({
         existingMembers: members,
         newMembers: importedMembers,
