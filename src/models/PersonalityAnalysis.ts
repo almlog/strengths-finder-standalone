@@ -83,7 +83,8 @@ export interface AnalysisResult {
   stressors: string[];            // ストレス要因
 
   // MBTI相性（MBTIありの場合のみ）
-  compatibleTypes?: MBTIType[];
+  naturalPartners?: MBTIType[];      // 自然な相性
+  complementaryPartners?: MBTIType[];  // 補完的な相性
 
   // TOP資質（資質ありの場合のみ）
   topStrengthNames?: string[];

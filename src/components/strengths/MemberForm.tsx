@@ -99,7 +99,7 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
     setSelectedStrengths(prev => {
       // 既に選択されているか確認
       const existingIndex = prev.findIndex(rs => rs.id === strengthId);
-      
+
       if (existingIndex >= 0) {
         // 選択されている場合は削除
         return prev.filter(rs => rs.id !== strengthId);
@@ -108,8 +108,13 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
         if (prev.length >= 5) {
           return prev;
         }
-        // 新しい強みを追加（スコアは選択順に基づいて設定、1が最強）
-        return [...prev, { id: strengthId, score: prev.length + 1 }];
+        // 新しい強みを追加（使用されていない最小のスコアを割り当て）
+        const usedScores = prev.map(s => s.score);
+        let nextScore = 1;
+        while (usedScores.includes(nextScore) && nextScore <= 5) {
+          nextScore++;
+        }
+        return [...prev, { id: strengthId, score: nextScore }];
       }
     });
   };

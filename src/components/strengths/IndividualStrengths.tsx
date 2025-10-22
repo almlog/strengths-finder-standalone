@@ -18,16 +18,40 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
 
   const member = members.find(m => m.id === memberId);
 
+  // personalityIdからMBTITypeへの変換（共通関数）
+  const getMBTIType = React.useCallback((personalityId?: number): MBTIType | undefined => {
+    if (!personalityId) return undefined;
+    const personality = PERSONALITY_TYPES_DATA.find(p => p.id === personalityId);
+    return personality?.code as MBTIType | undefined;
+  }, []);
+
+  // 全メンバーをAnalysisMember形式に変換
+  const allAnalysisMembers = React.useMemo(() => {
+    return members
+      .map(m => {
+        const mbtiType = getMBTIType(m.personalityId);
+        // MBTIまたは資質のいずれかが存在する場合のみ
+        if (!mbtiType && (!m.strengths || m.strengths.length === 0)) {
+          return null;
+        }
+        const analysisMember: AnalysisMember = {
+          id: m.id,
+          name: m.name,
+          department: m.department,
+          mbtiType: mbtiType,
+          strengths: m.strengths?.map(s => ({
+            id: s.id,
+            score: s.score
+          }))
+        };
+        return analysisMember;
+      })
+      .filter((m): m is AnalysisMember => m !== null);
+  }, [members, getMBTIType]);
+
   // ProfileAnalysisCard用のMemberオブジェクトを作成（Hooksルールのため早期returnの前に配置）
   const analysisMember: AnalysisMember | null = React.useMemo(() => {
     if (!member) return null;
-
-    // personalityIdからMBTITypeへの変換
-    const getMBTIType = (personalityId?: number): MBTIType | undefined => {
-      if (!personalityId) return undefined;
-      const personality = PERSONALITY_TYPES_DATA.find(p => p.id === personalityId);
-      return personality?.code as MBTIType | undefined;
-    };
 
     const mbtiType = getMBTIType(member.personalityId);
 
@@ -36,17 +60,18 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
       return null;
     }
 
-    return {
+    const analysis: AnalysisMember = {
       id: member.id,
       name: member.name,
       department: member.department,
       mbtiType: mbtiType,
-      strengths: member.strengths.map(s => ({
+      strengths: member.strengths?.map(s => ({
         id: s.id,
         score: s.score
       }))
     };
-  }, [member]);
+    return analysis;
+  }, [member, getMBTIType]);
 
   if (!memberId) {
     return (
@@ -189,7 +214,7 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
                   border: item.score > 0 ? '2px solid white' : '1px solid #eee',
                   boxShadow: item.score > 0 ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
                 }}
-                title={`${item.name} (${item.groupName}): ${item.score > 0 ? item.score : '未選択'}`}
+                title={item.score > 0 ? `${item.name} (${item.groupName}): ${item.score}` : `${item.name} (${item.groupName})`}
               >
                 {item.score > 0 && (
                   <div className="absolute top-0 right-0 bg-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
@@ -229,7 +254,7 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
                   border: item.score > 0 ? '2px solid white' : '1px solid #eee',
                   boxShadow: item.score > 0 ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
                 }}
-                title={`${item.name} (${item.groupName}): ${item.score > 0 ? item.score : '未選択'}`}
+                title={item.score > 0 ? `${item.name} (${item.groupName}): ${item.score}` : `${item.name} (${item.groupName})`}
               >
                 {item.score > 0 && (
                   <div className="absolute top-0 right-0 bg-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
@@ -269,7 +294,7 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
                   border: item.score > 0 ? '2px solid white' : '1px solid #eee',
                   boxShadow: item.score > 0 ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
                 }}
-                title={`${item.name} (${item.groupName}): ${item.score > 0 ? item.score : '未選択'}`}
+                title={item.score > 0 ? `${item.name} (${item.groupName}): ${item.score}` : `${item.name} (${item.groupName})`}
               >
                 {item.score > 0 && (
                   <div className="absolute top-0 right-0 bg-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
@@ -309,7 +334,7 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
                   border: item.score > 0 ? '2px solid white' : '1px solid #eee',
                   boxShadow: item.score > 0 ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
                 }}
-                title={`${item.name} (${item.groupName}): ${item.score > 0 ? item.score : '未選択'}`}
+                title={item.score > 0 ? `${item.name} (${item.groupName}): ${item.score}` : `${item.name} (${item.groupName})`}
               >
                 {item.score > 0 && (
                   <div className="absolute top-0 right-0 bg-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
@@ -335,7 +360,7 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
 
         {/* ProfileAnalysisCard - Show when MBTI or strengths data exists */}
         {analysisMember && (
-          <ProfileAnalysisCard member={analysisMember} />
+          <ProfileAnalysisCard member={analysisMember} allMembers={allAnalysisMembers} />
         )}
       </div>
 
