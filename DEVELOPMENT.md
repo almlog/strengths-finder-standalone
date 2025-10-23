@@ -46,18 +46,24 @@ strengths-finder-standalone/
 │   │   │   ├── StrengthsFinderPage.tsx    # メインページ
 │   │   │   ├── MemberForm.tsx             # メンバー追加/編集フォーム
 │   │   │   ├── MembersList.tsx            # メンバー一覧
-│   │   │   ├── IndividualStrengths.tsx    # 個人分析
+│   │   │   ├── IndividualStrengths.tsx    # 個人分析（プロファイル分析統合）
 │   │   │   ├── DepartmentAnalysis.tsx     # 部署分析
 │   │   │   ├── SelectedAnalysis.tsx       # 選択メンバー分析
 │   │   │   └── StrengthsAnalysis.tsx      # 資質分析
+│   │   ├── analysis/          # 🆕 性格分析機能
+│   │   │   └── ProfileAnalysisCard.tsx    # プロファイル分析カード
 │   │   └── ui/
 │   │       └── Tabs.tsx                   # タブコンポーネント
 │   ├── contexts/
-│   │   └── StrengthsContext.tsx           # プロファイル分析用コンテキスト
+│   │   ├── StrengthsContext.tsx           # プロファイル分析用コンテキスト
+│   │   └── ThemeContext.tsx               # テーマ管理コンテキスト
 │   ├── models/
-│   │   └── StrengthsTypes.ts              # 型定義
+│   │   ├── StrengthsTypes.ts              # 型定義
+│   │   └── PersonalityAnalysis.ts         # 🆕 性格分析型定義
 │   ├── services/
-│   │   └── StrengthsService.ts            # ビジネスロジック
+│   │   ├── StrengthsService.ts            # ビジネスロジック
+│   │   ├── Personality16Service.ts        # 16Personalities サービス
+│   │   └── PersonalityAnalysisEngine.ts   # 🆕 性格分析エンジン
 │   ├── App.tsx                            # メインアプリケーション
 │   ├── index.tsx                          # エントリーポイント
 │   └── index.css                          # グローバルスタイル
@@ -145,9 +151,15 @@ interface Member {
 
 ### 2. 分析機能
 - 個人の強み分析（レーダーチャート）
+- **🆕 プロファイル分析（Phase1 & Phase2完成）**:
+  - MBTI×資質の統合分析（相性スコア、チーム適合度、リーダーシップ潜在力）
+  - 動的な役割推論（16パターン）
+  - スコアベースの4文構成サマリー生成
+  - 詳細な理論的根拠は [ANALYSIS_METHODOLOGY.md](./ANALYSIS_METHODOLOGY.md) 参照
 - 部署別強み集計
 - 選択メンバーの強み傾向分析
 - 資質別メンバー検索
+- **🆕 インポート競合解決**: Replace/Add/Merge戦略選択
 
 ### 3. 可視化
 - Recharts ライブラリを使用
@@ -178,6 +190,150 @@ interface Member {
    ```typescript
    // src/contexts/StrengthsContext.tsx に状態管理を追加
    ```
+
+## Phase2実装詳細ガイド
+
+### 動的役割推論（Primary Role Inference）
+
+**実装ファイル**: `src/services/PersonalityAnalysisEngine.ts`
+
+**基本設計**:
+```typescript
+private static inferRoleFromMBTIAndStrengths(
+  mbtiType: string,
+  strengths: RankedStrength[]
+): string {
+  // MBTIタイプ解析（E/I, S/N, T/F, J/P）
+  // TOP資質カテゴリ判定（ANALYTICAL, STRATEGIC, etc.）
+  // 16パターンのマトリクスから役割を推論
+}
+```
+
+**役割マトリクス例**:
+| MBTIタイプ | TOP資質カテゴリ | 推論される役割 |
+|-----------|--------------|-------------|
+| INTJ | ANALYTICAL | 戦略的思考のエキスパート |
+| ENTJ | INFLUENCING | 変革を牽引するリーダー |
+| ENFP | RELATIONSHIP | チームを繋ぐコーディネーター |
+
+### スコアベースサマリー生成
+
+**実装ファイル**: `src/services/PersonalityAnalysisEngine.ts`
+
+**4文構成の生成ロジック**:
+```typescript
+private static buildEnhancedProfileSummary(
+  analysis: PersonalityAnalysis
+): string[] {
+  // 第1文: 相性タイプ（統合型/バランス型/多面型）
+  // 第2文: 働き方スタイル（チーム協調型/個人作業型）
+  // 第3文: 役割期待（リーダー型/専門家型）
+  // 第4文: primaryRoleに基づく貢献内容
+}
+```
+
+**スコア閾値定数**:
+```typescript
+const SYNERGY_THRESHOLDS = {
+  HIGH: 85,  // 統合型
+  MID: 55,   // バランス型
+  // 54以下: 多面型
+};
+
+const TEAM_FIT_THRESHOLDS = {
+  HIGH: 70,  // チーム協調型
+  MID: 50,   // バランス型
+  // 49以下: 個人作業型
+};
+
+const LEADERSHIP_THRESHOLDS = {
+  HIGH: 70,  // リーダー型
+  MID: 50,   // バランス型
+  // 49以下: 専門家型
+};
+```
+
+### インポート競合解決機能
+
+**実装ファイル**:
+- `src/components/strengths/ImportConflictDialog.tsx` (新規)
+- `src/contexts/StrengthsContext.tsx` (更新)
+
+**基本フロー**:
+```typescript
+// 1. インポート時に重複検出
+const duplicateIds = importedMembers
+  .filter(m => existingIds.has(m.id))
+  .map(m => m.id);
+
+// 2. ダイアログを表示してユーザーの選択を待機
+const strategy = await onConflict({
+  existingMembers, newMembers, duplicateIds
+});
+
+// 3. 選択された戦略で処理
+switch (strategy) {
+  case 'replace': // 全置換
+  case 'add':     // 新規のみ追加
+  case 'merge':   // マージ&更新
+}
+```
+
+**3つの戦略**:
+1. **Replace**: `setMembers(importedMembers)`
+2. **Add**: `setMembers([...members, ...newMembersOnly])`
+3. **Merge**: `Map`を使って既存と新規をマージ
+
+### テスト実装ガイド
+
+**テストファイル**: `src/__tests__/services/PersonalityAnalysisEngine.EnhancedSummary.test.ts`
+
+**テストケース例**:
+```typescript
+describe('TC-010: 統合型のプロファイルサマリー', () => {
+  const member: Member = {
+    mbtiType: 'INTJ',
+    strengths: [
+      { id: 34, score: 1 },  // 戦略性 (HIGH synergy)
+      { id: 29, score: 2 },  // 学習欲 (HIGH synergy)
+      // ...
+    ],
+  };
+
+  it('第1文に「高い相乗効果」が含まれる', () => {
+    const result = engine.analyze(member);
+    expect(result!.profileSummary[0]).toContain('相乗効果');
+  });
+
+  it('synergyScoreが85以上である', () => {
+    const result = engine.analyze(member);
+    expect(result!.synergyScore).toBeGreaterThanOrEqual(85);
+  });
+});
+```
+
+### バグ修正事例：資質スコア割り当て
+
+**問題**: メンバー編集時に資質を付け替えると、すべてのスコアが5になる
+
+**原因コード** (`MemberForm.tsx:112`):
+```typescript
+// ❌ 間違ったロジック
+return [...prev, { id: strengthId, score: prev.length + 1 }];
+// 編集時に prev.length = 4 なので、常に score = 5
+```
+
+**修正コード**:
+```typescript
+// ✅ 正しいロジック
+const usedScores = prev.map(s => s.score);
+let nextScore = 1;
+while (usedScores.includes(nextScore) && nextScore <= 5) {
+  nextScore++;
+}
+return [...prev, { id: strengthId, score: nextScore }];
+// 1-5の範囲で未使用の最小スコアを探す
+```
 
 ## トラブルシューティング
 
