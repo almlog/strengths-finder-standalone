@@ -283,6 +283,7 @@ class PersonalityAnalysisEngine {
 
   /**
    * 資質のみモード
+   * MBTIデータがないため、根拠のある分析のみ提供
    */
   private analyzeStrengthsOnly(member: Member): AnalysisResult {
     const teamFitScore = this.calculateTeamFitFromStrengths(member.strengths!);
@@ -297,24 +298,20 @@ class PersonalityAnalysisEngine {
       });
 
     const primaryRole = this.inferRoleFromStrengths(member.strengths!);
-    const workStyle = this.inferWorkStyleFromStrengths(member.strengths!);
 
     return {
       analysisMode: 'strengths-only',
       primaryRole,
-      synergyScore: 0,
+      synergyScore: 0, // MBTIがないため計算不可
       teamFitScore,
       leadershipPotential,
-      profileSummary: this.buildStrengthsOnlyProfileSummary(topStrengthNames),
-      strengths: topStrengthNames,
-      workStyle,
-      communicationStyle: '資質を活かしたコミュニケーション',
-      idealEnvironment: '強みを発揮できる環境',
-      motivators: ['自分の資質を活かせる仕事', '成長と学習の機会'],
-      stressors: ['資質が活かせない環境', '強みを制限される状況'],
+      profileSummary: this.buildStrengthsOnlyProfileSummary(topStrengthNames, teamFitScore, leadershipPotential),
       topStrengthNames,
       analysisDate: new Date().toISOString(),
-      version: 'v1.0.0',
+      version: 'v1.1.0',
+      // 以下のプロパティはMBTI情報がないため省略（undefinedで返す）
+      // strengths, workStyle, communicationStyle, idealEnvironment,
+      // motivators, stressors, naturalPartners, complementaryPartners
     };
   }
 
@@ -616,13 +613,39 @@ class PersonalityAnalysisEngine {
 
   /**
    * 資質のみモードのプロファイル統合メッセージ
+   * スコアに基づく動的なメッセージ生成
    */
-  private buildStrengthsOnlyProfileSummary(topStrengths: string[]): string[] {
-    return [
-      `「${topStrengths[0]}」「${topStrengths[1]}」「${topStrengths[2]}」を中心とした資質を持つプロフェッショナルです。`,
-      `これらの強みを活かして、チームに貢献できます。`,
-      `※MBTIタイプが登録されると、より詳細な分析が可能です。`,
-    ];
+  private buildStrengthsOnlyProfileSummary(
+    topStrengths: string[],
+    teamFitScore: number,
+    leadershipPotential: number
+  ): string[] {
+    const messages: string[] = [];
+
+    // 第1文: TOP3資質の紹介
+    messages.push(
+      `「${topStrengths[0]}」「${topStrengths[1]}」「${topStrengths[2]}」を中心とした資質を持つプロフェッショナルです。`
+    );
+
+    // 第2文: チームスタイル（teamFitScoreベース）
+    if (teamFitScore >= 70) {
+      messages.push('チームワークを重視し、他者と協力して成果を上げることが得意です。');
+    } else if (teamFitScore >= 50) {
+      messages.push('チームワークと個人作業の両方に対応できる柔軟性を持っています。');
+    } else {
+      messages.push('独立して業務を進めることが得意で、集中力を発揮します。');
+    }
+
+    // 第3文: 役割期待（leadershipPotentialベース）
+    if (leadershipPotential >= 70) {
+      messages.push('リーダーシップを発揮し、チームを牽引する役割が期待できます。');
+    } else if (leadershipPotential >= 50) {
+      messages.push('状況に応じてリーダーシップとサポートを使い分けることができます。');
+    } else {
+      messages.push('専門性を活かし、深い知識やスキルで貢献することが得意です。');
+    }
+
+    return messages;
   }
 
   /**
@@ -821,27 +844,6 @@ class PersonalityAnalysisEngine {
     };
 
     return roleDescriptions[role] || '';
-  }
-
-  /**
-   * 資質から仕事のスタイルを推定
-   */
-  private inferWorkStyleFromStrengths(strengths: Member['strengths']): string {
-    if (!strengths || strengths.length === 0) return '柔軟なスタイル';
-
-    const topIds = strengths.slice(0, 3).map(s => s.id);
-
-    if (topIds.some(id => ANALYTICAL_STRENGTHS.includes(id))) {
-      return '論理的で計画的なアプローチを好む';
-    }
-    if (topIds.some(id => EXECUTION_STRENGTHS.includes(id))) {
-      return '目標達成に向けて着実に実行する';
-    }
-    if (topIds.some(id => TEAM_ORIENTED_STRENGTHS.includes(id))) {
-      return 'チームワークを重視した協働スタイル';
-    }
-
-    return 'バランスの取れた柔軟なスタイル';
   }
 
   // ===========================================================================
