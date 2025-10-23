@@ -9,6 +9,7 @@ import DepartmentAnalysis from './DepartmentAnalysis';
 import SelectedAnalysis from './SelectedAnalysis';
 import IndividualStrengths from './IndividualStrengths';
 import StrengthsAnalysis from './StrengthsAnalysis';
+import ImportConflictDialog, { ImportConflictInfo, ImportStrategy } from './ImportConflictDialog';
 import { Tabs, Tab } from '../ui/Tabs';
 
 type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths';
@@ -21,6 +22,9 @@ const SCROLL_DELAY_MS = 100;
 const ImportExportButtons: React.FC = () => {
   const { exportData, importData } = useStrengths();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState<ImportConflictInfo | null>(null);
+  const [resolveConflict, setResolveConflict] = useState<((strategy: ImportStrategy) => void) | null>(null);
 
   // データのエクスポート処理
   const handleExport = () => {
@@ -64,73 +68,121 @@ const ImportExportButtons: React.FC = () => {
   };
 
   // ファイル選択後の処理
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const jsonData = event.target?.result as string;
-        importData(jsonData);
+
+        // データが正常に読み込まれたか検証
+        if (!jsonData || jsonData.trim().length === 0) {
+          console.error('ファイルが空または読み込みに失敗しました');
+          return;
+        }
+
+        // 衝突解決コールバックを提供してインポート
+        await importData(jsonData, (conflictData) => {
+          return new Promise<ImportStrategy>((resolve) => {
+            // ダイアログに表示する情報を設定
+            setConflictInfo({
+              existingCount: conflictData.existingMembers.length,
+              newCount: conflictData.newMembers.length,
+              duplicateIds: conflictData.duplicateIds,
+            });
+
+            // ユーザーの選択を解決するコールバックを保存
+            setResolveConflict(() => (strategy: ImportStrategy) => {
+              setShowConflictDialog(false);
+              setConflictInfo(null);
+              setResolveConflict(null);
+              resolve(strategy);
+            });
+
+            // ダイアログを表示
+            setShowConflictDialog(true);
+          });
+        });
       } catch (err) {
         console.error('ファイルの読み込みに失敗しました:', err);
+      } finally {
+        // ファイル読み込み完了後にファイル選択をリセット
+        // （同じファイルを再度選択できるように）
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     };
+
+    reader.onerror = () => {
+      console.error('ファイルの読み込み中にエラーが発生しました');
+      // エラー時もファイル選択をリセット
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    };
+
     reader.readAsText(file);
-    
-    // ファイル選択をリセット（同じファイルを再度選択できるように）
-    if (e.target) {
-      e.target.value = '';
-    }
   };
 
   return (
-    <div className="flex space-x-2">
-      {/* サンプルダウンロードボタン */}
-      <button
-        className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800 text-white px-3 py-2 rounded flex items-center"
-        onClick={handleSampleDownload}
-        title="サンプルデータをダウンロード"
-      >
-        <Download className="w-4 h-4 mr-1" />
-        <span>サンプル</span>
-      </button>
+    <>
+      <div className="flex space-x-2">
+        {/* サンプルダウンロードボタン */}
+        <button
+          className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800 text-white px-3 py-2 rounded flex items-center"
+          onClick={handleSampleDownload}
+          title="サンプルデータをダウンロード"
+        >
+          <Download className="w-4 h-4 mr-1" />
+          <span>サンプル</span>
+        </button>
 
-      {/* エクスポートボタン */}
-      <button
-        className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white px-3 py-2 rounded flex items-center"
-        onClick={handleExport}
-        title="データをJSONファイルとしてエクスポート"
-      >
-        <Download className="w-4 h-4 mr-1" />
-        <span>エクスポート</span>
-      </button>
+        {/* エクスポートボタン */}
+        <button
+          className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white px-3 py-2 rounded flex items-center"
+          onClick={handleExport}
+          title="データをJSONファイルとしてエクスポート"
+        >
+          <Download className="w-4 h-4 mr-1" />
+          <span>エクスポート</span>
+        </button>
 
-      {/* インポートボタン */}
-      <button
-        className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-800 text-white px-3 py-2 rounded flex items-center"
-        onClick={handleImportClick}
-        title="JSONファイルからデータをインポート"
-      >
-        <Upload className="w-4 h-4 mr-1" />
-        <span>インポート</span>
-      </button>
+        {/* インポートボタン */}
+        <button
+          className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-800 text-white px-3 py-2 rounded flex items-center"
+          onClick={handleImportClick}
+          title="JSONファイルからデータをインポート"
+        >
+          <Upload className="w-4 h-4 mr-1" />
+          <span>インポート</span>
+        </button>
 
-      {/* 非表示のファイル入力 */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept=".json"
-        className="hidden"
-      />
-    </div>
+        {/* 非表示のファイル入力 */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".json"
+          className="hidden"
+        />
+      </div>
+
+      {/* インポート競合ダイアログ */}
+      {showConflictDialog && conflictInfo && resolveConflict && (
+        <ImportConflictDialog
+          conflictInfo={conflictInfo}
+          onSelect={resolveConflict}
+        />
+      )}
+    </>
   );
 };
 
 const StrengthsFinderPage: React.FC = () => {
-  const { error } = useStrengths();
+  const { error, successMessage, clearMessages } = useStrengths();
   const [activeTab, setActiveTab] = useState<AnalysisTab>('individual');
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
@@ -170,8 +222,28 @@ const StrengthsFinderPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded">
+        <div className="mb-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded relative">
           {error}
+          <button
+            onClick={clearMessages}
+            className="absolute top-2 right-2 text-red-700 dark:text-red-200 hover:text-red-900 dark:hover:text-red-100"
+            aria-label="Close error message"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="mb-4 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-200 px-4 py-3 rounded relative">
+          {successMessage}
+          <button
+            onClick={clearMessages}
+            className="absolute top-2 right-2 text-green-700 dark:text-green-200 hover:text-green-900 dark:hover:text-green-100"
+            aria-label="Close success message"
+          >
+            ✕
+          </button>
         </div>
       )}
 
