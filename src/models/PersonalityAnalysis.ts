@@ -74,13 +74,14 @@ export interface AnalysisResult {
   // 統合メッセージ
   profileSummary: string[];       // プロファイルの統合説明
 
-  // 詳細情報
-  strengths: string[];            // 強み
-  workStyle: string;              // 仕事のスタイル
-  communicationStyle: string;     // コミュニケーションスタイル
-  idealEnvironment: string;       // 理想的な環境
-  motivators: string[];           // モチベーション要因
-  stressors: string[];            // ストレス要因
+
+  // 詳細情報（MBTIがある場合のみ必須、strengths-onlyではoptional）
+  strengths?: string[];            // 強み
+  workStyle?: string;              // 仕事のスタイル
+  communicationStyle?: string;     // コミュニケーションスタイル
+  idealEnvironment?: string;       // 理想的な環境
+  motivators?: string[];           // モチベーション要因
+  stressors?: string[];            // ストレス要因
 
   // MBTI相性（MBTIありの場合のみ）
   naturalPartners?: MBTIType[];      // 自然な相性
