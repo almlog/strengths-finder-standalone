@@ -6,6 +6,67 @@
 
 ## [Unreleased]
 
+### v1.1: Belbin理論適用 + インポートバグ修正 (2025-01-23)
+
+#### 🎯 主要な改善
+
+**チーム適合度の理論的根拠を強化**
+- Belbin 9ロール理論（1981）を適用し、外向型優遇バイアスを廃止
+- 全16 MBTIタイプにBelbinロールを割り当て（内向型・外向型を等しく評価）
+  - 内向型が得意なロール例: Plant（創造者）、Monitor Evaluator（監視評価者）、Specialist（専門家）
+  - 各ロールに8-18点の適性スコアを設定
+- ドキュメント（ANALYSIS_METHODOLOGY.md）を実装と完全一致させる
+
+**インポート機能の深刻なバグ修正**
+- 問題1: マージ後にメンバー削除すると、マージ前の古いデータに戻る
+- 問題2: マージ後にエクスポートすると、マージされたメンバーが含まれない
+- 根本原因: StrengthsServiceがLocalStorageから毎回読み込み直し、Context stateを無視していた
+- 修正内容:
+  - `addOrUpdateMember`, `deleteMember`, `exportData` をContext内のstateから直接操作するように変更
+  - useEffectでmembers/customPositionsの変更を監視し、LocalStorageに自動保存
+  - これにより、マージ→削除→エクスポートの全フローが正しく動作
+
+**役割説明機能の追加**
+- 統合分析結果（例：「ビジョン構築者」）の詳細説明を表示
+- MBTIグループ × 資質カテゴリの組み合わせに基づく説明文
+- 例: 「MBTI(NF型)×分析資質の組み合わせ。理想と洞察力で未来像を描き、人々に方向性を示します。」
+
+#### 🔧 技術的な変更
+
+**PersonalityAnalysisEngine.ts**
+- `BELBIN_ROLES` 定数を追加（全16タイプの定義）
+- `getBelbinRoleScore()` メソッドを追加
+- `calculateTeamFit()` を Belbin スコアベースに書き換え
+- `getRoleDescription()` staticメソッドを追加（16種の役割説明）
+- クラス自体もexportして、staticメソッドを外部から呼び出し可能に
+
+**StrengthsContext.tsx**
+- `isInitialized` フラグを追加（無限ループ防止）
+- useEffectで `members` の変更をLocalStorageに自動保存
+- useEffectで `customPositions` の変更をLocalStorageに自動保存
+- `addOrUpdateMember()`: StrengthsServiceではなく、Context内のstateを直接更新
+- `deleteMember()`: StrengthsServiceではなく、Context内のstateを直接フィルタ
+- `exportData()`: StrengthsServiceではなく、Context内のstateを直接エクスポート
+- デバッグログ追加（マージ処理、LocalStorage保存のタイミング）
+
+**ProfileAnalysisCard.tsx**
+- `PersonalityAnalysisEngineClass` をimportして、`getRoleDescription()` を呼び出し
+- 統合分析結果の下に役割説明を表示
+
+**ANALYSIS_METHODOLOGY.md**
+- Section 2.1: 相性スコア計算式を実装ベース（重み付き加算）に更新
+- Section 3: チーム適合度を Belbin 9ロール理論ベースに全面書き換え
+- Section 4.1: リーダーシップMBTIスコアを実装値に修正（E+15, T+12, J+18）
+- バージョン履歴を追加（v1.1）
+
+#### 🐛 バグ修正
+
+**マージインポート後の動作不良を完全修正**
+- 修正前: マージ → 削除 → エクスポート でマージ分が消える
+- 修正後: マージ → 削除 → エクスポート で正しくマージされたデータが残る
+
+---
+
 ### Phase2: 動的分析強化 + インポート競合解決機能 (2025-01-23)
 
 #### 🎯 追加機能

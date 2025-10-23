@@ -10,7 +10,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Member } from '../../models/PersonalityAnalysis';
-import PersonalityAnalysisEngine from '../../services/PersonalityAnalysisEngine';
+import PersonalityAnalysisEngine, { PersonalityAnalysisEngine as PersonalityAnalysisEngineClass } from '../../services/PersonalityAnalysisEngine';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 /**
@@ -218,9 +218,14 @@ const ProfileAnalysisCard: React.FC<ProfileAnalysisCardProps> = ({ member, allMe
         <p className={`text-xs font-medium mb-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
           統合分析結果
         </p>
-        <p className={`text-lg font-semibold ${isDark ? 'text-white dark:text-white' : 'text-gray-900'}`}>
+        <p className={`text-lg font-semibold mb-2 ${isDark ? 'text-white dark:text-white' : 'text-gray-900'}`}>
           {primaryRole}
         </p>
+        {PersonalityAnalysisEngineClass.getRoleDescription(primaryRole) && (
+          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            {PersonalityAnalysisEngineClass.getRoleDescription(primaryRole)}
+          </p>
+        )}
       </div>
 
       {/* Profile Summary */}
