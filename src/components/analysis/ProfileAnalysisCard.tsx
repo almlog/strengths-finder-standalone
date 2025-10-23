@@ -247,24 +247,35 @@ const ProfileAnalysisCard: React.FC<ProfileAnalysisCardProps> = ({ member, allMe
         </div>
       )}
 
-      {/* 詳細情報の折りたたみボタン */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full flex items-center justify-center gap-2 py-3 mt-6 border-t ${
-          isDark ? 'border-gray-700' : 'border-gray-200'
-        } ${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} transition-colors`}
-      >
-        <span className="text-sm font-medium">
-          {isExpanded ? '詳細情報を閉じる' : '詳細情報を見る'}
-        </span>
-        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
+      {/* 16Personalities追加を促すメッセージ（SF-onlyモード） */}
+      {analysisMode === 'strengths-only' && (
+        <div className={`mt-6 pt-6 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+          <p className={`text-sm text-center ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            💡 16Personalities診断結果を追加すると、より詳細な性格分析が表示されます
+          </p>
+        </div>
+      )}
 
-      {/* 詳細情報セクション */}
-      {isExpanded && (
+      {/* 詳細情報の折りたたみボタン（MBTI情報がある場合のみ） */}
+      {analysisMode !== 'strengths-only' && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`w-full flex items-center justify-center gap-2 py-3 mt-6 border-t ${
+            isDark ? 'border-gray-700' : 'border-gray-200'
+          } ${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'} transition-colors`}
+        >
+          <span className="text-sm font-medium">
+            {isExpanded ? '詳細情報を閉じる' : '詳細情報を見る'}
+          </span>
+          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+      )}
+
+      {/* 詳細情報セクション（MBTI情報がある場合のみ） */}
+      {analysisMode !== 'strengths-only' && isExpanded && (
         <div className="space-y-5 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
           {/* MBTI特性の強み */}
-          {analysisMode !== 'strengths-only' && strengths && strengths.length > 0 && (
+          {strengths && strengths.length > 0 && (
             <div>
               <h4 className={`text-sm font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 MBTI特性の強み
@@ -325,7 +336,7 @@ const ProfileAnalysisCard: React.FC<ProfileAnalysisCardProps> = ({ member, allMe
           )}
 
           {/* 相性の良いMBTIタイプ */}
-          {analysisMode !== 'strengths-only' && (naturalPartners || complementaryPartners) && (
+          {(naturalPartners || complementaryPartners) && (
             <div>
               <h4 className={`text-sm font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 相性の良いMBTIタイプ
