@@ -6,6 +6,55 @@
 
 ## [Unreleased]
 
+### v1.2: SF-onlyモード分析改善 (2025-01-23)
+
+#### 🎯 主要な改善
+
+**SF-onlyユーザーへの分析品質向上**
+- 問題: SF-onlyユーザー（MBTIデータなし）に対して固定文字列を返していた
+  - 例: `strengths: ['資質を活かした強み']`（データに基づかない無意味な文字列）
+  - 例: `workStyle: '資質を活かした働き方'`（根拠のない固定文）
+- 修正内容:
+  - 固定文字列を完全に廃止し、**スコアベースの動的メッセージ生成**に変更
+  - `buildStrengthsOnlyProfileSummary()`メソッドを新規実装
+    - `teamFitScore`に基づくチームスタイル判定（70+: チームワーク重視 / 50-69: 柔軟 / -49: 独立型）
+    - `leadershipPotential`に基づく役割期待（70+: リーダー型 / 50-69: バランス型 / -69: 専門家型）
+    - TOP3資質を活用した自然な説明文を生成
+  - UI表示も簡素化（プロファイルサマリーのみ、詳細情報の折りたたみなし）
+  - 16Personalities追加を促すメッセージを表示
+
+#### 🔧 技術的な変更
+
+**PersonalityAnalysisEngine.ts**
+- `analyzeStrengthsOnly()`メソッドから固定文字列を削除
+- `buildStrengthsOnlyProfileSummary(topStrengths, teamFitScore, leadershipPotential)`メソッドを実装
+  - 3文構成のプロファイルサマリー生成
+  - 第1文: TOP3資質の紹介
+  - 第2文: チームスタイル（teamFitScoreベース）
+  - 第3文: 役割期待（leadershipPotentialベース）
+- 未使用の`inferWorkStyleFromStrengths()`メソッドを削除
+
+**PersonalityAnalysis.ts（型定義）**
+- `AnalysisResult`インターフェースのプロパティを適切にオプショナル化
+  - `strengths?`, `workStyle?`, `communicationStyle?`, `idealEnvironment?`
+  - `motivators?`, `stressors?`
+  - SF-onlyモード時は`undefined`で返すことを型定義で明示
+
+**ProfileAnalysisCard.tsx**
+- SF-onlyモード時は簡潔な表示に変更
+  - プロファイルサマリーのみ表示
+  - 詳細情報の折りたたみボタンを非表示
+  - 「💡 16Personalities診断結果を追加すると、より詳細な性格分析が表示されます」メッセージを追加
+
+#### 🎉 改善効果
+
+- **データに基づいた根拠のある分析結果**をSF-onlyユーザーにも提供
+- 固定文字列による誤解を防止
+- 型安全性の向上
+- ユーザー体験の大幅な改善
+
+---
+
 ### v1.1: Belbin理論適用 + インポートバグ修正 (2025-01-23)
 
 #### 🎯 主要な改善
