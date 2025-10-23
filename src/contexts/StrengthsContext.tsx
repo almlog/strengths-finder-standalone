@@ -57,23 +57,60 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
   const [customPositions, setCustomPositions] = useState<CustomPosition[]>([]);
 
   // 初期データの読み込み
+  const [isInitialized, setIsInitialized] = useState(false);
   useEffect(() => {
     try {
       const loadedMembers = StrengthsService.getMembers();
       setMembers(loadedMembers);
-      
+
       const loadedCustomPositions = StrengthsService.getCustomPositions();
       setCustomPositions(loadedCustomPositions);
+      setIsInitialized(true);
     } catch (err) {
       setError('データの読み込みに失敗しました');
       console.error(err);
     }
   }, []);
 
+  // メンバーデータの変更をLocalStorageに自動保存
+  useEffect(() => {
+    // 初期化前は保存しない（初期読み込み時の無限ループ防止）
+    if (!isInitialized) return;
+
+    try {
+      localStorage.setItem('strengths-members', JSON.stringify(members));
+    } catch (err) {
+      console.error('LocalStorageへの保存に失敗しました:', err);
+    }
+  }, [members, isInitialized]);
+
+  // カスタム役職の変更をLocalStorageに自動保存
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    try {
+      localStorage.setItem('strengths-custom-positions', JSON.stringify(customPositions));
+    } catch (err) {
+      console.error('カスタム役職の保存に失敗しました:', err);
+    }
+  }, [customPositions, isInitialized]);
+
   // メンバーの追加または更新
   const addOrUpdateMember = (member: MemberStrengths) => {
     try {
-      const updatedMembers = StrengthsService.saveMember(member);
+      // Context内のstateを更新（LocalStorageから再読み込みしない）
+      const index = members.findIndex(m => m.id === member.id);
+      let updatedMembers: MemberStrengths[];
+
+      if (index >= 0) {
+        // 既存メンバーを更新
+        updatedMembers = [...members];
+        updatedMembers[index] = member;
+      } else {
+        // 新規メンバーを追加
+        updatedMembers = [...members, member];
+      }
+
       setMembers(updatedMembers);
     } catch (err) {
       setError('メンバーの保存に失敗しました');
@@ -84,7 +121,8 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
   // メンバーの削除
   const deleteMember = (id: string) => {
     try {
-      const updatedMembers = StrengthsService.deleteMember(id);
+      // Context内のstateから削除（LocalStorageから再読み込みしない）
+      const updatedMembers = members.filter(m => m.id !== id);
       setMembers(updatedMembers);
       setSelectedMemberIds(prev => prev.filter(memberId => memberId !== id));
     } catch (err) {
@@ -154,7 +192,31 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
   // データのエクスポート
   const exportData = (): string => {
     try {
-      return StrengthsService.exportMembers();
+      // Context内のstateから直接エクスポート（LocalStorageから再読み込みしない）
+      const exportData = {
+        _comment: [
+          "============================================",
+          "Strengths Finder データファイル",
+          "============================================",
+          "",
+          "【カスタム役職設定】",
+          "- アイコンタイプ: 'crown'(王冠) または 'circle'(丸)",
+          "- 色: カラーコード（例: #FF5722）",
+          "",
+          "【デフォルト役職の色参考】",
+          "  部長: #F44336 (赤)",
+          "  課長: #2196F3 (青)",
+          "  一般: #4CAF50 (緑)",
+          "",
+          "※ customPositions配列にカスタム役職を追加できます",
+          "============================================"
+        ],
+        customPositions: customPositions,
+        members: members,
+      };
+
+      const jsonString = JSON.stringify(exportData, null, 2);
+      return jsonString;
     } catch (err) {
       setError('データのエクスポートに失敗しました');
       console.error(err);
@@ -248,7 +310,8 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
           importedMembers.forEach(m => {
             existingMap.set(m.id, m); // 上書きまたは追加
           });
-          setMembers(Array.from(existingMap.values()));
+          const mergedMembers = Array.from(existingMap.values());
+          setMembers(mergedMembers);
           if (importedPositions) {
             // カスタム役職もマージ（重複は更新、新規は追加）
             const positionMap = new Map(customPositions.map(p => [p.id, p]));
