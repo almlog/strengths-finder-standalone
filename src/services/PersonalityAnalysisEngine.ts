@@ -39,20 +39,54 @@ const SYNERGY_SCORES = {
 };
 
 /**
- * チーム適合度スコア設定
+ * Belbinチームロール定義（理論的根拠：Belbin, 1981）
+ * 各MBTIタイプが得意とするチームロールとスコア
+ */
+const BELBIN_ROLES: Record<MBTIType, { role: string; score: number }> = {
+  // プラント（創造者） - 内向型が得意
+  INTP: { role: 'プラント（創造者）', score: 15 },
+  INFP: { role: 'プラント（創造者）', score: 15 },
+
+  // 資源探査者 - 外向型が得意
+  ENFP: { role: '資源探査者', score: 18 },
+  ENTP: { role: '資源探査者', score: 18 },
+
+  // コーディネーター
+  ENFJ: { role: 'コーディネーター', score: 16 },
+  ENTJ: { role: 'コーディネーター', score: 16 },
+
+  // シェイパー
+  ESTJ: { role: 'シェイパー', score: 14 },
+  ESTP: { role: 'シェイパー', score: 14 },
+
+  // 監視評価者 - 内向型が得意
+  INTJ: { role: '監視評価者', score: 13 },
+  ISTJ: { role: '監視評価者', score: 13 },
+
+  // チームワーカー
+  ISFJ: { role: 'チームワーカー', score: 17 },
+  ESFJ: { role: 'チームワーカー', score: 17 },
+
+  // 実行者
+  ISTP: { role: '実行者', score: 15 },
+
+  // 完成者 - 内向型が得意
+  ISFP: { role: '完成者', score: 14 },
+
+  // 専門家 - 内向型が得意
+  INFJ: { role: '専門家', score: 12 },
+
+  // その他（複数ロール適性）
+  ESFP: { role: 'チームワーカー', score: 16 },
+};
+
+/**
+ * チーム適合度スコア設定（Belbinベース）
  */
 const TEAM_FIT_SCORES = {
   BASE: 50,               // ベーススコア
-  MBTI: {
-    EXTROVERT: 12,        // 外向型（E）
-    FEELING: 10,          // 感情型（F）
-    JUDGING: 8,           // 判断型（J）
-  },
-  MBTI_ESTIMATE: {
-    EXTROVERT: 20,        // MBTIのみ推定時
-    FEELING: 18,
-    JUDGING: 12,
-  },
+  BELBIN_DEFAULT: 8,      // Belbinロール未定義の場合のデフォルト
+  FEELING_BONUS: 10,      // 感情型（F）のチーム調和ボーナス
   STRENGTH_MAX: 10,       // TOP1資質の最大加算
   STRENGTH_DECAY: 2,      // 順位による減衰
 };
@@ -319,15 +353,28 @@ class PersonalityAnalysisEngine {
   }
 
   /**
+   * BelbinロールベースのMBTIスコア取得
+   */
+  private getBelbinRoleScore(mbtiType: MBTIType): number {
+    const belbinRole = BELBIN_ROLES[mbtiType];
+    return belbinRole ? belbinRole.score : TEAM_FIT_SCORES.BELBIN_DEFAULT;
+  }
+
+  /**
    * チーム適合度（完全モード）
+   * Belbin理論に基づくチームロール適性評価
    */
   private calculateTeamFit(mbtiType: MBTIType, strengths: Member['strengths']): number {
     let score = TEAM_FIT_SCORES.BASE;
 
-    // MBTIからの加算
-    if (mbtiType.startsWith('E')) score += TEAM_FIT_SCORES.MBTI.EXTROVERT;
-    if (mbtiType.includes('F')) score += TEAM_FIT_SCORES.MBTI.FEELING;
-    if (mbtiType.endsWith('J')) score += TEAM_FIT_SCORES.MBTI.JUDGING;
+    // Belbinロールベースのスコアリング（内向型も正当に評価）
+    const belbinBonus = this.getBelbinRoleScore(mbtiType);
+    score += belbinBonus;
+
+    // F（感情型）ボーナス（チーム調和に寄与）
+    if (mbtiType.includes('F')) {
+      score += TEAM_FIT_SCORES.FEELING_BONUS;
+    }
 
     // 資質からの加算
     if (strengths) {
@@ -365,14 +412,22 @@ class PersonalityAnalysisEngine {
   }
 
   /**
-   * MBTIからチーム適合度を推定
+   * MBTIからチーム適合度を推定（MBTIのみモード）
+   * Belbin理論に基づく評価
    */
   private estimateTeamFitFromMBTI(mbtiType: MBTIType): number {
     let score = TEAM_FIT_SCORES.BASE;
-    if (mbtiType.startsWith('E')) score += TEAM_FIT_SCORES.MBTI_ESTIMATE.EXTROVERT;
-    if (mbtiType.includes('F')) score += TEAM_FIT_SCORES.MBTI_ESTIMATE.FEELING;
-    if (mbtiType.endsWith('J')) score += TEAM_FIT_SCORES.MBTI_ESTIMATE.JUDGING;
-    return Math.min(100, score);
+
+    // Belbinロールベースのスコアリング
+    const belbinBonus = this.getBelbinRoleScore(mbtiType);
+    score += belbinBonus;
+
+    // F（感情型）ボーナス
+    if (mbtiType.includes('F')) {
+      score += TEAM_FIT_SCORES.FEELING_BONUS;
+    }
+
+    return Math.min(100, Math.round(score));
   }
 
   /**
