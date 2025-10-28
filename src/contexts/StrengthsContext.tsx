@@ -22,6 +22,8 @@ interface StrengthsContextProps {
   addOrUpdateMember: (member: MemberStrengths) => void;
   deleteMember: (id: string) => void;
   toggleMemberSelection: (id: string) => void;
+  selectAllMembers: (memberIds: string[]) => void;
+  clearAllSelections: () => void;
   setSelectedDepartment: (department: string) => void;
   analyzeSelected: () => void;
   analyzeDepartment: (department: string) => void;
@@ -140,6 +142,20 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
         return [...prev, id];
       }
     });
+  };
+
+  // 指定されたメンバーIDの配列を全て選択状態にする
+  const selectAllMembers = (memberIds: string[]) => {
+    setSelectedMemberIds(prev => {
+      // 既存の選択状態に追加（重複は自動除外）
+      const newIds = [...new Set([...prev, ...memberIds])];
+      return newIds;
+    });
+  };
+
+  // 全ての選択を解除する
+  const clearAllSelections = () => {
+    setSelectedMemberIds([]);
   };
 
   // 選択されたメンバーの分析
@@ -357,6 +373,8 @@ export const StrengthsProvider: React.FC<StrengthsProviderProps> = ({ children }
     addOrUpdateMember,
     deleteMember,
     toggleMemberSelection,
+    selectAllMembers,
+    clearAllSelections,
     setSelectedDepartment,
     analyzeSelected,
     analyzeDepartment,
