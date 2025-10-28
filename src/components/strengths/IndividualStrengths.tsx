@@ -171,9 +171,9 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
                     fill={positionInfo.color}
                   />
                 )}
-                {/* ツールチップ */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                  {positionInfo.displayName}
+                {/* 役職名ツールチップ */}
+                <div className="absolute invisible group-hover:visible bg-white dark:bg-gray-600 p-2 border dark:border-gray-500 rounded shadow-lg left-0 top-full mt-1 z-10 whitespace-nowrap">
+                  <p className="text-sm font-medium dark:text-gray-100">{positionInfo.displayName}</p>
                 </div>
               </div>
             )}
