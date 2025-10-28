@@ -51,22 +51,22 @@ export const THEMES: Record<ThemeId, Theme> = {
     id: 'cyberpunk',
     name: 'サイバー',
     colors: {
-      primary: '#00F0FF',      // ネオンシアン
-      secondary: '#FF006E',    // ネオンピンク
-      background: '#0d1117',   // 深い黒
-      text: '#E6E6FA',         // ラベンダーホワイト
-      border: '#00F0FF',       // ネオンシアン
+      primary: '#00FFFF',      // 蛍光シアン
+      secondary: '#FF00FF',    // 蛍光マゼンタ
+      background: '#000000',   // 純黒
+      text: '#00FF00',         // 蛍光グリーン
+      border: '#FF00FF',       // 蛍光マゼンタ
     },
   },
   cute: {
     id: 'cute',
     name: 'かわいい',
     colors: {
-      primary: '#FF6B9D',      // ピンク
-      secondary: '#FFA07A',    // ライトサーモン
-      background: '#FFF5F7',   // 柔らかいピンクホワイト
-      text: '#5D4E6D',         // ソフトパープル
-      border: '#FFB6C1',       // ライトピンク
+      primary: '#FFB7D5',      // パステルピンク
+      secondary: '#C9A0DC',    // パステルパープル
+      background: '#FFF0F8',   // ほぼ白のピンク
+      text: '#9B59B6',         // ミディアムパープル
+      border: '#FFE5F0',       // ライトパステルピンク
     },
   },
 };
