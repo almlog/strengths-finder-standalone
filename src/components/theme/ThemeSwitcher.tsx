@@ -211,7 +211,8 @@ export const ThemeSwitcher: React.FC = () => {
       {isOpen && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50"
+          className="absolute right-0 sm:right-0 left-auto sm:left-auto mt-2 w-48 transform -translate-x-0 sm:translate-x-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50"
+          style={{ right: 'auto', left: '50%', transform: 'translateX(-50%)' }}
         >
           <div className="py-1">
             {/* テーマオプション */}
