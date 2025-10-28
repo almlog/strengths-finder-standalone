@@ -147,10 +147,14 @@
 }
 
 .cyberpunk .text-gray-700,
-.cyberpunk .dark\:text-gray-200,
 .cyberpunk .text-gray-900,
 .cyberpunk .dark\:text-gray-100 {
   color: #00FF00 !important;
+}
+
+/* タブの文字色は黒色に（白背景で見やすく） */
+.cyberpunk .dark\:text-gray-200 {
+  color: #000000 !important;
 }
 
 .cyberpunk .text-gray-600,
