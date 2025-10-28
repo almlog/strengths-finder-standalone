@@ -115,3 +115,133 @@
 .theme-transition {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
+
+/* =====================================================
+   カスタムテーマ用スタイル
+   ===================================================== */
+
+/* Cyberpunkテーマ: 蛍光色のサイバーパンク風 */
+.cyberpunk {
+  /* 背景を純黒に */
+  background-color: #000000 !important;
+}
+
+.cyberpunk body {
+  background-color: #000000 !important;
+  color: #00FF00 !important;
+}
+
+.cyberpunk .bg-white,
+.cyberpunk .dark\:bg-gray-800,
+.cyberpunk .bg-gray-50 {
+  background-color: #000000 !important;
+  color: #00FF00 !important;
+}
+
+.cyberpunk .bg-gray-100,
+.cyberpunk .dark\:bg-gray-700,
+.cyberpunk .hover\:bg-gray-50:hover,
+.cyberpunk .dark\:hover\:bg-gray-700:hover {
+  background-color: #1a0033 !important; /* 暗い紫 */
+  color: #00FFFF !important;
+}
+
+.cyberpunk .text-gray-700,
+.cyberpunk .dark\:text-gray-200,
+.cyberpunk .text-gray-900,
+.cyberpunk .dark\:text-gray-100 {
+  color: #00FF00 !important;
+}
+
+.cyberpunk .text-gray-600,
+.cyberpunk .dark\:text-gray-300 {
+  color: #00FFFF !important;
+}
+
+.cyberpunk .text-gray-500,
+.cyberpunk .dark\:text-gray-400 {
+  color: #FF00FF !important;
+}
+
+.cyberpunk .border-gray-300,
+.cyberpunk .dark\:border-gray-600,
+.cyberpunk .border-gray-200,
+.cyberpunk .dark\:border-gray-700 {
+  border-color: #FF00FF !important;
+}
+
+.cyberpunk button,
+.cyberpunk .bg-blue-600,
+.cyberpunk .hover\:bg-blue-700:hover {
+  background-color: #00FFFF !important;
+  color: #000000 !important;
+  border-color: #FF00FF !important;
+}
+
+.cyberpunk .text-blue-600,
+.cyberpunk .dark\:text-blue-400 {
+  color: #00FFFF !important;
+}
+
+/* Cuteテーマ: パステルピンクのかわいい風 */
+.cute {
+  /* 背景をパステルピンク白に */
+  background-color: #FFF0F8 !important;
+}
+
+.cute body {
+  background-color: #FFF0F8 !important;
+  color: #9B59B6 !important;
+}
+
+.cute .bg-white,
+.cute .dark\:bg-gray-800,
+.cute .bg-gray-50 {
+  background-color: #FFF0F8 !important;
+  color: #9B59B6 !important;
+}
+
+.cute .bg-gray-100,
+.cute .dark\:bg-gray-700,
+.cute .hover\:bg-gray-50:hover,
+.cute .dark\:hover\:bg-gray-700:hover {
+  background-color: #FFE5F0 !important;
+  color: #9B59B6 !important;
+}
+
+.cute .text-gray-700,
+.cute .dark\:text-gray-200,
+.cute .text-gray-900,
+.cute .dark\:text-gray-100 {
+  color: #9B59B6 !important;
+}
+
+.cute .text-gray-600,
+.cute .dark\:text-gray-300 {
+  color: #C9A0DC !important;
+}
+
+.cute .text-gray-500,
+.cute .dark\:text-gray-400 {
+  color: #C9A0DC !important;
+}
+
+.cute .border-gray-300,
+.cute .dark\:border-gray-600,
+.cute .border-gray-200,
+.cute .dark\:border-gray-700 {
+  border-color: #FFE5F0 !important;
+}
+
+.cute button,
+.cute .bg-blue-600,
+.cute .hover\:bg-blue-700:hover {
+  background-color: #FFB7D5 !important;
+  color: #FFFFFF !important;
+  border-color: #FFE5F0 !important;
+}
+
+.cute .text-blue-600,
+.cute .dark\:text-blue-400 {
+  color: #FFB7D5 !important;
+}
