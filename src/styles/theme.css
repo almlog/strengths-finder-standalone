@@ -245,3 +245,34 @@
 .cute .dark\:text-blue-400 {
   color: #FFB7D5 !important;
 }
+
+/* Cyberpunkテーマ: グレー系の文字色も蛍光色に変更 */
+.cyberpunk .text-gray-700,
+.cyberpunk .hover\:text-gray-900:hover {
+  color: #00FFFF !important;
+}
+
+.cyberpunk .text-gray-300,
+.cyberpunk .hover\:text-white:hover {
+  color: #00FF00 !important;
+}
+
+/* Cyberpunkテーマ: ボーダー色を蛍光マゼンタに */
+.cyberpunk .border-blue-600 {
+  border-color: #FF00FF !important;
+}
+
+/* Cuteテーマ: グレー系の文字色もパステル色に変更 */
+.cute .text-gray-700,
+.cute .hover\:text-gray-900:hover {
+  color: #9B59B6 !important;
+}
+
+.cute .text-gray-300 {
+  color: #C9A0DC !important;
+}
+
+/* Cuteテーマ: ボーダー色をパステルピンクに */
+.cute .border-blue-600 {
+  border-color: #FFB7D5 !important;
+}
