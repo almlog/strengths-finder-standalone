@@ -189,14 +189,19 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
                         {(() => {
                           const positionInfo = member.position ? getPositionInfo(member.position) : null;
                           return positionInfo && member.position !== Position.GENERAL && (
-                            <div
-                              className="ml-2 relative group"
-                              title={positionInfo.displayName}
-                            >
+                            <div className="ml-2 relative group">
                               {positionInfo.icon === 'circle' ? (
-                                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: positionInfo.color }}></div>
+                                <div
+                                  className="w-4 h-4 rounded-full"
+                                  style={{ backgroundColor: positionInfo.color }}
+                                ></div>
                               ) : positionInfo.icon === 'star' ? (
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill={positionInfo.color} stroke={positionInfo.color}>
+                                <svg
+                                  className="w-4 h-4"
+                                  viewBox="0 0 24 24"
+                                  fill={positionInfo.color}
+                                  stroke={positionInfo.color}
+                                >
                                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                                 </svg>
                               ) : (
@@ -206,6 +211,10 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
                                   fill={positionInfo.color}
                                 />
                               )}
+                              {/* 役職名ツールチップ */}
+                              <div className="absolute invisible group-hover:visible bg-white dark:bg-gray-600 p-2 border dark:border-gray-500 rounded shadow-lg left-0 top-full mt-1 z-10 whitespace-nowrap">
+                                <p className="text-sm font-medium dark:text-gray-100">{positionInfo.displayName}</p>
+                              </div>
                             </div>
                           );
                         })()}
