@@ -252,14 +252,16 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
       // Tailwind用: テーマクラスの追加/削除
       root.classList.remove('dark', 'cyberpunk', 'cute');
-      if (currentThemeId === 'dark' || currentThemeId === 'cyberpunk') {
-        // darkとcyberpunkはダークモードとして扱う
+
+      // テーマごとのクラス設定
+      if (currentThemeId === 'dark') {
+        // ダークテーマのみdarkクラスを追加
         root.classList.add('dark');
-      }
-      // テーマ固有のクラスも追加
-      if (currentThemeId === 'cyberpunk') {
+      } else if (currentThemeId === 'cyberpunk') {
+        // cyberpunkは独自クラスのみ（darkクラスは追加しない）
         root.classList.add('cyberpunk');
       } else if (currentThemeId === 'cute') {
+        // cuteは独自クラスのみ
         root.classList.add('cute');
       }
     } catch (error) {

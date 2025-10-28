@@ -1,17 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm test:*)",
-      "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)",
+      "Bash(gh run list:*)",
       "Bash(npm start)",
-      "Bash(node -e:*)",
-      "Bash(npx tsc:*)",
-      "Bash(npm run build:*)",
+      "Bash(git add:*)",
       "Bash(git checkout:*)",
-      "Bash(netstat:*)",
-      "Bash(findstr:*)",
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(npm run build:*)",
       "Bash(taskkill:*)"
     ],
     "deny": [],
