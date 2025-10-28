@@ -120,22 +120,22 @@
    カスタムテーマ用スタイル
    ===================================================== */
 
-/* Cyberpunkテーマ: 蛍光色のサイバーパンク風 */
+/* Cyberpunkテーマ: 蛍光ネオンのサイバーパンク風 */
 .cyberpunk {
-  /* 背景を深い青紫に（サイバーパンク風） */
-  background-color: #0a0a1a !important;
+  /* 背景をネオンパープルに（電脳空間風） */
+  background-color: #1a0033 !important;
 }
 
 .cyberpunk body {
-  background-color: #0a0a1a !important;
-  color: #00FF00 !important;
+  background-color: #1a0033 !important;
+  color: #00FFFF !important; /* 蛍光シアンで光る */
 }
 
 .cyberpunk .bg-white,
 .cyberpunk .dark\:bg-gray-800,
 .cyberpunk .bg-gray-50 {
-  background-color: #000000 !important;
-  color: #00FF00 !important;
+  background-color: #2d0052 !important; /* より明るいネオンパープル */
+  color: #00FFFF !important; /* 蛍光シアン */
 }
 
 .cyberpunk .bg-gray-100,
@@ -171,15 +171,15 @@
 .cyberpunk .dark\:border-gray-600,
 .cyberpunk .border-gray-200,
 .cyberpunk .dark\:border-gray-700 {
-  border-color: #FF00FF !important;
+  border-color: #00FFFF !important; /* 蛍光シアンで光のライン */
 }
 
 .cyberpunk button,
 .cyberpunk .bg-blue-600,
 .cyberpunk .hover\:bg-blue-700:hover {
-  background-color: #00FFFF !important;
-  color: #000000 !important;
-  border-color: #FF00FF !important;
+  background-color: #FF00FF !important; /* 蛍光マゼンタで光る */
+  color: #FFFFFF !important;
+  border-color: #00FFFF !important; /* 蛍光シアンのボーダー */
 }
 
 .cyberpunk .text-blue-600,
