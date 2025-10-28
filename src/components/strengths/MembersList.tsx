@@ -1,6 +1,6 @@
 // src/components/strengths/MembersList.tsx
 import React, { useState } from 'react';
-import { Edit, Trash2, Check, Crown } from 'lucide-react';
+import { Edit, Trash2, Check, Crown, CheckSquare, XSquare } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { STRENGTHS_DATA, GROUP_COLORS } from '../../services/StrengthsService';
 import { StrengthGroup, Position } from '../../models/StrengthsTypes';
@@ -12,7 +12,7 @@ interface MembersListProps {
 }
 
 const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId }) => {
-  const { members, toggleMemberSelection, selectedMemberIds, deleteMember, getPositionInfo } = useStrengths();
+  const { members, toggleMemberSelection, selectedMemberIds, deleteMember, getPositionInfo, selectAllMembers, clearAllSelections } = useStrengths();
   const [editMemberId, setEditMemberId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
@@ -31,6 +31,19 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
     const minScoreB = Math.min(...b.strengths.map(s => s.score));
     return minScoreA - minScoreB;  // スコアが小さい順（昇順）に並べる（TOP1が一番上に表示）
   });
+
+  // 一括選択用のロジック
+  const filteredMemberIds = filteredMembers.map(m => m.id);
+  const isAllSelected = filteredMemberIds.length > 0 &&
+    filteredMemberIds.every(id => selectedMemberIds.includes(id));
+
+  const handleSelectAll = () => {
+    selectAllMembers(filteredMemberIds);
+  };
+
+  const handleClearAll = () => {
+    clearAllSelections();
+  };
 
   // メンバーの強みを取得して表示用の文字列に変換
   const getStrengthNames = (rankedStrengths: { id: number; score: number }[]): string => {
@@ -108,6 +121,29 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
             <option key={dept} value={dept}>{dept}</option>
           ))}
         </select>
+      </div>
+
+      {/* 一括選択ボタン */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <button
+          onClick={handleSelectAll}
+          disabled={filteredMembers.length === 0 || isAllSelected}
+          className="flex items-center space-x-1 px-3 py-1.5 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800"
+        >
+          <CheckSquare className="w-4 h-4" />
+          <span>全員選択</span>
+        </button>
+        <button
+          onClick={handleClearAll}
+          disabled={selectedMemberIds.length === 0}
+          className="flex items-center space-x-1 px-3 py-1.5 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+        >
+          <XSquare className="w-4 h-4" />
+          <span>選択解除</span>
+        </button>
+        <span className={`text-sm ${selectedMemberIds.length > 0 ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
+          現在 {selectedMemberIds.length}人選択中
+        </span>
       </div>
 
       {/* メンバーリスト */}
