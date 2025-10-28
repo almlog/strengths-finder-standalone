@@ -292,6 +292,20 @@
   color: #FFFFFF !important; /* 白色で視認性確保 */
 }
 
+/* Cyberpunkテーマ: タブの下線（border-b）を純黒に */
+.cyberpunk .border-b {
+  border-color: #000000 !important; /* 純黒でタブ背景を目立たなくする */
+}
+
+/* Cyberpunkテーマ: 未選択カードのホバー背景 */
+.cyberpunk .hover\:bg-gray-50:hover {
+  background-color: #1a0033 !important; /* 暗い紫 */
+}
+
+.cyberpunk .dark\:hover\:bg-gray-700:hover {
+  background-color: #1a0033 !important; /* 暗い紫 */
+}
+
 /* Cuteテーマ: グレー系の文字色もパステル色に変更 */
 .cute .text-gray-700,
 .cute .hover\:text-gray-900:hover {
