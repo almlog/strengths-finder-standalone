@@ -134,7 +134,7 @@
 .cyberpunk .bg-white,
 .cyberpunk .dark\:bg-gray-800,
 .cyberpunk .bg-gray-50 {
-  background-color: #0a0015 !important; /* 暗い黒紫（サイバー空間の闇） */
+  background-color: #2d0052 !important; /* より明るいネオンパープル */
   color: #00FFFF !important; /* 蛍光シアン */
 }
 
@@ -170,15 +170,6 @@
 
 .cyberpunk .text-blue-300 {
   color: #FFFFFF !important; /* 白色で視認性確保 */
-}
-
-/* グループラベルバッジの背景と文字色（実行力、人間関係構築力など） */
-.cyberpunk .bg-gray-200.dark\:bg-gray-600 {
-  background-color: #0a0015 !important; /* 暗い黒紫 */
-}
-
-.cyberpunk .bg-gray-200.dark\:bg-gray-600.dark\:text-gray-300 {
-  color: #00FFFF !important; /* 蛍光シアンで光らせる */
 }
 
 .cyberpunk .text-gray-600,
