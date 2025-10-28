@@ -309,6 +309,13 @@
   background-color: #C9A0DC !important; /* パステルパープル */
 }
 
-.cute .text-blue-600 {
+/* Cuteテーマ: チェックアイコンのみ白色（ボタン内） */
+.cute button .text-blue-600 {
   color: #FFFFFF !important; /* 白色で視認性を確保 */
+}
+
+/* Cuteテーマ: その他のtext-blue-600はパステルピンク */
+.cute span.text-blue-600,
+.cute .text-blue-600:not(button *) {
+  color: #9B59B6 !important; /* ミディアムパープルで視認性を確保 */
 }
