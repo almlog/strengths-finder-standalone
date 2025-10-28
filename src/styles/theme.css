@@ -266,13 +266,13 @@
   border-color: #FF00FF !important;
 }
 
-/* Cyberpunkテーマ: 非アクティブタブの文字色を白に変更（蛍光色背景に対して） */
+/* Cyberpunkテーマ: 非アクティブタブの文字色を蛍光グリーンに */
 .cyberpunk .text-gray-500 {
-  color: #FFFFFF !important; /* 白色で視認性確保 */
+  color: #00FF00 !important; /* 蛍光グリーン */
 }
 
 .cyberpunk .hover\:text-gray-700:hover {
-  color: #FFFFFF !important; /* 白色 */
+  color: #00FF00 !important; /* 蛍光グリーン */
 }
 
 /* Cyberpunkテーマ: チェックボタンの選択状態 */
@@ -280,9 +280,9 @@
   background-color: #1a0033 !important; /* 暗い紫 */
 }
 
-/* Cyberpunkテーマ: アクティブタブとチェックアイコンを白色に */
+/* Cyberpunkテーマ: アクティブタブを蛍光グリーンに */
 .cyberpunk .text-blue-600 {
-  color: #FFFFFF !important; /* 白色で視認性確保 */
+  color: #00FF00 !important; /* 蛍光グリーン */
 }
 
 /* Cyberpunkテーマ: 全員選択ボタンの文字色を白に */
