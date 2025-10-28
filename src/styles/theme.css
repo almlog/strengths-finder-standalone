@@ -306,6 +306,19 @@
   background-color: #1a0033 !important; /* 暗い紫 */
 }
 
+/* Cyberpunkテーマ: ThemeSwitcherメニューのスタイル修正 */
+.cyberpunk .dark\:bg-gray-800 {
+  background-color: #1a0033 !important; /* 暗い紫 */
+}
+
+.cyberpunk .dark\:text-gray-200 {
+  color: #FFFFFF !important; /* 白色で視認性確保 */
+}
+
+.cyberpunk .dark\:text-blue-400 {
+  color: #00FFFF !important; /* 蛍光シアン */
+}
+
 /* Cuteテーマ: グレー系の文字色もパステル色に変更 */
 .cute .text-gray-700,
 .cute .hover\:text-gray-900:hover {
