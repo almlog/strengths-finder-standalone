@@ -276,8 +276,9 @@
   background-color: #1a0033 !important; /* 暗い紫 */
 }
 
+/* Cyberpunkテーマ: アクティブタブとチェックアイコンを白色に */
 .cyberpunk .text-blue-600 {
-  color: #00FFFF !important; /* 蛍光シアン */
+  color: #FFFFFF !important; /* 白色で視認性確保 */
 }
 
 /* Cyberpunkテーマ: 全員選択ボタンの文字色を白に */
