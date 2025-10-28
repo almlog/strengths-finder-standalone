@@ -155,7 +155,7 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
             <h3 className="text-xl font-bold mb-2 dark:text-gray-100">{member.name}</h3>
             {positionInfo && member.position !== Position.GENERAL && (
               <div
-                className="ml-2 relative group"
+                className="ml-2 relative group cursor-help"
                 title={positionInfo.displayName}
               >
                 {positionInfo.icon === 'circle' ? (
@@ -171,6 +171,10 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
                     fill={positionInfo.color}
                   />
                 )}
+                {/* ツールチップ */}
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                  {positionInfo.displayName}
+                </div>
               </div>
             )}
           </div>
