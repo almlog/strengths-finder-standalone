@@ -262,6 +262,24 @@
   border-color: #FF00FF !important;
 }
 
+/* Cyberpunkテーマ: 非アクティブタブの文字色を濃く */
+.cyberpunk .text-gray-500 {
+  color: #00FFFF !important; /* 蛍光シアン */
+}
+
+.cyberpunk .hover\:text-gray-700:hover {
+  color: #FF00FF !important; /* 蛍光マゼンタ */
+}
+
+/* Cyberpunkテーマ: チェックボタンの選択状態 */
+.cyberpunk .bg-blue-100 {
+  background-color: #1a0033 !important; /* 暗い紫 */
+}
+
+.cyberpunk .text-blue-600 {
+  color: #00FFFF !important; /* 蛍光シアン */
+}
+
 /* Cuteテーマ: グレー系の文字色もパステル色に変更 */
 .cute .text-gray-700,
 .cute .hover\:text-gray-900:hover {
@@ -275,4 +293,22 @@
 /* Cuteテーマ: ボーダー色をパステルピンクに */
 .cute .border-blue-600 {
   border-color: #FFB7D5 !important;
+}
+
+/* Cuteテーマ: 非アクティブタブの文字色を濃く */
+.cute .text-gray-500 {
+  color: #9B59B6 !important; /* ミディアムパープル */
+}
+
+.cute .hover\:text-gray-700:hover {
+  color: #C9A0DC !important; /* パステルパープル */
+}
+
+/* Cuteテーマ: チェックボタンの選択状態 */
+.cute .bg-blue-100 {
+  background-color: #C9A0DC !important; /* パステルパープル */
+}
+
+.cute .text-blue-600 {
+  color: #FFFFFF !important; /* 白色で視認性を確保 */
 }
