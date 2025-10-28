@@ -262,13 +262,13 @@
   border-color: #FF00FF !important;
 }
 
-/* Cyberpunkテーマ: 非アクティブタブの文字色を濃く */
+/* Cyberpunkテーマ: 非アクティブタブの文字色を白に変更（蛍光色背景に対して） */
 .cyberpunk .text-gray-500 {
-  color: #00FFFF !important; /* 蛍光シアン */
+  color: #FFFFFF !important; /* 白色で視認性確保 */
 }
 
 .cyberpunk .hover\:text-gray-700:hover {
-  color: #FF00FF !important; /* 蛍光マゼンタ */
+  color: #FFFFFF !important; /* 白色 */
 }
 
 /* Cyberpunkテーマ: チェックボタンの選択状態 */
@@ -278,6 +278,17 @@
 
 .cyberpunk .text-blue-600 {
   color: #00FFFF !important; /* 蛍光シアン */
+}
+
+/* Cyberpunkテーマ: 全員選択ボタンの文字色を白に */
+.cyberpunk .text-blue-700,
+.cyberpunk .dark\:text-blue-200 {
+  color: #FFFFFF !important; /* 白色で視認性確保 */
+}
+
+/* Cyberpunkテーマ: text-blue-300も白色に（分析結果の強み表示） */
+.cyberpunk .text-blue-300 {
+  color: #FFFFFF !important; /* 白色で視認性確保 */
 }
 
 /* Cuteテーマ: グレー系の文字色もパステル色に変更 */
