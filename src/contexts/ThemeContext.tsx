@@ -250,11 +250,17 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       root.style.setProperty('--theme-text', theme.colors.text);
       root.style.setProperty('--theme-border', theme.colors.border);
 
-      // Tailwind darkモード用: darkクラスの追加/削除
-      if (currentThemeId === 'dark') {
+      // Tailwind用: テーマクラスの追加/削除
+      root.classList.remove('dark', 'cyberpunk', 'cute');
+      if (currentThemeId === 'dark' || currentThemeId === 'cyberpunk') {
+        // darkとcyberpunkはダークモードとして扱う
         root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
+      }
+      // テーマ固有のクラスも追加
+      if (currentThemeId === 'cyberpunk') {
+        root.classList.add('cyberpunk');
+      } else if (currentThemeId === 'cute') {
+        root.classList.add('cute');
       }
     } catch (error) {
       console.error('Failed to update CSS variables:', error);

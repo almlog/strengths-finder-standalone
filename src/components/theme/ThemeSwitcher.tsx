@@ -10,14 +10,13 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { ThemeId } from '../../models/ThemeTypes';
 
 /**
- * テーマオプション定義（Phase 1: default & dark のみ）
+ * テーマオプション定義
  */
 const THEME_OPTIONS: Array<{ id: ThemeId; name: string }> = [
   { id: 'default', name: 'デフォルト' },
   { id: 'dark', name: 'ダーク' },
-  // Phase 2以降で追加予定
-  // { id: 'cyberpunk', name: 'サイバーパンク' },
-  // { id: 'cute', name: 'キュート' },
+  { id: 'cyberpunk', name: 'サイバー' },
+  { id: 'cute', name: 'かわいい' },
 ];
 
 /**
