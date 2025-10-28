@@ -122,12 +122,12 @@
 
 /* Cyberpunkテーマ: 蛍光色のサイバーパンク風 */
 .cyberpunk {
-  /* 背景を純黒に */
-  background-color: #000000 !important;
+  /* 背景を深い青紫に（サイバーパンク風） */
+  background-color: #0a0a1a !important;
 }
 
 .cyberpunk body {
-  background-color: #000000 !important;
+  background-color: #0a0a1a !important;
   color: #00FF00 !important;
 }
 
@@ -266,13 +266,13 @@
   border-color: #FF00FF !important;
 }
 
-/* Cyberpunkテーマ: 非アクティブタブの文字色を蛍光グリーンに */
+/* Cyberpunkテーマ: 非アクティブタブの文字色を白に */
 .cyberpunk .text-gray-500 {
-  color: #00FF00 !important; /* 蛍光グリーン */
+  color: #FFFFFF !important; /* 白色 */
 }
 
 .cyberpunk .hover\:text-gray-700:hover {
-  color: #00FF00 !important; /* 蛍光グリーン */
+  color: #FFFFFF !important; /* 白色 */
 }
 
 /* Cyberpunkテーマ: チェックボタンの選択状態 */
@@ -280,9 +280,9 @@
   background-color: #1a0033 !important; /* 暗い紫 */
 }
 
-/* Cyberpunkテーマ: アクティブタブを蛍光グリーンに */
+/* Cyberpunkテーマ: アクティブタブを黒色に */
 .cyberpunk .text-blue-600 {
-  color: #00FF00 !important; /* 蛍光グリーン */
+  color: #000000 !important; /* 黒色 */
 }
 
 /* Cyberpunkテーマ: 全員選択ボタンの文字色を白に */

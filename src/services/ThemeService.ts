@@ -53,7 +53,7 @@ export const THEMES: Record<ThemeId, Theme> = {
     colors: {
       primary: '#00FFFF',      // 蛍光シアン
       secondary: '#FF00FF',    // 蛍光マゼンタ
-      background: '#000000',   // 純黒
+      background: '#0a0a1a',   // 深い青紫（サイバーパンク風）
       text: '#00FF00',         // 蛍光グリーン
       border: '#FF00FF',       // 蛍光マゼンタ
     },
