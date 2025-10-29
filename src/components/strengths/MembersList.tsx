@@ -5,6 +5,10 @@ import { useStrengths } from '../../contexts/StrengthsContext';
 import { STRENGTHS_DATA, GROUP_COLORS } from '../../services/StrengthsService';
 import { StrengthGroup, Position } from '../../models/StrengthsTypes';
 import MemberForm from './MemberForm';
+import { useManagerMode } from '../../hooks/useManagerMode';
+import { useStageMasters } from '../../hooks/useStageMasters';
+import { useMemberRates } from '../../hooks/useMemberRates';
+import { ProfitabilityService } from '../../services/ProfitabilityService';
 
 interface MembersListProps {
   onSelect: (memberId: string) => void;
@@ -16,20 +20,56 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
   const [editMemberId, setEditMemberId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'strength' | 'profitMargin'>('strength'); // Phase 4.5.2
+  const isManagerMode = useManagerMode();
+  const { stageMasters } = useStageMasters();
+  const { getMemberRate } = useMemberRates();
 
   // 部署の重複なしリストを取得
   const departments = [...new Set(members.map(member => member.department))];
   
   // 選択された部署でフィルタリングされたメンバーリスト
-  const filteredMembers = selectedDepartment === 'all' 
-    ? members 
+  const filteredMembers = selectedDepartment === 'all'
+    ? members
     : members.filter(member => member.department === selectedDepartment);
-  
-  // 最も強い資質でソート
+
+  // ソート処理 (Phase 4.5.2)
   const sortedMembers = [...filteredMembers].sort((a, b) => {
-    const minScoreA = Math.min(...a.strengths.map(s => s.score));
-    const minScoreB = Math.min(...b.strengths.map(s => s.score));
-    return minScoreA - minScoreB;  // スコアが小さい順（昇順）に並べる（TOP1が一番上に表示）
+    if (sortBy === 'strength') {
+      // 最も強い資質でソート
+      const minScoreA = Math.min(...a.strengths.map(s => s.score));
+      const minScoreB = Math.min(...b.strengths.map(s => s.score));
+      return minScoreA - minScoreB;  // スコアが小さい順（昇順）に並べる（TOP1が一番上に表示）
+    } else {
+      // 利益率でソート（降順 - 高い利益率が上）
+      const memberRateA = getMemberRate(a.id);
+      const memberRateB = getMemberRate(b.id);
+
+      let profitA = -Infinity;
+      let profitB = -Infinity;
+
+      // メンバーAの利益率計算（エラーハンドリング付き）
+      if (a.stageId && memberRateA) {
+        try {
+          const profitability = ProfitabilityService.calculateMemberProfitability(a, stageMasters, memberRateA);
+          profitA = profitability.profitMargin;
+        } catch (error) {
+          console.warn(`利益率計算エラー (${a.id}):`, error);
+        }
+      }
+
+      // メンバーBの利益率計算（エラーハンドリング付き）
+      if (b.stageId && memberRateB) {
+        try {
+          const profitability = ProfitabilityService.calculateMemberProfitability(b, stageMasters, memberRateB);
+          profitB = profitability.profitMargin;
+        } catch (error) {
+          console.warn(`利益率計算エラー (${b.id}):`, error);
+        }
+      }
+
+      return profitB - profitA;  // 降順
+    }
   });
 
   // 一括選択用のロジック
@@ -85,6 +125,14 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
     return maxGroup as StrengthGroup | null;
   };
 
+  // 利益率の色分けクラスを返す (Phase 4.4.4)
+  const getProfitMarginColorClass = (profitMargin: number): string => {
+    if (profitMargin >= 40) return 'text-green-700 dark:text-green-400';
+    if (profitMargin >= 20) return 'text-blue-700 dark:text-blue-400';
+    if (profitMargin >= 0) return 'text-yellow-700 dark:text-yellow-400';
+    return 'text-red-700 dark:text-red-400';
+  };
+
   const handleDeleteClick = (id: string) => {
     setShowDeleteConfirm(id);
   };
@@ -122,6 +170,21 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
           ))}
         </select>
       </div>
+
+      {/* ソート選択 (Phase 4.5.2 - Manager mode only) */}
+      {isManagerMode && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">並び順</label>
+          <select
+            className="w-full border dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'strength' | 'profitMargin')}
+          >
+            <option value="strength">強み順</option>
+            <option value="profitMargin">利益率順</option>
+          </select>
+        </div>
+      )}
 
       {/* 一括選択ボタン */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -220,6 +283,36 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
                         })()}
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-300">部署コード: {member.department}</p>
+                      {/* 利益率表示 (Phase 4.4.4 - Manager mode only) */}
+                      {isManagerMode && member.stageId && (() => {
+                        const memberRate = getMemberRate(member.id);
+                        if (!memberRate) return null;
+
+                        const profitability = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate);
+                        if (profitability) {
+                          return (
+                            <p className={`text-sm font-semibold mt-1 ${getProfitMarginColorClass(profitability.profitMargin)}`}>
+                              利益率: {profitability.profitMargin.toFixed(1)}%
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
+                      {/* ステージバッジ表示 (Phase 4.5.1 - Manager mode only) */}
+                      {isManagerMode && member.stageId && (() => {
+                        const stage = stageMasters.find(s => s.id === member.stageId);
+                        if (stage) {
+                          const badgeColor = stage.type === 'employee'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                            : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+                          return (
+                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium mt-1 ${badgeColor}`}>
+                              {stage.name}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {getStrengthNames(member.strengths)}
                       </p>
