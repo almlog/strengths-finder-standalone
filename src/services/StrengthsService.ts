@@ -220,16 +220,37 @@ class StrengthsService {
 
   /**
    * メンバーデータをJSONとしてエクスポート
+   *
+   * 単価情報（memberRate）は機密情報のため除外されます
    */
   public exportMembers(): string {
     const members = this.getMembers();
     const customPositions = this.getCustomPositions();
+
+    // memberRateフィールドを除外
+    const membersWithoutRates = members.map(member => {
+      const { memberRate, ...memberWithoutRate } = member as any;
+      return memberWithoutRate;
+    });
 
     const exportData = {
       _comment: [
         "============================================",
         "Strengths Finder データファイル",
         "============================================",
+        "",
+        "このファイルにはメンバーの基本情報のみが含まれます。",
+        "単価情報は含まれません（機密情報保護のため）。",
+        "",
+        "【含まれる情報】",
+        "- メンバー名",
+        "- 部署",
+        "- 資質（Top 5）",
+        "- ポジション",
+        "- ステージID",
+        "",
+        "【含まれない情報】",
+        "- 単価情報（マネージャー専用）",
         "",
         "【カスタム役職設定】",
         "- アイコンタイプ: 'crown'(王冠) または 'circle'(丸)",
@@ -245,7 +266,7 @@ class StrengthsService {
         "============================================"
       ],
       customPositions: customPositions,
-      members: members
+      members: membersWithoutRates
     };
 
     return JSON.stringify(exportData, null, 2);
@@ -253,6 +274,9 @@ class StrengthsService {
 
   /**
    * JSONからメンバーデータをインポート
+   *
+   * 単価情報（memberRate）は機密情報のため、JSONに含まれていても除外されます
+   *
    * @param jsonData JSONデータ
    * @returns インポートされたメンバーリストとカスタム役職
    */
@@ -272,8 +296,14 @@ class StrengthsService {
         throw new Error('インポートデータの形式が不正です');
       }
 
+      // memberRateフィールドを明示的に除外
+      const membersWithoutRates = members.map(member => {
+        const { memberRate, ...memberWithoutRate } = member as any;
+        return memberWithoutRate as MemberStrengths;
+      });
+
       // 各メンバーの形式を検証
-      members.forEach(member => {
+      membersWithoutRates.forEach(member => {
         if (!member.id || !member.name || !member.department || !Array.isArray(member.strengths)) {
           throw new Error('メンバーデータの形式が不正です');
         }
@@ -287,13 +317,13 @@ class StrengthsService {
         });
       });
 
-      // データを保存
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(members));
+      // データを保存（memberRate除外済み）
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(membersWithoutRates));
       if (customPositions) {
         localStorage.setItem(this.CUSTOM_POSITIONS_KEY, JSON.stringify(customPositions));
       }
 
-      return { members, customPositions };
+      return { members: membersWithoutRates, customPositions };
     } catch (error) {
       console.error('インポート中にエラーが発生しました:', error);
       throw error;

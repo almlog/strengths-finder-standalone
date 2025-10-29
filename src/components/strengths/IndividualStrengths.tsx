@@ -2,7 +2,10 @@
 import React from 'react';
 import { User, AlertCircle, Crown } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
+import { useManagerMode } from '../../hooks/useManagerMode';
+import { useMemberRates } from '../../hooks/useMemberRates';
 import StrengthsService, { GROUP_LABELS, GROUP_COLORS } from '../../services/StrengthsService';
+import { FinancialService } from '../../services/FinancialService';
 import { StrengthGroup, Position } from '../../models/StrengthsTypes';
 import Personality16Card from './Personality16Card';
 import ProfileAnalysisCard from '../analysis/ProfileAnalysisCard';
@@ -15,6 +18,8 @@ interface IndividualStrengthsProps {
 
 const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) => {
   const { members, getPositionInfo } = useStrengths();
+  const isManagerMode = useManagerMode();
+  const { getMemberRate } = useMemberRates();
 
   const member = members.find(m => m.id === memberId);
 
@@ -180,6 +185,39 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
           </div>
           <p className="text-gray-600 dark:text-gray-400">社員番号: {member.id}</p>
           <p className="text-gray-600 dark:text-gray-400">部署コード: {member.department}</p>
+
+          {/* Manager mode: 単価情報表示 */}
+          {isManagerMode && (() => {
+            const memberRate = getMemberRate(member.id);
+            if (!memberRate) {
+              return (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  ※ 単価情報が設定されていません
+                </p>
+              );
+            }
+
+            const monthlyRate = FinancialService.calculateMonthlyRate(member, memberRate);
+            const hourlyDisplay = FinancialService.formatHourlyRate(member, memberRate);
+
+            return (
+              <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
+                <p className="text-sm font-semibold text-green-900 dark:text-green-100">
+                  💰 月額換算単価: {FinancialService.formatCurrency(monthlyRate)}
+                </p>
+                {hourlyDisplay && (
+                  <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                    {hourlyDisplay}
+                  </p>
+                )}
+                {memberRate.rateType === 'contract' && memberRate.contractAmount && (
+                  <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                    契約金額（支払額）: {FinancialService.formatCurrency(memberRate.contractAmount)}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* 16Personalities Card - Only shown if personality data exists */}

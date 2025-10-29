@@ -21,6 +21,9 @@ import {
   getRoleGroupColor,
   RoleGroup,
 } from '../../services/Personality16Service';
+import { useManagerMode } from '../../hooks/useManagerMode';
+import FinancialDashboard from './FinancialDashboard';
+import ProfitabilityDashboard from './ProfitabilityDashboard';
 
 // Variant colors for consistent theming
 const VARIANT_COLORS = {
@@ -29,15 +32,16 @@ const VARIANT_COLORS = {
 } as const;
 
 const SelectedAnalysis: React.FC = () => {
-  const { 
-    members, 
-    selectedMemberIds, 
-    analyzeSelected, 
-    analysisResult, 
-    loading, 
+  const {
+    members,
+    selectedMemberIds,
+    analyzeSelected,
+    analysisResult,
+    loading,
     error,
     toggleMemberSelection
   } = useStrengths();
+  const isManagerMode = useManagerMode();
 
   // 選択メンバーの情報
   const selectedMembers = members.filter(m => selectedMemberIds.includes(m.id));
@@ -234,6 +238,12 @@ const SelectedAnalysis: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Manager mode: Financial Dashboard (売上分析) */}
+      {isManagerMode && <FinancialDashboard members={selectedMembers} />}
+
+      {/* Manager mode: Profitability Dashboard (利益率分析) */}
+      {isManagerMode && <ProfitabilityDashboard members={selectedMembers} />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* グループ分布 */}

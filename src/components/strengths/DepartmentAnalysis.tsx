@@ -15,10 +15,14 @@ import {
   Pie,
   Cell
 } from 'recharts';
+import { useManagerMode } from '../../hooks/useManagerMode';
+import FinancialDashboard from './FinancialDashboard';
+import ProfitabilityDashboard from './ProfitabilityDashboard';
 
 const DepartmentAnalysis: React.FC = () => {
   const { members, analyzeDepartment, analysisResult, loading, error, selectedDepartment } = useStrengths();
-  
+  const isManagerMode = useManagerMode();
+
   // 部署コードの一覧を取得
   const departments = ['all', ...new Set(members.map(m => m.department))];
   
@@ -100,8 +104,14 @@ const DepartmentAnalysis: React.FC = () => {
     .sort((a, b) => b.value - a.value)
     .slice(0, 10); // 上位10個のみ表示
 
+  // 部署のメンバーを取得
+  const departmentMembers = selectedDepartment === 'all'
+    ? members
+    : members.filter(m => m.department === selectedDepartment);
+
   return (
     <div className="space-y-6">
+      {/* 部署コード選択と見出し */}
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold dark:text-gray-100">
           {selectedDepartment === 'all' ? 'すべての部署コード' : `部署コード: ${selectedDepartment}`} の分析
@@ -117,6 +127,12 @@ const DepartmentAnalysis: React.FC = () => {
           ))}
         </select>
       </div>
+
+      {/* Manager mode: Financial Dashboard (売上分析) */}
+      {isManagerMode && <FinancialDashboard members={departmentMembers} />}
+
+      {/* Manager mode: Profitability Dashboard (利益率分析) */}
+      {isManagerMode && <ProfitabilityDashboard members={departmentMembers} />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* グループ分布 */}

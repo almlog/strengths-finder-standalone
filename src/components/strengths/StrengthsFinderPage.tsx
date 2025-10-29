@@ -1,7 +1,8 @@
 // src/components/strengths/StrengthsFinderPage.tsx
-import React, { useState, useRef } from 'react';
-import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
+import { useManagerMode } from '../../hooks/useManagerMode';
 import { ThemeSwitcher } from '../theme/ThemeSwitcher';
 import MemberForm from './MemberForm';
 import MembersList from './MembersList';
@@ -9,10 +10,13 @@ import DepartmentAnalysis from './DepartmentAnalysis';
 import SelectedAnalysis from './SelectedAnalysis';
 import IndividualStrengths from './IndividualStrengths';
 import StrengthsAnalysis from './StrengthsAnalysis';
+import { StageMasterSettings } from './StageMasterSettings';
+import { MemberRateSettings } from './MemberRateSettings';
 import ImportConflictDialog, { ImportConflictInfo, ImportStrategy } from './ImportConflictDialog';
 import { Tabs, Tab } from '../ui/Tabs';
+import { MigrationService } from '../../services/MigrationService';
 
-type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths';
+type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths' | 'settings';
 
 // スクロール処理の遅延時間（ms）
 // DOMの更新を待つために必要
@@ -183,10 +187,20 @@ const ImportExportButtons: React.FC = () => {
 
 const StrengthsFinderPage: React.FC = () => {
   const { error, successMessage, clearMessages } = useStrengths();
+  const isManagerMode = useManagerMode();
   const [activeTab, setActiveTab] = useState<AnalysisTab>('individual');
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const analysisAreaRef = useRef<HTMLDivElement>(null);
+
+  // 初回マウント時にデータマイグレーションを実行
+  useEffect(() => {
+    if (MigrationService.needsMigration()) {
+      console.log('[Migration] 単価情報の分離マイグレーションを開始します');
+      MigrationService.migrateMemberRatesToSeparateStorage();
+      console.log('[Migration] マイグレーション完了');
+    }
+  }, []);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as AnalysisTab);
@@ -295,6 +309,32 @@ const StrengthsFinderPage: React.FC = () => {
             }>
               <StrengthsAnalysis />
             </Tab>
+            {isManagerMode && (
+              <Tab id="settings" label={
+                <div className="flex items-center">
+                  <Settings className="w-4 h-4 mr-1" />
+                  <span>マネージャー設定</span>
+                </div>
+              }>
+                <div className="space-y-8">
+                  {/* ステージマスタ設定セクション */}
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 pb-2 border-b dark:border-gray-700">
+                      ステージマスタ設定
+                    </h3>
+                    <StageMasterSettings />
+                  </div>
+
+                  {/* 単価設定セクション */}
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 pb-2 border-b dark:border-gray-700">
+                      単価情報管理
+                    </h3>
+                    <MemberRateSettings />
+                  </div>
+                </div>
+              </Tab>
+            )}
           </Tabs>
         </div>
       </div>
