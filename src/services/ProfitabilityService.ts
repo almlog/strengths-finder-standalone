@@ -105,13 +105,7 @@ export class ProfitabilityService {
     // v3.1: 雇用形態による計算分岐
     const employmentType = stage.employmentType || stage.type; // v3.0互換
 
-    if (employmentType === 'regular' || stage.type === 'employee') {
-      // 正社員の場合: 原価 = 給与 + (給与 × 給与経費率)
-      salary = stage.averageSalary || 0;
-      const salaryExpenseRate = stage.salaryExpenseRate ?? stage.expenseRate ?? 0; // v3.0互換
-      expense = salary * salaryExpenseRate;
-      cost = salary + expense;
-    } else if (employmentType === 'contract' || employmentType === 'bp') {
+    if (employmentType === 'contract' || employmentType === 'bp') {
       // v3.1: 契約社員・BPの場合: 原価 = 契約単価 + 固定経費
       if (contractRate) {
         // v3.1方式: 契約単価 + 固定経費
@@ -129,6 +123,12 @@ export class ProfitabilityService {
         expense = cost;
         salary = undefined;
       }
+    } else if (employmentType === 'regular' || stage.type === 'employee') {
+      // 正社員の場合: 原価 = 給与 + (給与 × 給与経費率)
+      salary = stage.averageSalary || 0;
+      const salaryExpenseRate = stage.salaryExpenseRate ?? stage.expenseRate ?? 0; // v3.0互換
+      expense = salary * salaryExpenseRate;
+      cost = salary + expense;
     }
 
     // 利益計算
