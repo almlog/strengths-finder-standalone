@@ -8,7 +8,6 @@ import { getAllPersonalities } from '../../services/Personality16Service';
 import { useManagerMode } from '../../hooks/useManagerMode';
 import { useStageMasters } from '../../hooks/useStageMasters';
 import { useMemberRates } from '../../hooks/useMemberRates';
-import { POSITION_TEMPLATES } from '../../constants/positionTemplates';
 import { FinancialService } from '../../services/FinancialService';
 
 interface MemberFormProps {
@@ -24,7 +23,7 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
   const [id, setId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [department, setDepartment] = useState<string>('');
-  const [position, setPosition] = useState<Position | string | undefined>(undefined);
+  const [position, setPosition] = useState<Position | string | undefined>(Position.GENERAL); // デフォルト値を設定
   const [customPositionName, setCustomPositionName] = useState<string>('');
   const [isCustomPosition, setIsCustomPosition] = useState<boolean>(false);
   const [selectedStrengths, setSelectedStrengths] = useState<{ id: number; score: number }[]>([]);
@@ -35,12 +34,11 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
   const [personalityVariant, setPersonalityVariant] = useState<'A' | 'T' | undefined>(undefined);
 
   // Manager mode state (v2.0)
-  const [positionId, setPositionId] = useState<string | undefined>(undefined);
   const [rateType, setRateType] = useState<'monthly' | 'hourly' | 'contract' | undefined>(undefined);
   const [rate, setRate] = useState<number | undefined>(undefined);
   const [hours, setHours] = useState<number | undefined>(undefined);
 
-  // Manager mode state (v3.0 - Stage Master)
+  // Manager mode state (v3.0 - Stage Master) - デフォルト値なし（既存メンバーから読み込み時のみ設定）
   const [stageId, setStageId] = useState<string | undefined>(undefined);
 
   // 編集モードの場合は既存データを取得
@@ -59,7 +57,6 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
         setPersonalityVariant(member.personalityVariant);
 
         // Manager mode data (v2.0)
-        setPositionId(member.positionId);
         // 単価情報は別管理から取得
         const memberRate = getMemberRate(member.id);
         if (memberRate) {
@@ -118,17 +115,14 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
       strengths: selectedStrengths,
       personalityId,
       personalityVariant,
-      // Manager mode fields (v2.0)
-      positionId,
-      // memberRateは別管理に移行（フィールドから削除）
-      // Manager mode fields (v3.0 - Stage Master)
+      // Manager mode fields (v3.1 - Stage Master)
       stageId
     };
 
     addOrUpdateMember(member);
 
     // 単価情報を別管理に保存
-    if (rateType && rate) {
+    if (rateType && rate && (rateType === 'monthly' || rateType === 'hourly')) {
       setMemberRate(id, {
         rateType,
         rate,
@@ -338,120 +332,9 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
             </div>
           </div>
 
-          {/* Manager mode: Billing position selection (v2.0) */}
+          {/* Stage Master selection (v3.0) */}
           {isManagerMode && (
             <div className="mb-6 border-t dark:border-gray-600 pt-6">
-              <h4 className="text-md font-semibold text-gray-700 dark:text-gray-300 mb-4">
-                請求単価ポジション（マネージャー専用）
-              </h4>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  ポジション
-                </label>
-                <select
-                  value={positionId || ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setPositionId(value || undefined);
-                  }}
-                  className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
-                >
-                  <option value="">未設定</option>
-                  {POSITION_TEMPLATES.map(template => (
-                    <option key={template.id} value={template.id}>
-                      {template.icon} {template.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  客先での役割や立場を選択（SM、PO、派遣社員など）
-                </p>
-              </div>
-
-              {/* Rate input - Monthly */}
-              {positionId && POSITION_TEMPLATES.find(t => t.id === positionId)?.rateType === 'monthly' && (
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    月額単価（円）
-                  </label>
-                  <input
-                    type="number"
-                    value={rate || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setRate(value ? parseInt(value) : undefined);
-                      setRateType('monthly');
-                      setHours(undefined); // Clear hours for monthly
-                    }}
-                    placeholder="例: 900000"
-                    className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
-                    min="0"
-                    step="10000"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    月額固定の請求単価を入力
-                  </p>
-                </div>
-              )}
-
-              {/* Rate input - Hourly */}
-              {positionId && POSITION_TEMPLATES.find(t => t.id === positionId)?.rateType === 'hourly' && (
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      時給（円）
-                    </label>
-                    <input
-                      type="number"
-                      value={rate || ''}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setRate(value ? parseInt(value) : undefined);
-                        setRateType('hourly');
-                      }}
-                      placeholder="例: 3000"
-                      className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
-                      min="0"
-                      step="100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      月間稼働時間
-                    </label>
-                    <input
-                      type="number"
-                      value={hours || ''}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setHours(value ? parseInt(value) : undefined);
-                      }}
-                      placeholder="例: 160"
-                      className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
-                      min="0"
-                      step="10"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      デフォルト: 160時間
-                    </p>
-                  </div>
-                  {/* Monthly equivalent display */}
-                  {rate && (
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-3">
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        <span className="font-medium">月額換算: </span>
-                        {FinancialService.formatCurrency(rate * (hours || 160))}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {FinancialService.formatCurrency(rate)}/h × {hours || 160}h
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Stage Master selection (v3.0) */}
-              <div className="mt-6 border-t dark:border-gray-600 pt-6">
                 <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                   ステージマスタ（原価計算用）
                 </h5>
@@ -479,6 +362,90 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
                   </p>
                 </div>
 
+                {/* 単価入力セクション */}
+                <div className="mt-6 pt-6 border-t dark:border-gray-600">
+                  <h6 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                    売上単価（請求単価）
+                  </h6>
+
+                  {/* 単価タイプ選択 */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      単価タイプ
+                    </label>
+                    <select
+                      value={rateType || ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setRateType(value ? value as 'monthly' | 'hourly' : undefined);
+                      }}
+                      className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
+                    >
+                      <option value="">未設定</option>
+                      <option value="monthly">月額</option>
+                      <option value="hourly">時給</option>
+                    </select>
+                  </div>
+
+                  {/* 月額単価入力 */}
+                  {rateType === 'monthly' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        月額単価（円）
+                      </label>
+                      <input
+                        type="number"
+                        value={rate || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setRate(value ? Number(value) : undefined);
+                        }}
+                        placeholder="例: 800000"
+                        className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
+                      />
+                    </div>
+                  )}
+
+                  {/* 時給単価入力 */}
+                  {rateType === 'hourly' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          時給（円）
+                        </label>
+                        <input
+                          type="number"
+                          value={rate || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setRate(value ? Number(value) : undefined);
+                          }}
+                          placeholder="例: 5000"
+                          className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          月間稼働時間
+                        </label>
+                        <input
+                          type="number"
+                          value={hours || 160}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setHours(value ? Number(value) : 160);
+                          }}
+                          placeholder="160"
+                          className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          デフォルト: 160時間/月
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Cost preview */}
                 {stageId && rate && (() => {
                   const selectedStage = stageMasters.find(s => s.id === stageId);
@@ -493,12 +460,14 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
 
                   if (selectedStage.type === 'employee') {
                     const salary = selectedStage.averageSalary || 0;
-                    const expense = salary * selectedStage.expenseRate;
+                    const expenseRate = selectedStage.salaryExpenseRate ?? selectedStage.expenseRate ?? 0;
+                    const expense = salary * expenseRate;
                     cost = salary + expense;
-                    costBreakdown = `給与 ${FinancialService.formatCurrency(salary)} + 経費 ${FinancialService.formatCurrency(expense)} (${(selectedStage.expenseRate * 100).toFixed(0)}%)`;
+                    costBreakdown = `給与 ${FinancialService.formatCurrency(salary)} + 経費 ${FinancialService.formatCurrency(expense)} (${(expenseRate * 100).toFixed(0)}%)`;
                   } else {
-                    cost = monthlyRevenue * selectedStage.expenseRate;
-                    costBreakdown = `売上 ${FinancialService.formatCurrency(monthlyRevenue)} × ${(selectedStage.expenseRate * 100).toFixed(0)}%`;
+                    const expenseRate = selectedStage.expenseRate ?? 0;
+                    cost = monthlyRevenue * expenseRate;
+                    costBreakdown = `売上 ${FinancialService.formatCurrency(monthlyRevenue)} × ${(expenseRate * 100).toFixed(0)}%`;
                   }
 
                   const profit = monthlyRevenue - cost;
@@ -529,7 +498,6 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
                     </div>
                   );
                 })()}
-              </div>
             </div>
           )}
 

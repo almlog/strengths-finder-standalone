@@ -19,9 +19,16 @@ interface IndividualStrengthsProps {
 const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) => {
   const { members, getPositionInfo } = useStrengths();
   const isManagerMode = useManagerMode();
-  const { getMemberRate } = useMemberRates();
+  const { getMemberRate, refreshRates } = useMemberRates();
 
   const member = members.find(m => m.id === memberId);
+
+  // 単価情報を最新に更新（マウント時とmemberId変更時）
+  React.useEffect(() => {
+    if (isManagerMode) {
+      refreshRates();
+    }
+  }, [memberId, isManagerMode, refreshRates]);
 
   // personalityIdからMBTITypeへの変換（共通関数）
   const getMBTIType = React.useCallback((personalityId?: number): MBTIType | undefined => {
@@ -210,7 +217,7 @@ const IndividualStrengths: React.FC<IndividualStrengthsProps> = ({ memberId }) =
                     {hourlyDisplay}
                   </p>
                 )}
-                {memberRate.rateType === 'contract' && memberRate.contractAmount && (
+                {memberRate.contractAmount && (
                   <p className="text-xs text-green-700 dark:text-green-300 mt-1">
                     契約金額（支払額）: {FinancialService.formatCurrency(memberRate.contractAmount)}
                   </p>

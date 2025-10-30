@@ -177,7 +177,6 @@ describe('FinancialService v2.0', () => {
           name: 'Alice',
           department: 'DEV',
           positionId: 'MG',
-          memberRate: { rateType: 'monthly', rate: 900000 },
           strengths: [],
         },
         {
@@ -185,17 +184,26 @@ describe('FinancialService v2.0', () => {
           name: 'Bob',
           department: 'DEV',
           // positionIdなし
-          memberRate: { rateType: 'monthly', rate: 800000 },
           strengths: [],
         },
       ];
+      const memberRates = [
+        { memberId: '1', memberRate: { rateType: 'monthly' as const, rate: 900000 } },
+        { memberId: '2', memberRate: { rateType: 'monthly' as const, rate: 800000 } },
+      ];
 
-      const result = FinancialService.calculateTeamFinancials(members);
+      const result = FinancialService.calculateTeamFinancials(members, memberRates);
 
-      expect(result.monthlyRevenue).toBe(900000);
-      // v2.0: averageRatePerMemberは単価情報を持つメンバー全体で計算（positionIdなしでも含む）
-      // 900k / 2人 = 450k
-      expect(result.averageRatePerMember).toBe(450000);
+      // v2.0: positionIdがなくても、単価情報があれば売上には含まれる
+      expect(result.monthlyRevenue).toBe(1700000); // 900k + 800k
+      // averageRatePerMemberは単価情報を持つメンバー全体で計算（positionIdなしでも含む）
+      expect(result.averageRatePerMember).toBe(850000); // 1700k / 2人
+      // ポジション別内訳にはpositionIdがあるメンバーのみ含まれる
+      expect(result.revenueByPosition['MG']).toEqual({
+        count: 1,
+        totalRevenue: 900000,
+      });
+      expect(result.revenueByPosition['Bob']).toBeUndefined(); // positionIdなしは内訳に含まれない
     });
 
     it('空の配列でも正常に処理できる', () => {
@@ -214,7 +222,6 @@ describe('FinancialService v2.0', () => {
           name: 'Alice',
           department: 'DEV',
           positionId: 'MG',
-          memberRate: { rateType: 'monthly', rate: 900000 },
           strengths: [],
         },
         {
@@ -222,7 +229,6 @@ describe('FinancialService v2.0', () => {
           name: 'Bob',
           department: 'DEV',
           positionId: 'MG',
-          memberRate: { rateType: 'monthly', rate: 900000 },
           strengths: [],
         },
         {
@@ -230,12 +236,16 @@ describe('FinancialService v2.0', () => {
           name: 'Charlie',
           department: 'DEV',
           positionId: 'ST',
-          memberRate: { rateType: 'monthly', rate: 550000 },
           strengths: [],
         },
       ];
+      const memberRates = [
+        { memberId: '1', memberRate: { rateType: 'monthly' as const, rate: 900000 } },
+        { memberId: '2', memberRate: { rateType: 'monthly' as const, rate: 900000 } },
+        { memberId: '3', memberRate: { rateType: 'monthly' as const, rate: 550000 } },
+      ];
 
-      const result = FinancialService.calculateTeamFinancials(members);
+      const result = FinancialService.calculateTeamFinancials(members, memberRates);
 
       expect(result.revenueByPosition['MG']).toEqual({
         count: 2,
@@ -254,7 +264,6 @@ describe('FinancialService v2.0', () => {
           name: 'Alice',
           department: 'DEV',
           positionId: 'DISPATCH',
-          memberRate: { rateType: 'hourly', rate: 3000, hours: 160 },
           strengths: [],
         },
         {
@@ -262,12 +271,15 @@ describe('FinancialService v2.0', () => {
           name: 'Bob',
           department: 'DEV',
           positionId: 'DISPATCH',
-          memberRate: { rateType: 'hourly', rate: 2500, hours: 180 },
           strengths: [],
         },
       ];
+      const memberRates = [
+        { memberId: '1', memberRate: { rateType: 'hourly' as const, rate: 3000, hours: 160 } },
+        { memberId: '2', memberRate: { rateType: 'hourly' as const, rate: 2500, hours: 180 } },
+      ];
 
-      const result = FinancialService.calculateTeamFinancials(members);
+      const result = FinancialService.calculateTeamFinancials(members, memberRates);
 
       expect(result.revenueByPosition['DISPATCH']).toEqual({
         count: 2,
@@ -282,7 +294,6 @@ describe('FinancialService v2.0', () => {
           name: 'Alice',
           department: 'DEV',
           positionId: 'MG',
-          memberRate: { rateType: 'monthly', rate: 900000 },
           strengths: [],
         },
         {
@@ -290,16 +301,19 @@ describe('FinancialService v2.0', () => {
           name: 'Eve',
           department: 'DEV',
           positionId: 'ST',
-          memberRate: {
-            rateType: 'contract',
-            rate: 800000,  // 客先単価
-            contractAmount: 600000  // 支払額
-          },
           strengths: [],
         },
       ];
+      const memberRates = [
+        { memberId: '1', memberRate: { rateType: 'monthly' as const, rate: 900000 } },
+        { memberId: '2', memberRate: {
+          rateType: 'contract' as const,
+          rate: 800000,  // 客先単価
+          contractAmount: 600000  // 支払額
+        }},
+      ];
 
-      const result = FinancialService.calculateTeamFinancials(members);
+      const result = FinancialService.calculateTeamFinancials(members, memberRates);
 
       expect(result.monthlyRevenue).toBe(1700000); // 900k + 800k
       expect(result.averageRatePerMember).toBe(850000); // 1700k / 2

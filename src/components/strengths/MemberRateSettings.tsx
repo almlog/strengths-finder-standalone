@@ -125,6 +125,9 @@ export const MemberRateSettings: React.FC = () => {
   const handleSave = () => {
     if (!editingId) return;
 
+    // v3.1: 'contract' は除外
+    if (editRateType === 'contract') return;
+
     const newRate: MemberRate = {
       rateType: editRateType,
       rate: editRate,

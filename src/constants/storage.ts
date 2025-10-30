@@ -20,6 +20,9 @@ export const STORAGE_KEYS = {
 
   /** ステージマスタ（マネージャー専用） */
   STAGE_MASTERS: 'strengths-stage-masters',
+
+  /** データバージョン（移行管理用） */
+  DATA_VERSION: 'strengths-data-version',
 } as const;
 
 /**

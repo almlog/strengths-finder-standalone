@@ -3,7 +3,6 @@ import React from 'react';
 import { MemberStrengths } from '../../models/StrengthsTypes';
 import { useFinancialData } from '../../hooks/useFinancialData';
 import { FinancialService } from '../../services/FinancialService';
-import { POSITION_TEMPLATES } from '../../constants/positionTemplates';
 
 interface FinancialDashboardProps {
   members: MemberStrengths[];
@@ -50,56 +49,11 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ members }) => {
         </div>
       </div>
 
-      {/* ポジション別内訳 */}
-      {Object.keys(financials.revenueByPosition).length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-            ポジション別内訳
-          </h4>
-          <div className="space-y-2">
-            {Object.entries(financials.revenueByPosition).map(([positionId, data]) => {
-              const template = POSITION_TEMPLATES.find(t => t.id === positionId);
-              if (!template) return null;
-
-              return (
-                <div
-                  key={positionId}
-                  className="flex items-center justify-between py-2 border-b dark:border-gray-700 last:border-0"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{template.icon}</span>
-                    <span
-                      className="font-medium"
-                      style={{ color: template.color }}
-                    >
-                      {template.name}
-                    </span>
-                    <span className="text-gray-500 dark:text-gray-400 text-sm">
-                      × {data.count}名
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-gray-900 dark:text-gray-100">
-                      {FinancialService.formatCurrency(data.totalRevenue)}
-                    </div>
-                    {template.rateType === 'hourly' && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        (時給換算)
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* データなし表示 */}
-      {Object.keys(financials.revenueByPosition).length === 0 && (
+      {financials.monthlyRevenue === 0 && (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           <p>単価情報を持つメンバーがいません</p>
-          <p className="text-sm mt-1">メンバー追加時にポジションと単価を設定してください</p>
+          <p className="text-sm mt-1">メンバー編集画面で単価を設定してください</p>
         </div>
       )}
     </div>

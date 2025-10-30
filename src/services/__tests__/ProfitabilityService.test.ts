@@ -21,15 +21,15 @@ describe('ProfitabilityService', () => {
         department: '営業部',
         strengths: [],
         positionId: 'PG', // プログラマー
-        memberRate: {
-          rateType: 'monthly',
-          rate: 600000
-        },
         stageId: 'S1'
       } as any;
+      const memberRate = {
+        rateType: 'monthly' as const,
+        rate: 600000
+      };
 
       // Act
-      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters);
+      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate);
 
       // Assert
       // 売上: 600,000円
@@ -55,15 +55,15 @@ describe('ProfitabilityService', () => {
         department: '営業部',
         strengths: [],
         positionId: 'SM',
-        memberRate: {
-          rateType: 'monthly',
-          rate: 800000
-        },
         stageId: 'S2'
       } as any;
+      const memberRate = {
+        rateType: 'monthly' as const,
+        rate: 800000
+      };
 
       // Act
-      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters);
+      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate);
 
       // Assert
       // 売上: 800,000円
@@ -88,15 +88,15 @@ describe('ProfitabilityService', () => {
         department: '開発部',
         strengths: [],
         positionId: 'PL',
-        memberRate: {
-          rateType: 'monthly',
-          rate: 1000000
-        },
         stageId: 'S3'
       } as any;
+      const memberRate = {
+        rateType: 'monthly' as const,
+        rate: 1000000
+      };
 
       // Act
-      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters);
+      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate);
 
       // Assert
       // 売上: 1,000,000円
@@ -119,15 +119,15 @@ describe('ProfitabilityService', () => {
         department: '開発部',
         strengths: [],
         positionId: 'MG',
-        memberRate: {
-          rateType: 'monthly',
-          rate: 1200000
-        },
         stageId: 'S4'
       } as any;
+      const memberRate = {
+        rateType: 'monthly' as const,
+        rate: 1200000
+      };
 
       // Act
-      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters);
+      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate);
 
       // Assert
       // 売上: 1,200,000円
@@ -150,16 +150,16 @@ describe('ProfitabilityService', () => {
         department: 'デザイン部',
         strengths: [],
         positionId: 'PG',
-        memberRate: {
-          rateType: 'hourly',
-          rate: 5000,
-          hours: 160
-        },
         stageId: 'S2'
       } as any;
+      const memberRate = {
+        rateType: 'hourly' as const,
+        rate: 5000,
+        hours: 160
+      };
 
       // Act
-      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters);
+      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate);
 
       // Assert
       // 売上: 5,000 × 160 = 800,000円
@@ -206,16 +206,16 @@ describe('ProfitabilityService', () => {
         name: '渡辺さくら',
         department: '営業部',
         strengths: [],
-        positionId: 'PG',
-        memberRate: {
-          rateType: 'monthly',
-          rate: 600000
-        }
+        positionId: 'PG'
       } as any;
+      const memberRate = {
+        rateType: 'monthly' as const,
+        rate: 600000
+      };
 
       // Act & Assert
       expect(() => {
-        ProfitabilityService.calculateMemberProfitability(member, stageMasters);
+        ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate);
       }).toThrow('ステージIDが設定されていません');
     });
 
@@ -247,15 +247,15 @@ describe('ProfitabilityService', () => {
         department: '営業部',
         strengths: [],
         positionId: 'PG',
-        memberRate: {
-          rateType: 'monthly',
-          rate: 800000
-        },
         stageId: 'BP'
       } as any;
+      const memberRate = {
+        rateType: 'monthly' as const,
+        rate: 800000
+      };
 
       // Act
-      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters);
+      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate);
 
       // Assert
       // 売上: 800,000円
@@ -279,16 +279,16 @@ describe('ProfitabilityService', () => {
         department: '開発部',
         strengths: [],
         positionId: 'PG',
-        memberRate: {
-          rateType: 'hourly',
-          rate: 5000,
-          hours: 160
-        },
         stageId: 'BP'
       } as any;
+      const memberRate = {
+        rateType: 'hourly' as const,
+        rate: 5000,
+        hours: 160
+      };
 
       // Act
-      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters);
+      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate);
 
       // Assert
       // 売上: 5,000 × 160 = 800,000円
@@ -309,15 +309,15 @@ describe('ProfitabilityService', () => {
         department: 'デザイン部',
         strengths: [],
         positionId: 'DE',
-        memberRate: {
-          rateType: 'monthly',
-          rate: 1000000
-        },
         stageId: 'BP'
       } as any;
+      const memberRate = {
+        rateType: 'monthly' as const,
+        rate: 1000000
+      };
 
       // Act
-      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters);
+      const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate);
 
       // Assert
       // 売上: 1,000,000円
@@ -366,7 +366,6 @@ describe('ProfitabilityService', () => {
           name: '山田太郎',
           department: '営業部',
           strengths: [],
-          memberRate: { rateType: 'monthly', rate: 600000 },
           stageId: 'S1'
         } as any,
         {
@@ -374,7 +373,6 @@ describe('ProfitabilityService', () => {
           name: '佐藤花子',
           department: '営業部',
           strengths: [],
-          memberRate: { rateType: 'monthly', rate: 800000 },
           stageId: 'S2'
         } as any,
         {
@@ -382,13 +380,17 @@ describe('ProfitabilityService', () => {
           name: '外部太郎',
           department: '営業部',
           strengths: [],
-          memberRate: { rateType: 'monthly', rate: 800000 },
           stageId: 'BP'
         } as any
       ];
+      const memberRates = [
+        { memberId: 'emp001', memberRate: { rateType: 'monthly' as const, rate: 600000 } },
+        { memberId: 'emp002', memberRate: { rateType: 'monthly' as const, rate: 800000 } },
+        { memberId: 'bp001', memberRate: { rateType: 'monthly' as const, rate: 800000 } }
+      ];
 
       // Act
-      const result = ProfitabilityService.calculateTeamProfitability(members, stageMasters);
+      const result = ProfitabilityService.calculateTeamProfitability(members, stageMasters, memberRates);
 
       // Assert
       // 社員1 (S1): 売上600k, 原価325k, 利益275k
@@ -425,34 +427,36 @@ describe('ProfitabilityService', () => {
           id: 'emp001',
           name: '山田太郎',
           strengths: [],
-          memberRate: { rateType: 'monthly', rate: 600000 },
           stageId: 'S1'
         } as any,
         {
           id: 'emp002',
           name: '佐藤花子',
           strengths: [],
-          memberRate: { rateType: 'monthly', rate: 800000 },
           stageId: 'S2'
         } as any,
         {
           id: 'emp003',
           name: '鈴木一郎',
           strengths: [],
-          memberRate: { rateType: 'monthly', rate: 1000000 },
           stageId: 'S3'
         } as any,
         {
           id: 'emp004',
           name: '田中次郎',
           strengths: [],
-          memberRate: { rateType: 'monthly', rate: 1200000 },
           stageId: 'S4'
         } as any
       ];
+      const memberRates = [
+        { memberId: 'emp001', memberRate: { rateType: 'monthly' as const, rate: 600000 } },
+        { memberId: 'emp002', memberRate: { rateType: 'monthly' as const, rate: 800000 } },
+        { memberId: 'emp003', memberRate: { rateType: 'monthly' as const, rate: 1000000 } },
+        { memberId: 'emp004', memberRate: { rateType: 'monthly' as const, rate: 1200000 } }
+      ];
 
       // Act
-      const result = ProfitabilityService.calculateTeamProfitability(members, stageMasters);
+      const result = ProfitabilityService.calculateTeamProfitability(members, stageMasters, memberRates);
 
       // Assert
       // S1: 利益275k
@@ -474,20 +478,22 @@ describe('ProfitabilityService', () => {
           id: 'bp001',
           name: '外部太郎',
           strengths: [],
-          memberRate: { rateType: 'monthly', rate: 800000 },
           stageId: 'BP'
         } as any,
         {
           id: 'bp002',
           name: '外部花子',
           strengths: [],
-          memberRate: { rateType: 'monthly', rate: 1000000 },
           stageId: 'BP'
         } as any
       ];
+      const memberRates = [
+        { memberId: 'bp001', memberRate: { rateType: 'monthly' as const, rate: 800000 } },
+        { memberId: 'bp002', memberRate: { rateType: 'monthly' as const, rate: 1000000 } }
+      ];
 
       // Act
-      const result = ProfitabilityService.calculateTeamProfitability(members, stageMasters);
+      const result = ProfitabilityService.calculateTeamProfitability(members, stageMasters, memberRates);
 
       // Assert
       // BP1: 売上800k, 利益120k
@@ -509,20 +515,22 @@ describe('ProfitabilityService', () => {
           id: 'emp001',
           name: '山田太郎',
           strengths: [],
-          memberRate: { rateType: 'monthly', rate: 600000 },
           stageId: 'S1'
         } as any,
         {
           id: 'emp002',
           name: '佐藤花子',
-          strengths: [],
-          memberRate: { rateType: 'monthly', rate: 800000 }
+          strengths: []
           // stageId なし
         } as any
       ];
+      const memberRates = [
+        { memberId: 'emp001', memberRate: { rateType: 'monthly' as const, rate: 600000 } },
+        { memberId: 'emp002', memberRate: { rateType: 'monthly' as const, rate: 800000 } }
+      ];
 
       // Act
-      const result = ProfitabilityService.calculateTeamProfitability(members, stageMasters);
+      const result = ProfitabilityService.calculateTeamProfitability(members, stageMasters, memberRates);
 
       // Assert
       // S1のみがカウントされる
@@ -555,19 +563,21 @@ describe('ProfitabilityService', () => {
         {
           id: 'emp001',
           name: '山田太郎',
-          strengths: [],
-          memberRate: { rateType: 'monthly', rate: 600000 }
+          strengths: []
         } as any,
         {
           id: 'emp002',
           name: '佐藤花子',
-          strengths: [],
-          memberRate: { rateType: 'monthly', rate: 800000 }
+          strengths: []
         } as any
+      ];
+      const memberRates = [
+        { memberId: 'emp001', memberRate: { rateType: 'monthly' as const, rate: 600000 } },
+        { memberId: 'emp002', memberRate: { rateType: 'monthly' as const, rate: 800000 } }
       ];
 
       // Act
-      const result = ProfitabilityService.calculateTeamProfitability(members, stageMasters);
+      const result = ProfitabilityService.calculateTeamProfitability(members, stageMasters, memberRates);
 
       // Assert
       expect(result.totalRevenue).toBe(0);

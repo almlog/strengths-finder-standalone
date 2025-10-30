@@ -1,5 +1,4 @@
 // src/models/StrengthsTypes.ts
-import { MemberRate } from '../types/financial';
 
 export enum StrengthGroup {
     EXECUTING = "executing",
@@ -50,9 +49,8 @@ export interface MemberStrengths {
   name: string;
   department: string;
   position?: Position | string; // デフォルト役職またはカスタム役職ID
-  positionId?: string; // マネージャー向け請求単価ポジションID（例: 'MG', 'SM', 'PO'）
-  memberRate?: MemberRate; // v2.0: 個別単価情報（月額 or 時給）
-  stageId?: string; // v3.0: ステージID（S1, S2, S3, S4, BP）
+  stageId?: string; // v3.1: ステージID（S1, S2, S3, S4, BP） - 原価テンプレート参照用
+
   strengths: RankedStrength[]; // Top 5 ranked strengths
 
   // 16Personalities情報（任意）
