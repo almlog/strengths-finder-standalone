@@ -1,21 +1,28 @@
 // src/services/ProfitabilityService.ts
 /**
- * 利益率計算サービス v3.0
+ * 利益率計算サービス v3.1
  *
  * @module services/ProfitabilityService
  * @description メンバーおよびチーム全体の利益率計算を行うサービス
- *              SPEC: MANAGER_FEATURE_SPEC_V3.md Phase 4.1
+ *              SPEC: MANAGER_FEATURE_SPEC_V3.1_UNIFIED.md
+ * @version 3.1 - 契約単価分離 + 雇用形態別計算
  */
 
 import { MemberStrengths } from '../models/StrengthsTypes';
 import { MemberProfitability, TeamProfitability, StageMaster } from '../types/profitability';
-import { MemberRate, MemberRateRecord } from '../types/financial';
+import { MemberRate, MemberRateRecord, ContractRate } from '../types/financial';
 import { FinancialService } from './FinancialService';
 
 /**
- * ProfitabilityService クラス v3.0
+ * ProfitabilityService クラス v3.1
  *
- * 社員とBPの利益計算、チーム全体の利益集計を行う
+ * 正社員・契約社員・BPの利益計算、チーム全体の利益集計を行う
+ *
+ * v3.1の主な変更点:
+ * - 雇用形態別の原価計算ロジック
+ * - 正社員: 給与 + (給与 × 給与経費率)
+ * - 契約社員・BP: 契約単価 + 固定経費
+ * - contractRate パラメータの追加
  */
 export class ProfitabilityService {
   /**
@@ -36,33 +43,38 @@ export class ProfitabilityService {
   }
 
   /**
-   * メンバー個人の利益を計算
+   * メンバー個人の利益を計算（v3.1）
    *
    * 計算ロジック:
-   * - 社員の場合: 原価 = 給与 + (給与 × 経費率)
-   * - BPの場合: 原価 = 売上 × 経費率
+   * - 正社員（S1-S4）: 原価 = 給与 + (給与 × 給与経費率)
+   * - 契約社員・BP: 原価 = 契約単価 + 固定経費
+   * - v3.0互換: BPで contractRate がない場合は 売上 × 経費率
    *
    * @param {MemberStrengths} member - メンバー情報
    * @param {StageMaster[]} stageMasters - ステージマスタ一覧
-   * @param {MemberRate} [memberRate] - メンバー単価（オプション。指定がない場合は売上0として計算）
+   * @param {MemberRate} [memberRate] - メンバー売上単価（オプション。指定がない場合は売上0として計算）
+   * @param {ContractRate} [contractRate] - 契約単価（契約社員・BPのみ、v3.1）
    * @returns {MemberProfitability} 利益計算結果
    * @throws {Error} ステージIDが未設定または無効な場合
    *
    * @example
    * ```typescript
-   * // 単価情報を外部から指定（v3.1以降推奨）
+   * // v3.1: 契約社員の例
    * const member = {
-   *   id: 'emp001',
-   *   name: '山田太郎',
-   *   stageId: 'S1'
+   *   id: 'contract001',
+   *   name: '鈴木一郎',
+   *   stageId: 'CONTRACT'
    * };
-   * const rate = { rateType: 'monthly', rate: 600000 };
-   * const result = ProfitabilityService.calculateMemberProfitability(member, DEFAULT_STAGE_MASTERS, rate);
+   * const memberRate = { rateType: 'monthly', rate: 800000 }; // 売上
+   * const contractRate = { rateType: 'monthly', rate: 600000 }; // 契約単価
+   * const result = ProfitabilityService.calculateMemberProfitability(
+   *   member, DEFAULT_STAGE_MASTERS, memberRate, contractRate
+   * );
    * // {
-   * //   revenue: 600000,
-   * //   cost: 325000,
-   * //   profit: 275000,
-   * //   profitMargin: 45.83,
+   * //   revenue: 800000,
+   * //   cost: 650000, // 600000 + 50000(固定経費)
+   * //   profit: 150000,
+   * //   profitMargin: 18.75,
    * //   ...
    * // }
    * ```
@@ -70,7 +82,8 @@ export class ProfitabilityService {
   static calculateMemberProfitability(
     member: MemberStrengths,
     stageMasters: StageMaster[],
-    memberRate?: MemberRate
+    memberRate?: MemberRate,
+    contractRate?: ContractRate
   ): MemberProfitability {
     // ステージIDのバリデーション
     if (!member.stageId) {
@@ -89,16 +102,33 @@ export class ProfitabilityService {
     let salary: number | undefined = undefined;
     let expense = 0;
 
-    if (stage.type === 'employee') {
-      // 社員の場合: 原価 = 給与 + (給与 × 経費率)
+    // v3.1: 雇用形態による計算分岐
+    const employmentType = stage.employmentType || stage.type; // v3.0互換
+
+    if (employmentType === 'regular' || stage.type === 'employee') {
+      // 正社員の場合: 原価 = 給与 + (給与 × 給与経費率)
       salary = stage.averageSalary || 0;
-      expense = salary * stage.expenseRate;
+      const salaryExpenseRate = stage.salaryExpenseRate ?? stage.expenseRate ?? 0; // v3.0互換
+      expense = salary * salaryExpenseRate;
       cost = salary + expense;
-    } else if (stage.type === 'bp') {
-      // BPの場合: 原価 = 売上 × 経費率
-      cost = revenue * stage.expenseRate;
-      expense = cost;
-      salary = undefined;
+    } else if (employmentType === 'contract' || employmentType === 'bp') {
+      // v3.1: 契約社員・BPの場合: 原価 = 契約単価 + 固定経費
+      if (contractRate) {
+        // v3.1方式: 契約単価 + 固定経費
+        const contractAmount = contractRate.rateType === 'hourly'
+          ? contractRate.rate * (contractRate.hours || 160)
+          : contractRate.rate;
+        const fixedExpense = stage.fixedExpense || 0;
+        cost = contractAmount + fixedExpense;
+        expense = fixedExpense;
+        salary = undefined;
+      } else {
+        // v3.0互換: 契約単価がない場合は売上 × 経費率
+        const expenseRate = stage.expenseRate || 0;
+        cost = revenue * expenseRate;
+        expense = cost;
+        salary = undefined;
+      }
     }
 
     // 利益計算

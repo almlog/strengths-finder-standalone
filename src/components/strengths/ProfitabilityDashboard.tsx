@@ -35,7 +35,12 @@ const getProfitMarginColorClass = (profitMargin: number): string => {
  */
 const ProfitabilityDashboard: React.FC<ProfitabilityDashboardProps> = ({ members }) => {
   const { stageMasters } = useStageMasters();
-  const { memberRates, getMemberRate } = useMemberRates();
+  const { memberRates, getMemberRate, refreshRates } = useMemberRates();
+
+  // 単価情報を最新に更新（マウント時とメンバー変更時）
+  React.useEffect(() => {
+    refreshRates();
+  }, [members, refreshRates]);
 
   // ステージIDと単価情報を持つメンバーのみをフィルタ
   const validMembers = members.filter(m => {

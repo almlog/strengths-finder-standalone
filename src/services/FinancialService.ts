@@ -49,11 +49,6 @@ export class FinancialService {
       return memberRate.rate * hours;
     }
 
-    if (memberRate.rateType === 'contract') {
-      // 契約タイプの場合は客先単価（rate）を返す
-      return memberRate.rate;
-    }
-
     // 月額単価
     return memberRate.rate;
   }
@@ -82,7 +77,6 @@ export class FinancialService {
    */
   static calculateTeamFinancials(members: MemberStrengths[], memberRates?: MemberRateRecord[]): TeamFinancials {
     let monthlyRevenue = 0;
-    const revenueByPosition: Record<string, { count: number; totalRevenue: number }> = {};
 
     // memberRateをIDでマッピング
     const rateMap = new Map<string, MemberRate>();
@@ -99,15 +93,6 @@ export class FinancialService {
       if (monthlyRate > 0) {
         // 全体の売上に加算
         monthlyRevenue += monthlyRate;
-
-        // ポジション別内訳（positionIdがある場合のみ）
-        if (member.positionId) {
-          if (!revenueByPosition[member.positionId]) {
-            revenueByPosition[member.positionId] = { count: 0, totalRevenue: 0 };
-          }
-          revenueByPosition[member.positionId].count++;
-          revenueByPosition[member.positionId].totalRevenue += monthlyRate;
-        }
       }
     });
 
@@ -121,7 +106,7 @@ export class FinancialService {
       monthlyRevenue,
       annualRevenue: monthlyRevenue * 12,
       averageRatePerMember: memberCount > 0 ? monthlyRevenue / memberCount : 0,
-      revenueByPosition,
+      revenueByPosition: {}, // v3.1: positionId廃止により空オブジェクトを返す
     };
   }
 

@@ -386,7 +386,7 @@ export const StageMasterSettings: React.FC = () => {
                         className="w-full px-2 py-1 border rounded text-right"
                       />
                     ) : (
-                      `${(stage.expenseRate * 100).toFixed(0)}%`
+                      `${((stage.salaryExpenseRate ?? stage.expenseRate ?? 0) * 100).toFixed(0)}%`
                     )}
                   </td>
                   <td className="border px-4 py-2 text-center">
@@ -523,9 +523,11 @@ export const StageMasterSettings: React.FC = () => {
       <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded">
         <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">💡 設定のヒント</h3>
         <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-          <li>• <strong>平均給与</strong>: 各ステージの社員の平均月額給与を設定します</li>
-          <li>• <strong>経費率</strong>: 社員の場合は給与に対する経費率、BPの場合は売上に対する経費率です</li>
-          <li>• <strong>原価計算</strong>: 社員 = 給与 + (給与 × 経費率)、BP = 売上 × 経費率</li>
+          <li>• <strong>ステージマスタとは</strong>: 原価計算のテンプレートです（売上単価は個人編集画面で別途設定）</li>
+          <li>• <strong>平均給与（社員のみ）</strong>: 各ステージの社員の平均月額給与を設定します</li>
+          <li>• <strong>給与経費率（社員のみ）</strong>: 給与に対する経費率（福利厚生費、交通費など）</li>
+          <li>• <strong>経費率（BPのみ）</strong>: 売上に対する経費率（管理費、手数料など）</li>
+          <li>• <strong>原価計算</strong>: 社員 = 給与 + (給与 × 給与経費率)、BP = 個別単価 × 経費率</li>
         </ul>
       </div>
 
