@@ -1,5 +1,5 @@
 // src/components/strengths/DepartmentAnalysis.tsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Building, AlertCircle } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import StrengthsService, { GROUP_LABELS, GROUP_COLORS } from '../../services/StrengthsService';
@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { useManagerMode } from '../../hooks/useManagerMode';
 import ProfitabilityDashboard from './ProfitabilityDashboard';
+import { SimulationService } from '../../services/SimulationService';
 
 const DepartmentAnalysis: React.FC = () => {
   const { members, analyzeDepartment, analysisResult, loading, error, selectedDepartment } = useStrengths();
@@ -24,11 +25,23 @@ const DepartmentAnalysis: React.FC = () => {
 
   // 部署コードの一覧を取得し、番号順でソート
   const departments = ['all', ...[...new Set(members.map(m => m.department))].sort()];
-  
+
+  // 部署のメンバーを取得（useMemoはトップレベルで呼ぶ必要がある）
+  const departmentMembers = useMemo(() => {
+    return selectedDepartment === 'all'
+      ? members
+      : members.filter(m => m.department === selectedDepartment);
+  }, [selectedDepartment, members]);
+
+  // チーム特性ナラティブを計算（useMemoはトップレベルで呼ぶ必要がある）
+  const teamNarrative = useMemo(() => {
+    return SimulationService.calculateTeamNarrative(departmentMembers);
+  }, [departmentMembers]);
+
   const handleDepartmentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     analyzeDepartment(e.target.value);
   };
-  
+
   // 選択されていない場合はプレースホルダーを表示
   if (!analysisResult && !loading) {
     return (
@@ -103,11 +116,6 @@ const DepartmentAnalysis: React.FC = () => {
     .sort((a, b) => b.value - a.value)
     .slice(0, 10); // 上位10個のみ表示
 
-  // 部署のメンバーを取得
-  const departmentMembers = selectedDepartment === 'all'
-    ? members
-    : members.filter(m => m.department === selectedDepartment);
-
   return (
     <div className="space-y-6">
       {/* 部署コード選択と見出し */}
@@ -130,11 +138,11 @@ const DepartmentAnalysis: React.FC = () => {
       {/* Manager mode: Profitability Dashboard (利益率分析) */}
       {isManagerMode && <ProfitabilityDashboard members={departmentMembers} />}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* グループ分布 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 1. 円グラフ: グループ分布 */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h4 className="text-md font-semibold mb-3 dark:text-gray-100">強みグループ分布</h4>
-          <div style={{ width: '100%', height: 500 }}>
+          <h4 className="text-md font-semibold mb-3 dark:text-gray-100">1. 強みグループ分布（円グラフ）</h4>
+          <div style={{ width: '100%', height: 450 }}>
             <ResponsiveContainer>
               <PieChart>
                 <Pie
@@ -155,10 +163,10 @@ const DepartmentAnalysis: React.FC = () => {
           </div>
         </div>
 
-        {/* 上位の強み */}
+        {/* 2. 棒グラフ: 上位の強み */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h4 className="text-md font-semibold mb-3 dark:text-gray-100">上位の強み</h4>
-          <div style={{ width: '100%', height: 500 }}>
+          <h4 className="text-md font-semibold mb-3 dark:text-gray-100">2. 頻出資質TOP10（棒グラフ）</h4>
+          <div style={{ width: '100%', height: 450 }}>
             <ResponsiveContainer>
               <BarChart
                 data={strengthFrequencyData}
@@ -167,7 +175,7 @@ const DepartmentAnalysis: React.FC = () => {
               >
                 <XAxis type="number" domain={[0, 'dataMax']} />
                 <YAxis type="category" dataKey="name" />
-                <Tooltip 
+                <Tooltip
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
@@ -196,6 +204,60 @@ const DepartmentAnalysis: React.FC = () => {
             </ResponsiveContainer>
           </div>
         </div>
+
+        {/* 3. チーム特性ナラティブ（分析コメント） */}
+        {teamNarrative && (
+          <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg shadow p-4 overflow-y-auto" style={{ maxHeight: '450px' }}>
+            <h4 className="text-md font-semibold mb-3 dark:text-gray-100">3. 分析結果コメント</h4>
+
+            {/* タイトル */}
+            <div className="mb-3">
+              <h5 className="text-lg font-bold text-blue-800 dark:text-blue-300">
+                {teamNarrative.title}
+              </h5>
+            </div>
+
+            {/* サマリー */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                {teamNarrative.summary}
+              </p>
+            </div>
+
+            {/* 頻出資質TOP5 */}
+            <div className="mb-4">
+              <h6 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                頻出資質TOP5
+              </h6>
+              <div className="flex flex-wrap gap-2">
+                {teamNarrative.topStrengths.slice(0, 5).map(s => (
+                  <span
+                    key={s.strengthId}
+                    className="px-2 py-1 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded text-xs font-medium"
+                    title={`${s.frequency}人が保有 (${s.percentage.toFixed(0)}%)`}
+                  >
+                    {s.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* チームの可能性 */}
+            <div>
+              <h6 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                このチームの可能性
+              </h6>
+              <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-2">
+                {teamNarrative.possibilities.map((poss, idx) => (
+                  <li key={idx} className="flex items-start">
+                    <span className="text-blue-500 mr-2">▸</span>
+                    <span>{poss}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 部署コードの代表的な強み（すべての資質） */}
