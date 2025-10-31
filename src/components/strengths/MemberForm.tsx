@@ -19,7 +19,7 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
   const { members, addOrUpdateMember, customPositions, addCustomPosition } = useStrengths();
   const isManagerMode = useManagerMode();
   const { stageMasters } = useStageMasters();
-  const { getMemberRate, setMemberRate, deleteMemberRate } = useMemberRates();
+  const { getMemberRate, getContractRate, setMemberRate, deleteMemberRate } = useMemberRates();
   const [id, setId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [department, setDepartment] = useState<string>('');
@@ -37,6 +37,11 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
   const [rateType, setRateType] = useState<'monthly' | 'hourly' | 'contract' | undefined>(undefined);
   const [rate, setRate] = useState<number | undefined>(undefined);
   const [hours, setHours] = useState<number | undefined>(undefined);
+
+  // Contract rate state (v3.1 - for CONTRACT/BP only)
+  const [contractRateType, setContractRateType] = useState<'monthly' | 'hourly' | undefined>(undefined);
+  const [contractRate, setContractRate] = useState<number | undefined>(undefined);
+  const [contractHours, setContractHours] = useState<number | undefined>(undefined);
 
   // Manager mode state (v3.0 - Stage Master) - デフォルト値なし（既存メンバーから読み込み時のみ設定）
   const [stageId, setStageId] = useState<string | undefined>(undefined);
@@ -63,6 +68,14 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
           setRateType(memberRate.rateType);
           setRate(memberRate.rate);
           setHours(memberRate.hours);
+        }
+
+        // Contract rate data (v3.1)
+        const contractRateData = getContractRate(member.id);
+        if (contractRateData) {
+          setContractRateType(contractRateData.rateType);
+          setContractRate(contractRateData.rate);
+          setContractHours(contractRateData.hours);
         }
 
         // Manager mode data (v3.0 - Stage Master)
@@ -121,13 +134,20 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
 
     addOrUpdateMember(member);
 
-    // 単価情報を別管理に保存
+    // 単価情報を別管理に保存 (v3.1: contractRateも含む)
     if (rateType && rate && (rateType === 'monthly' || rateType === 'hourly')) {
+      // 契約単価も一緒に保存
+      const contractRateData = (contractRateType && contractRate) ? {
+        rateType: contractRateType,
+        rate: contractRate,
+        hours: contractRateType === 'hourly' ? contractHours : undefined
+      } : undefined;
+
       setMemberRate(id, {
         rateType,
         rate,
         hours: rateType === 'hourly' ? hours : undefined
-      });
+      }, contractRateData);
     } else {
       // 単価情報が未入力の場合は削除
       deleteMemberRate(id);
@@ -446,6 +466,108 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
                   )}
                 </div>
 
+                {/* 契約単価入力セクション (v3.1 - CONTRACT/BPのみ) */}
+                {(() => {
+                  const selectedStage = stageMasters.find(s => s.id === stageId);
+                  const isContractOrBp = selectedStage?.employmentType === 'contract' || selectedStage?.employmentType === 'bp';
+
+                  if (!isContractOrBp) return null;
+
+                  return (
+                    <div className="mt-6 pt-6 border-t dark:border-gray-600">
+                      <h6 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                        契約単価（支払額・原価）
+                      </h6>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                        ⚠️ 契約社員・BPの場合、契約単価（支払額）を入力してください。利益計算に使用されます。
+                      </p>
+
+                      {/* 契約単価タイプ選択 */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          契約単価タイプ
+                        </label>
+                        <select
+                          value={contractRateType || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setContractRateType(value ? value as 'monthly' | 'hourly' : undefined);
+                          }}
+                          className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
+                        >
+                          <option value="">未設定</option>
+                          <option value="monthly">月額</option>
+                          <option value="hourly">時給</option>
+                        </select>
+                      </div>
+
+                      {/* 月額契約単価入力 */}
+                      {contractRateType === 'monthly' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            月額契約単価（円）
+                          </label>
+                          <input
+                            type="number"
+                            value={contractRate || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setContractRate(value ? Number(value) : undefined);
+                            }}
+                            placeholder="例: 600000"
+                            className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
+                          />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            契約社員・BPに支払う月額契約金額
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 時給契約単価入力 */}
+                      {contractRateType === 'hourly' && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              契約時給（円）
+                            </label>
+                            <input
+                              type="number"
+                              value={contractRate || ''}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setContractRate(value ? Number(value) : undefined);
+                              }}
+                              placeholder="例: 4000"
+                              className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              契約社員・BPに支払う時給
+                            </p>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              月間稼働時間
+                            </label>
+                            <input
+                              type="number"
+                              value={contractHours || 160}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setContractHours(value ? Number(value) : 160);
+                              }}
+                              placeholder="160"
+                              className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded p-2"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              デフォルト: 160時間/月
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Cost preview */}
                 {stageId && rate && (() => {
                   const selectedStage = stageMasters.find(s => s.id === stageId);
@@ -458,13 +580,28 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
                   let cost = 0;
                   let costBreakdown = '';
 
-                  if (selectedStage.type === 'employee') {
+                  // v3.1: CONTRACT/BPの場合は契約単価を使用
+                  const isContractOrBp = selectedStage.employmentType === 'contract' || selectedStage.employmentType === 'bp';
+
+                  if (isContractOrBp && contractRate && contractRateType) {
+                    // CONTRACT/BP: 契約単価 + 固定経費 + (契約単価 × 社内経費率)
+                    const contractAmount = contractRateType === 'hourly'
+                      ? contractRate * (contractHours || 160)
+                      : contractRate;
+                    const fixedExpense = selectedStage.fixedExpense || 0;
+                    const contractExpenseRate = selectedStage.contractExpenseRate || 0;
+                    const contractExpense = contractAmount * contractExpenseRate;
+                    cost = contractAmount + fixedExpense + contractExpense;
+                    costBreakdown = `契約単価 ${FinancialService.formatCurrency(contractAmount)} + 固定経費 ${FinancialService.formatCurrency(fixedExpense)} + 社内経費 ${FinancialService.formatCurrency(contractExpense)} (${(contractExpenseRate * 100).toFixed(0)}%)`;
+                  } else if (selectedStage.employmentType === 'regular' || selectedStage.type === 'employee') {
+                    // 正社員: 給与 + 給与経費率
                     const salary = selectedStage.averageSalary || 0;
                     const expenseRate = selectedStage.salaryExpenseRate ?? selectedStage.expenseRate ?? 0;
                     const expense = salary * expenseRate;
                     cost = salary + expense;
                     costBreakdown = `給与 ${FinancialService.formatCurrency(salary)} + 経費 ${FinancialService.formatCurrency(expense)} (${(expenseRate * 100).toFixed(0)}%)`;
                   } else {
+                    // 旧形式のBP: 売上 × 経費率（v3.0互換）
                     const expenseRate = selectedStage.expenseRate ?? 0;
                     cost = monthlyRevenue * expenseRate;
                     costBreakdown = `売上 ${FinancialService.formatCurrency(monthlyRevenue)} × ${(expenseRate * 100).toFixed(0)}%`;
