@@ -23,8 +23,8 @@ const DepartmentAnalysis: React.FC = () => {
   const { members, analyzeDepartment, analysisResult, loading, error, selectedDepartment } = useStrengths();
   const isManagerMode = useManagerMode();
 
-  // 部署コードの一覧を取得
-  const departments = ['all', ...new Set(members.map(m => m.department))];
+  // 部署コードの一覧を取得し、番号順でソート
+  const departments = ['all', ...[...new Set(members.map(m => m.department))].sort()];
   
   const handleDepartmentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     analyzeDepartment(e.target.value);
