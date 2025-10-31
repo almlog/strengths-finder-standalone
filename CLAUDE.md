@@ -55,6 +55,10 @@ npm start
 
 ```
 strengths-finder-standalone/
+├── .claude/                              # Claude Code 設定
+│   └── skills/
+│       └── strengths-analyzer/           # 分析システム専門スキル
+│           └── SKILL.md                  # スキル定義
 ├── src/
 │   ├── App.tsx                           # メインアプリ
 │   ├── components/strengths/             # ストレングス関連コンポーネント
@@ -66,11 +70,55 @@ strengths-finder-standalone/
 │   │   ├── SelectedAnalysis.tsx         # 選択メンバー分析
 │   │   └── StrengthsAnalysis.tsx        # 資質分析
 │   ├── contexts/StrengthsContext.tsx    # 状態管理
-│   ├── services/StrengthsService.ts     # ビジネスロジック
+│   ├── services/
+│   │   ├── StrengthsService.ts          # ビジネスロジック
+│   │   ├── PersonalityAnalysisEngine.ts # 分析エンジン
+│   │   ├── ProfitabilityService.ts      # 利益率計算
+│   │   └── SimulationService.ts         # チームシミュレーション
 │   └── models/StrengthsTypes.ts         # 型定義
 ├── README.md                            # プロジェクト概要
 ├── DEVELOPMENT.md                       # 開発者ガイド
 └── CLAUDE.md                           # このファイル
+```
+
+### 🤖 Claude Skills の活用
+
+このプロジェクトには**strengths-analyzer**という専門スキルが用意されています。
+
+#### スキルとは？
+- StrengthsFinder分析システムの専門知識を持つClaude Codeの拡張機能
+- 34資質、MBTI、Belbin理論、利益率計算、チームシミュレーションなど、すべての分析機能に精通
+
+#### スキルの起動方法
+
+**1. 自動起動（推奨）**
+以下のようなキーワードを含む質問をすると、Claudeが自動的にスキルを起動します：
+- `相性スコア`、`チーム適合度`、`リーダーシップ`
+- `資質`、`MBTI`、`Belbin`
+- `利益率`、`profitability`
+- `チームシミュレーション`、`team simulation`
+
+**2. 手動起動**
+```
+# Claudeに直接指示
+strengths-analyzerスキルを使って相性スコアの計算ロジックを説明して
+```
+
+#### スキルができること
+- 分析ロジックの詳細説明（計算式、理論的根拠）
+- 実装の確認（該当ファイルを自動で読み取り）
+- バグ調査（関連コードを特定して検証）
+- 新機能開発の支援（類似実装の検索、TDD提案）
+
+#### 例
+```
+Q: 相性スコアってどう計算してるの？
+→ スキルが PersonalityAnalysisEngine.ts を読んで、
+   MBTI_COMPATIBILITY マトリクスと計算式を説明
+
+Q: 四半期ごとの利益推移グラフを追加したい
+→ ProfitabilityService.ts の既存ロジックを確認し、
+   新規メソッドとRechartsの実装例を提案
 ```
 
 ### 🔧 よく使用するコマンド
