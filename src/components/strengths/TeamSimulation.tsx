@@ -86,7 +86,7 @@ const TeamSimulation: React.FC = () => {
     if (!over || !state) return;
 
     const memberId = active.id as string;
-    const destinationId = over.id as string;
+    let destinationId: string | 'unassigned' = over.id as string;
 
     // 移動元を特定
     let sourceId: string | 'unassigned' = 'unassigned';
@@ -96,6 +96,20 @@ const TeamSimulation: React.FC = () => {
       const sourceGroup = state.groups.find(g => g.memberIds.includes(memberId));
       if (sourceGroup) {
         sourceId = sourceGroup.id;
+      }
+    }
+
+    // over.idがメンバーIDの場合、そのメンバーが所属するグループIDに変換
+    if (destinationId !== 'unassigned') {
+      const isGroupId = state.groups.some(g => g.id === destinationId);
+      if (!isGroupId) {
+        // over.idはメンバーID → そのメンバーが所属するグループを探す
+        const targetGroup = state.groups.find(g => g.memberIds.includes(destinationId));
+        if (targetGroup) {
+          destinationId = targetGroup.id;
+        } else if (state.unassignedPool.includes(destinationId)) {
+          destinationId = 'unassigned';
+        }
       }
     }
 
