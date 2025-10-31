@@ -23,16 +23,25 @@
 - ✅ 本番データへの反映機能（変更プレビュー・警告ダイアログ付き）
 - ✅ LocalStorageによる状態の自動保存
 - ✅ モバイル端末検出と警告メッセージ表示
+- ✅ **NEW** グループ分析機能（PersonalityAnalysisEngine統合）
+  - 相性スコア、チーム適合度、リーダーシップの平均値表示
+  - バランス型チーム判定とカテゴリ特性バッジ
+- ✅ **NEW** チーム特性ナラティブ（質的分析）
+  - 34資質の頻度分析とTOP5表示
+  - チームタイトル自動生成（バランス型・特化型・複合型）
+  - 資質の組み合わせに基づくチームの可能性提示
 
 #### 🏗️ アーキテクチャ
 
 **新規追加ファイル**
-- `src/types/simulation.ts` - 12の型定義
-  - SimulationState, SimulationGroup, GroupStats, SimulationExport等
+- `src/types/simulation.ts` - 14の型定義
+  - SimulationState, SimulationGroup, GroupStats, GroupAnalysis, TeamCharacteristicNarrative等
 - `src/services/SimulationService.ts` - ビジネスロジック層
-  - 11のstaticメソッド: グループ管理、メンバー移動、統計計算、エクスポート/インポート
+  - 13のstaticメソッド: グループ管理、メンバー移動、統計計算、エクスポート/インポート
+  - **NEW** `calculateGroupAnalysis()` - PersonalityAnalysisEngine統合
+  - **NEW** `calculateTeamNarrative()` - 34資質の質的分析（7つのヘルパー関数）
 - `src/services/SimulationService.test.ts` - TDDテストスイート
-  - 22テストケース (100%合格)
+  - 38テストケース (100%合格) - グループ分析7件、ナラティブ分析7件を追加
 - `src/contexts/SimulationContext.tsx` - 状態管理
   - LocalStorage統合、React Context API
 - `src/components/strengths/TeamSimulation.tsx` - メインUI
@@ -41,6 +50,8 @@
   - @dnd-kit/sortable統合、TOP5資質表示
 - `src/components/strengths/simulation/GroupCard.tsx` - ドロップゾーン
   - グループ統計、円グラフ、利益率表示
+  - **NEW** グループ分析表示（相性スコア、チーム適合度、バランス型バッジ）
+  - **NEW** チーム特性ナラティブ表示（タイトル、サマリー、TOP5資質、可能性）
 
 **依存関係追加**
 - `@dnd-kit/core` ^6.1.0

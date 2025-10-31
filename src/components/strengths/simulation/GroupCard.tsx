@@ -157,7 +157,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
 
           {/* マネージャーモード: 利益率表示 */}
           {isManagerMode && stats.profitability && (
-            <div className="bg-gray-50 dark:bg-gray-900/30 rounded p-3">
+            <div className="bg-gray-50 dark:bg-gray-900/30 rounded p-3 mb-3">
               <div className="text-sm space-y-1">
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">総売上:</span>
@@ -183,6 +183,105 @@ const GroupCard: React.FC<GroupCardProps> = ({
                     {stats.profitability.profitMargin.toFixed(1)}%
                   </span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* グループ分析 */}
+          {stats.analysis && (
+            <div className="bg-gray-50 dark:bg-gray-900/30 rounded p-3 mb-3">
+              <h4 className="text-sm font-medium mb-2 dark:text-gray-100">チーム分析</h4>
+
+              {/* スコア */}
+              <div className="text-sm space-y-1 mb-3">
+                {stats.analysis.avgSynergyScore !== null && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">相性スコア:</span>
+                    <span className="font-medium dark:text-gray-100">
+                      {stats.analysis.avgSynergyScore.toFixed(1)}
+                    </span>
+                  </div>
+                )}
+                {stats.analysis.avgTeamFit !== null && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">チーム適合度:</span>
+                    <span className="font-medium dark:text-gray-100">
+                      {stats.analysis.avgTeamFit.toFixed(1)}
+                    </span>
+                  </div>
+                )}
+                {stats.analysis.avgLeadership !== null && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">リーダーシップ:</span>
+                    <span className="font-medium dark:text-gray-100">
+                      {stats.analysis.avgLeadership.toFixed(1)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* チーム特性バッジ */}
+              <div className="flex flex-wrap gap-1">
+                {/* バランス型 */}
+                {stats.analysis.teamCharacteristics.isBalanced && (
+                  <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded text-xs font-semibold">
+                    ✅ バランス型
+                  </span>
+                )}
+
+                {/* 強みカテゴリ（平均より多い） */}
+                {stats.analysis.teamCharacteristics.strongCategories.map(cat => (
+                  <span key={cat} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded text-xs">
+                    {GROUP_LABELS[cat]}多め
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* チーム特性ナラティブ */}
+          {stats.narrative && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-3">
+              <h4 className="text-sm font-semibold mb-2 text-blue-900 dark:text-blue-300">
+                {stats.narrative.title}
+              </h4>
+
+              {/* サマリー */}
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-3 leading-relaxed">
+                {stats.narrative.summary}
+              </p>
+
+              {/* 頻出資質TOP5 */}
+              <div className="mb-3">
+                <h5 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  頻出資質TOP5
+                </h5>
+                <div className="flex flex-wrap gap-1">
+                  {stats.narrative.topStrengths.slice(0, 5).map(s => (
+                    <span
+                      key={s.strengthId}
+                      className="px-2 py-1 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded text-xs"
+                      title={`${s.frequency}人が保有 (${s.percentage.toFixed(0)}%)`}
+                    >
+                      {s.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* 可能性リスト */}
+              <div>
+                <h5 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  チームの可能性
+                </h5>
+                <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1">
+                  {stats.narrative.possibilities.map((poss, idx) => (
+                    <li key={idx} className="flex items-start">
+                      <span className="mr-1">•</span>
+                      <span>{poss}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           )}

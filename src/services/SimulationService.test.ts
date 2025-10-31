@@ -377,4 +377,348 @@ describe('SimulationService', () => {
       expect(preview.changes[0].newDepartment).toBe('グループ1');
     });
   });
+
+  // ========================================================================
+  // Phase 2-RED: calculateGroupAnalysis テスト（TDD: 失敗するテスト）
+  // ========================================================================
+  describe('calculateGroupAnalysis', () => {
+    // MBTIデータ付きメンバー（personalityIdを使用）
+    const memberWithMBTI: MemberStrengths = {
+      id: 'm101',
+      name: 'MBTI太郎',
+      department: '開発部',
+      position: Position.GENERAL,
+      personalityId: 1,        // INTJ
+      personalityVariant: 'A',
+      strengths: [
+        { id: 1, score: 1 },  // 達成欲（実行力）
+        { id: 16, score: 2 }, // 着想（戦略的思考）
+        { id: 31, score: 3 }, // 学習欲（戦略的思考）
+        { id: 4, score: 4 },  // 公平性（実行力）
+        { id: 22, score: 5 }  // 個別化（人間関係構築）
+      ]
+    };
+
+    const memberWithMBTI2: MemberStrengths = {
+      id: 'm102',
+      name: 'MBTI花子',
+      department: '開発部',
+      position: Position.GENERAL,
+      personalityId: 7,        // ENFP
+      personalityVariant: 'T',
+      strengths: [
+        { id: 17, score: 1 }, // コミュニケーション（影響力）
+        { id: 18, score: 2 }, // 競争性（影響力）
+        { id: 19, score: 3 }, // 最上志向（影響力）
+        { id: 25, score: 4 }, // 共感性（人間関係構築）
+        { id: 26, score: 5 }  // 調和性（人間関係構築）
+      ]
+    };
+
+    // 資質のみメンバー
+    const memberStrengthsOnly: MemberStrengths = {
+      id: 'm103',
+      name: '資質のみ太郎',
+      department: '営業部',
+      position: Position.GENERAL,
+      strengths: [
+        { id: 1, score: 1 },
+        { id: 2, score: 2 },
+        { id: 3, score: 3 },
+        { id: 4, score: 4 },
+        { id: 5, score: 5 }
+      ]
+    };
+
+    test('TC-SIM-ANALYSIS-001: 平均相性スコアを計算できる', () => {
+      const members = [memberWithMBTI, memberWithMBTI2];
+
+      const result = SimulationService.calculateGroupAnalysis(members);
+
+      expect(result).not.toBeNull();
+      expect(result!.memberCount).toBe(2);
+      expect(result!.avgSynergyScore).not.toBeNull();
+      expect(result!.avgSynergyScore).toBeGreaterThan(0);
+      expect(result!.avgSynergyScore).toBeLessThanOrEqual(100);
+    });
+
+    test('TC-SIM-ANALYSIS-002: 平均チーム適合度を計算できる', () => {
+      const members = [memberWithMBTI, memberStrengthsOnly];
+
+      const result = SimulationService.calculateGroupAnalysis(members);
+
+      expect(result).not.toBeNull();
+      expect(result!.avgTeamFit).not.toBeNull();
+      expect(result!.avgTeamFit).toBeGreaterThan(0);
+      expect(result!.avgTeamFit).toBeLessThanOrEqual(100);
+    });
+
+    test('TC-SIM-ANALYSIS-003: 平均リーダーシップを計算できる', () => {
+      const members = [memberWithMBTI, memberWithMBTI2, memberStrengthsOnly];
+
+      const result = SimulationService.calculateGroupAnalysis(members);
+
+      expect(result).not.toBeNull();
+      expect(result!.avgLeadership).not.toBeNull();
+      expect(result!.avgLeadership).toBeGreaterThanOrEqual(0);
+      expect(result!.avgLeadership).toBeLessThanOrEqual(100);
+    });
+
+    test('TC-SIM-ANALYSIS-004: バランス型チームを判定できる', () => {
+      // 4人チーム、各カテゴリ5資質ずつの真のバランス型
+      // 閾値 = 4 × 1.25 = 5.0 → 各カテゴリ5以上必要
+      const balancedMembers: MemberStrengths[] = [
+        {
+          id: 'm201',
+          name: 'バランス1',
+          department: '開発部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 1, score: 1 },   // 達成欲（実行力）
+            { id: 17, score: 2 },  // 自己確信（影響力）
+            { id: 21, score: 3 },  // ポジティブ（人間関係）
+            { id: 28, score: 4 },  // 着想（戦略）
+            { id: 2, score: 5 }    // 公平性（実行力）
+          ]
+        },
+        {
+          id: 'm202',
+          name: 'バランス2',
+          department: '開発部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 3, score: 1 },   // 回復志向（実行力）
+            { id: 16, score: 2 },  // コミュニケーション（影響力）
+            { id: 22, score: 3 },  // 調和性（人間関係）
+            { id: 29, score: 4 },  // 学習欲（戦略）
+            { id: 4, score: 5 }    // アレンジ（実行力）
+          ]
+        },
+        {
+          id: 'm203',
+          name: 'バランス3',
+          department: '開発部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 5, score: 1 },   // 慎重さ（実行力）
+            { id: 14, score: 2 },  // 最上志向（影響力）
+            { id: 23, score: 3 },  // 運命思考（人間関係）
+            { id: 30, score: 4 },  // 原点思考（戦略）
+            { id: 15, score: 5 }   // 活発性（影響力）
+          ]
+        },
+        {
+          id: 'm204',
+          name: 'バランス4',
+          department: '開発部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 19, score: 1 },  // 共感性（人間関係）
+            { id: 13, score: 2 },  // 指令性（影響力）
+            { id: 31, score: 3 },  // 収集心（戦略）
+            { id: 20, score: 4 },  // 個別化（人間関係）
+            { id: 32, score: 5 }   // 戦略性（戦略）
+          ]
+        }
+      ];
+      // 合計分布: 実行力5, 影響力5, 人間関係5, 戦略5 → 真のバランス型
+
+      const result = SimulationService.calculateGroupAnalysis(balancedMembers);
+
+      expect(result).not.toBeNull();
+      expect(result!.teamCharacteristics.isBalanced).toBe(true);
+    });
+
+    test('TC-SIM-ANALYSIS-005: 強化カテゴリを判定できる', () => {
+      // 実行力に偏ったメンバー
+      const executionHeavyMembers: MemberStrengths[] = [
+        {
+          id: 'm301',
+          name: '実行力太郎',
+          department: '営業部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 1, score: 1 },  // 実行力
+            { id: 2, score: 2 },  // 実行力
+            { id: 3, score: 3 },  // 実行力
+            { id: 4, score: 4 },  // 実行力
+            { id: 5, score: 5 }   // 実行力
+          ]
+        }
+      ];
+
+      const result = SimulationService.calculateGroupAnalysis(executionHeavyMembers);
+
+      expect(result).not.toBeNull();
+      expect(result!.teamCharacteristics.strongCategories).toContain(StrengthGroup.EXECUTING);
+      expect(result!.teamCharacteristics.strongCategories.length).toBeGreaterThan(0);
+    });
+
+    test('TC-SIM-ANALYSIS-006: リーダーシップ分布を計算できる', () => {
+      const members = [memberWithMBTI, memberWithMBTI2, memberStrengthsOnly];
+
+      const result = SimulationService.calculateGroupAnalysis(members);
+
+      expect(result).not.toBeNull();
+      const distribution = result!.teamCharacteristics.leadershipDistribution;
+      expect(distribution.high + distribution.medium + distribution.low).toBe(members.length);
+      expect(distribution.high).toBeGreaterThanOrEqual(0);
+      expect(distribution.medium).toBeGreaterThanOrEqual(0);
+      expect(distribution.low).toBeGreaterThanOrEqual(0);
+    });
+
+    test('TC-SIM-ANALYSIS-101: メンバー0人の場合はnullを返す', () => {
+      const result = SimulationService.calculateGroupAnalysis([]);
+
+      expect(result).toBeNull();
+    });
+
+    test('TC-SIM-ANALYSIS-102: 全員MBTI欠損の場合、相性スコアはnull', () => {
+      const members = [memberStrengthsOnly];
+
+      const result = SimulationService.calculateGroupAnalysis(members);
+
+      expect(result).not.toBeNull();
+      expect(result!.avgSynergyScore).toBeNull();
+      expect(result!.avgTeamFit).not.toBeNull(); // 資質のみでもチーム適合度は計算可能
+      expect(result!.avgLeadership).not.toBeNull(); // 資質のみでもリーダーシップは計算可能
+    });
+
+    test('TC-SIM-ANALYSIS-201: メンバー1人でも正常に計算できる', () => {
+      const members = [memberWithMBTI];
+
+      const result = SimulationService.calculateGroupAnalysis(members);
+
+      expect(result).not.toBeNull();
+      expect(result!.memberCount).toBe(1);
+      expect(result!.avgSynergyScore).not.toBeNull();
+    });
+  });
+
+  // =====================================================================
+  // calculateTeamNarrative - チーム特性ナラティブ生成
+  // =====================================================================
+
+  describe('calculateTeamNarrative', () => {
+    // テストデータ: 実行力特化チーム（達成欲が多い）
+    const executingDominantMembers: MemberStrengths[] = [
+      {
+        id: 'm401',
+        name: '実行力メンバー1',
+        department: '開発部',
+        position: Position.GENERAL,
+        strengths: [
+          { id: 1, score: 1 },   // 達成欲（実行力）
+          { id: 6, score: 2 },   // 責任感（実行力）
+          { id: 8, score: 3 },   // 規律性（実行力）
+          { id: 9, score: 4 },   // 目標志向（実行力）
+          { id: 2, score: 5 }    // 公平性（実行力）
+        ]
+      },
+      {
+        id: 'm402',
+        name: '実行力メンバー2',
+        department: '開発部',
+        position: Position.GENERAL,
+        strengths: [
+          { id: 1, score: 1 },   // 達成欲（実行力）
+          { id: 2, score: 2 },   // 公平性（実行力）
+          { id: 3, score: 3 },   // 回復志向（実行力）
+          { id: 32, score: 4 },  // 戦略性（戦略）
+          { id: 27, score: 5 }   // 分析思考（戦略）
+        ]
+      }
+    ];
+
+    // テストデータ: バランス型チーム
+    // 実行力3, 影響力3, 人間関係2, 戦略2 = 30%, 30%, 20%, 20% → バランス型
+    const balancedMembers: MemberStrengths[] = [
+      {
+        id: 'm501',
+        name: 'バランス1',
+        department: '開発部',
+        position: Position.GENERAL,
+        strengths: [
+          { id: 1, score: 1 },   // 達成欲（実行力）
+          { id: 17, score: 2 },  // 自己確信（影響力）
+          { id: 21, score: 3 },  // ポジティブ（人間関係）
+          { id: 28, score: 4 },  // 着想（戦略）
+          { id: 11, score: 5 }   // 活発性（影響力）← 公平性から変更
+        ]
+      },
+      {
+        id: 'm502',
+        name: 'バランス2',
+        department: '開発部',
+        position: Position.GENERAL,
+        strengths: [
+          { id: 6, score: 1 },   // 責任感（実行力）
+          { id: 13, score: 2 },  // 指令性（影響力）
+          { id: 19, score: 3 },  // 共感性（人間関係）
+          { id: 32, score: 4 },  // 戦略性（戦略）
+          { id: 8, score: 5 }    // 規律性（実行力）
+        ]
+      }
+    ];
+
+    test('TC-SIM-NARRATIVE-001: メンバー0人の場合nullを返す', () => {
+      const result = SimulationService.calculateTeamNarrative([]);
+
+      expect(result).toBeNull();
+    });
+
+    test('TC-SIM-NARRATIVE-002: 資質頻度を正しく集計できる', () => {
+      const result = SimulationService.calculateTeamNarrative(executingDominantMembers);
+
+      expect(result).not.toBeNull();
+      // 達成欲(#1): 2人
+      const achievementStrength = result!.topStrengths.find((s: any) => s.strengthId === 1);
+      expect(achievementStrength).toBeDefined();
+      expect(achievementStrength!.frequency).toBe(2);
+      expect(achievementStrength!.percentage).toBeCloseTo(20); // 2/10 = 20%
+    });
+
+    test('TC-SIM-NARRATIVE-003: カテゴリ分布を正しく計算できる', () => {
+      const result = SimulationService.calculateTeamNarrative(executingDominantMembers);
+
+      expect(result).not.toBeNull();
+      // 実行力: 8個（達成欲×2, 責任感×1, 規律性×1, 目標志向×1, 公平性×2, 回復志向×1）
+      const executing = result!.categoryTendencies.find((c: any) => c.category === StrengthGroup.EXECUTING);
+      expect(executing).toBeDefined();
+      expect(executing!.percentage).toBeCloseTo(80); // 8/10 = 80%
+    });
+
+    test('TC-SIM-NARRATIVE-004: バランス型チームでタイトルを正しく生成できる', () => {
+      const result = SimulationService.calculateTeamNarrative(balancedMembers);
+
+      expect(result).not.toBeNull();
+      // すべてのカテゴリが20-30%の範囲なのでバランス型
+      expect(result!.title).toContain('バランス');
+    });
+
+    test('TC-SIM-NARRATIVE-005: 実行力特化チームでタイトルを正しく生成できる', () => {
+      const result = SimulationService.calculateTeamNarrative(executingDominantMembers);
+
+      expect(result).not.toBeNull();
+      // 実行力が80%なので特化型
+      expect(result!.title).toContain('実行力');
+      expect(result!.title).toContain('特化');
+    });
+
+    test('TC-SIM-NARRATIVE-006: サマリー文が生成される', () => {
+      const result = SimulationService.calculateTeamNarrative(executingDominantMembers);
+
+      expect(result).not.toBeNull();
+      expect(result!.summary).toBeTruthy();
+      expect(result!.summary.length).toBeGreaterThan(20); // 最低限の長さ
+    });
+
+    test('TC-SIM-NARRATIVE-007: 可能性リストが生成される', () => {
+      const result = SimulationService.calculateTeamNarrative(executingDominantMembers);
+
+      expect(result).not.toBeNull();
+      expect(result!.possibilities).toBeDefined();
+      expect(result!.possibilities.length).toBeGreaterThanOrEqual(3);
+    });
+  });
 });

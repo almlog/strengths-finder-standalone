@@ -76,6 +76,86 @@ export interface SimulationExport {
 }
 
 /**
+ * グループ分析結果
+ *
+ * @description
+ * PersonalityAnalysisEngineによる個人分析を集計した
+ * グループ全体の分析データ
+ */
+export interface GroupAnalysis {
+  /** メンバー数（分析対象） */
+  memberCount: number;
+
+  /** 平均相性スコア（0-100、MBTIデータがある場合のみ） */
+  avgSynergyScore: number | null;
+
+  /** 平均チーム適合度（0-100、Belbin理論ベース） */
+  avgTeamFit: number | null;
+
+  /** 平均リーダーシップ潜在力（0-100） */
+  avgLeadership: number | null;
+
+  /** チーム特性 */
+  teamCharacteristics: {
+    /** バランスの取れたチーム（4カテゴリがすべて閾値以上） */
+    isBalanced: boolean;
+
+    /** 強化されているカテゴリ（平均以上） */
+    strongCategories: StrengthGroup[];
+
+    /** 弱いカテゴリ（平均未満） */
+    weakCategories: StrengthGroup[];
+
+    /** リーダーシップ分布 */
+    leadershipDistribution: {
+      /** 高リーダーシップ（70以上）の人数 */
+      high: number;
+      /** 中リーダーシップ（40-69）の人数 */
+      medium: number;
+      /** 低リーダーシップ（40未満）の人数 */
+      low: number;
+    };
+  };
+}
+
+/**
+ * チーム特性ナラティブ
+ *
+ * @description
+ * 資質の頻度分布を分析し、チームの特性を文章で説明する
+ */
+export interface TeamCharacteristicNarrative {
+  /** タイトル（例：「実行力×戦略思考チーム」） */
+  title: string;
+
+  /** 要約文（2-3文、100-200文字） */
+  summary: string;
+
+  /** カテゴリ別の傾向分析 */
+  categoryTendencies: Array<{
+    category: StrengthGroup;
+    percentage: number;          // 0-100
+    topStrengths: Array<{
+      strengthId: number;
+      name: string;
+      frequency: number;          // 何人が持っているか
+      description: string;        // 資質の説明（短縮版）
+    }>;
+  }>;
+
+  /** 頻出資質TOP10 */
+  topStrengths: Array<{
+    strengthId: number;
+    name: string;
+    frequency: number;
+    percentage: number;           // チーム全体での保有率
+  }>;
+
+  /** チームの可能性（箇条書き、3-5項目） */
+  possibilities: string[];
+}
+
+/**
  * グループ統計情報
  *
  * 各グループの強み分布や利益率などの統計データ
@@ -96,6 +176,10 @@ export interface GroupStats {
     /** 利益率（%） */
     profitMargin: number;
   };
+  /** グループ分析結果（メンバーが1人以上いる場合） */
+  analysis?: GroupAnalysis | null;
+  /** チーム特性ナラティブ（メンバーが1人以上いる場合） */
+  narrative?: TeamCharacteristicNarrative | null;
 }
 
 /**

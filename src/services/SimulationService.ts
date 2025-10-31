@@ -9,6 +9,8 @@ import {
   SimulationState,
   SimulationGroup,
   GroupStats,
+  GroupAnalysis,
+  TeamCharacteristicNarrative,
   ImportResult,
   ImportWarning,
   ApplyPreview,
@@ -16,12 +18,20 @@ import {
   SimulationExport
 } from '../types/simulation';
 import { MemberStrengths, StrengthGroup } from '../models/StrengthsTypes';
-import StrengthsService from './StrengthsService';
+import StrengthsService, { GROUP_LABELS } from './StrengthsService';
 import { StageMaster } from '../types/profitability';
 import { MemberRateRecord } from '../types/financial';
+import { PersonalityAnalysisEngine } from './PersonalityAnalysisEngine';
+import { Member, MBTIType } from '../models/PersonalityAnalysis';
+import { getPersonalityById } from './Personality16Service';
 
 const MAX_GROUPS = 10;
 const DEFAULT_GROUP_NAMES = ['グループ1', 'グループ2', 'グループ3'];
+
+// グループ分析用の定数
+const LEADERSHIP_HIGH_THRESHOLD = 70;   // 高リーダーシップの閾値
+const LEADERSHIP_MEDIUM_THRESHOLD = 40; // 中リーダーシップの閾値
+const STRENGTH_CATEGORY_COUNT = 4;      // 資質カテゴリ数（実行力・影響力・人間関係構築・戦略的思考）
 
 /**
  * シミュレーション管理サービス
@@ -238,7 +248,9 @@ export class SimulationService {
 
     const stats: GroupStats = {
       memberCount: members.length,
-      groupDistribution
+      groupDistribution,
+      analysis: this.calculateGroupAnalysis(members),
+      narrative: this.calculateTeamNarrative(members)
     };
 
     // 利益率計算（ステージ情報と単価情報がある場合のみ）
@@ -458,5 +470,412 @@ export class SimulationService {
       changeCount,
       changes
     };
+  }
+
+  /**
+   * 数値配列の平均を計算（nullを除外、0は有効値として扱う）
+   *
+   * @param scores - スコア配列
+   * @param excludeZero - trueの場合0も除外（相性スコア用）
+   * @returns 平均値、またはスコアが0件の場合はnull
+   */
+  private static calculateAverage(scores: (number | null)[], excludeZero: boolean = false): number | null {
+    const validScores = scores.filter((score): score is number => {
+      if (score === null || score === undefined) return false;
+      if (excludeZero && score === 0) return false;
+      return true;
+    });
+
+    if (validScores.length === 0) {
+      return null;
+    }
+
+    return validScores.reduce((sum, score) => sum + score, 0) / validScores.length;
+  }
+
+  /**
+   * MemberStrengthsをMember型に変換
+   *
+   * @param memberStrengths - 変換元のメンバー
+   * @returns Member型のメンバー
+   */
+  private static convertToMember(memberStrengths: MemberStrengths): Member {
+    let mbtiType: MBTIType | undefined = undefined;
+
+    // personalityIdからmbtiTypeを導出
+    if (memberStrengths.personalityId) {
+      const personality = getPersonalityById(memberStrengths.personalityId);
+      if (personality) {
+        mbtiType = personality.code as MBTIType;
+      }
+    }
+
+    return {
+      id: memberStrengths.id,
+      name: memberStrengths.name,
+      department: memberStrengths.department,
+      position: typeof memberStrengths.position === 'string' ? memberStrengths.position : undefined,
+      mbtiType,
+      strengths: memberStrengths.strengths.map(s => ({
+        id: s.id,
+        score: s.score
+      }))
+    };
+  }
+
+  /**
+   * グループ分析を計算
+   *
+   * @param members - グループに所属するメンバー配列
+   * @returns グループ分析結果（メンバー0人の場合はnull）
+   */
+  static calculateGroupAnalysis(members: MemberStrengths[]): GroupAnalysis | null {
+    // メンバー0人の場合はnull
+    if (members.length === 0) {
+      return null;
+    }
+
+    // PersonalityAnalysisEngineで個人分析を実行
+    const analysisEngine = new PersonalityAnalysisEngine();
+    const individualAnalyses = members
+      .map(member => {
+        try {
+          // MemberStrengthsをMember型に変換
+          const convertedMember = this.convertToMember(member);
+          return analysisEngine.analyze(convertedMember);
+        } catch (error) {
+          return null;
+        }
+      })
+      .filter(a => a !== null);
+
+    // 平均スコアを計算
+    // 相性スコアは0を除外（MBTIデータなしの場合0になる）
+    const avgSynergyScore = this.calculateAverage(
+      individualAnalyses.map(a => a!.synergyScore),
+      true  // excludeZero
+    );
+    // チーム適合度とリーダーシップは0も有効値
+    const avgTeamFit = this.calculateAverage(
+      individualAnalyses.map(a => a!.teamFitScore)
+    );
+    const avgLeadership = this.calculateAverage(
+      individualAnalyses.map(a => a!.leadershipPotential)
+    );
+
+    // 強みグループ分布を計算
+    const groupDistribution: Record<StrengthGroup, number> = {
+      [StrengthGroup.EXECUTING]: 0,
+      [StrengthGroup.INFLUENCING]: 0,
+      [StrengthGroup.RELATIONSHIP_BUILDING]: 0,
+      [StrengthGroup.STRATEGIC_THINKING]: 0
+    };
+
+    members.forEach(member => {
+      member.strengths.forEach(rs => {
+        const strength = StrengthsService.getStrengthById(rs.id);
+        if (strength) {
+          groupDistribution[strength.group]++;
+        }
+      });
+    });
+
+    // チーム特性: バランス判定
+    // 閾値 = メンバー数 × 1.25 (各メンバー5資質を4カテゴリで均等配分)
+    const balanceThreshold = members.length * 1.25;
+    const isBalanced = Object.values(groupDistribution)
+      .every(count => count >= balanceThreshold);
+
+    // チーム特性: 強化カテゴリ
+    const totalStrengths = Object.values(groupDistribution).reduce((a, b) => a + b, 0);
+    const average = totalStrengths / STRENGTH_CATEGORY_COUNT;
+    const strongCategories = Object.entries(groupDistribution)
+      .filter(([_, count]) => count > average)
+      .map(([group, _]) => group as StrengthGroup);
+
+    // チーム特性: 弱点カテゴリ
+    const weakCategories = Object.entries(groupDistribution)
+      .filter(([_, count]) => count < average)
+      .map(([group, _]) => group as StrengthGroup);
+
+    // チーム特性: リーダーシップ分布
+    const leadershipDistribution = { high: 0, medium: 0, low: 0 };
+    individualAnalyses.forEach(a => {
+      const leadership = a!.leadershipPotential;
+      if (leadership === null || leadership === undefined) return;
+
+      if (leadership >= LEADERSHIP_HIGH_THRESHOLD) {
+        leadershipDistribution.high++;
+      } else if (leadership >= LEADERSHIP_MEDIUM_THRESHOLD) {
+        leadershipDistribution.medium++;
+      } else {
+        leadershipDistribution.low++;
+      }
+    });
+
+    return {
+      memberCount: members.length,
+      avgSynergyScore,
+      avgTeamFit,
+      avgLeadership,
+      teamCharacteristics: {
+        isBalanced,
+        strongCategories,
+        weakCategories,
+        leadershipDistribution
+      }
+    };
+  }
+
+  /**
+   * チーム特性ナラティブを計算（TDD GREEN Phase）
+   *
+   * @param members メンバー配列
+   * @returns チーム特性ナラティブ、またはnull（メンバー0人の場合）
+   */
+  static calculateTeamNarrative(members: MemberStrengths[]): TeamCharacteristicNarrative | null {
+    if (members.length === 0) return null;
+
+    // STEP 1: 資質頻度を集計
+    const strengthFrequency = this.calculateStrengthFrequency(members);
+
+    // STEP 2: カテゴリ分布を分析
+    const categoryDistribution = this.analyzeCategoryDistribution(strengthFrequency);
+
+    // STEP 3: 頻出資質TOP10を抽出
+    const topStrengths = this.extractTopStrengths(strengthFrequency, members.length);
+
+    // STEP 4: カテゴリ別傾向を生成
+    const categoryTendencies = this.generateCategoryTendencies(categoryDistribution, strengthFrequency);
+
+    // STEP 5: タイトルを生成
+    const title = this.generateTeamTitle(categoryDistribution);
+
+    // STEP 6: サマリー文を生成
+    const summary = this.generateTeamSummary(categoryDistribution, topStrengths);
+
+    // STEP 7: 可能性リストを生成
+    const possibilities = this.generateTeamPossibilities(categoryDistribution, topStrengths);
+
+    return {
+      title,
+      summary,
+      categoryTendencies,
+      topStrengths,
+      possibilities
+    };
+  }
+
+  /**
+   * STEP 1: 資質頻度を集計
+   */
+  private static calculateStrengthFrequency(members: MemberStrengths[]): Map<number, number> {
+    const frequency = new Map<number, number>();
+
+    members.forEach(member => {
+      member.strengths.slice(0, 5).forEach(s => {
+        frequency.set(s.id, (frequency.get(s.id) || 0) + 1);
+      });
+    });
+
+    return frequency;
+  }
+
+  /**
+   * STEP 2: カテゴリ分布を分析
+   */
+  private static analyzeCategoryDistribution(
+    frequency: Map<number, number>
+  ): Record<StrengthGroup, { count: number; percentage: number }> {
+    const totalStrengths = Array.from(frequency.values()).reduce((a, b) => a + b, 0);
+
+    const distribution: Record<StrengthGroup, { count: number; percentage: number }> = {
+      [StrengthGroup.EXECUTING]: { count: 0, percentage: 0 },
+      [StrengthGroup.INFLUENCING]: { count: 0, percentage: 0 },
+      [StrengthGroup.RELATIONSHIP_BUILDING]: { count: 0, percentage: 0 },
+      [StrengthGroup.STRATEGIC_THINKING]: { count: 0, percentage: 0 }
+    };
+
+    frequency.forEach((count, strengthId) => {
+      const strength = StrengthsService.getStrengthById(strengthId);
+      if (strength) {
+        distribution[strength.group].count += count;
+      }
+    });
+
+    Object.keys(distribution).forEach(key => {
+      const group = key as StrengthGroup;
+      distribution[group].percentage = totalStrengths > 0
+        ? (distribution[group].count / totalStrengths) * 100
+        : 0;
+    });
+
+    return distribution;
+  }
+
+  /**
+   * STEP 3: 頻出資質TOP10を抽出
+   */
+  private static extractTopStrengths(
+    frequency: Map<number, number>,
+    memberCount: number
+  ): Array<{ strengthId: number; name: string; frequency: number; percentage: number }> {
+    // 総資質数を計算（全メンバーのTOP5の合計）
+    const totalStrengths = Array.from(frequency.values()).reduce((a, b) => a + b, 0);
+
+    return Array.from(frequency.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([strengthId, freq]) => {
+        const strength = StrengthsService.getStrengthById(strengthId);
+        return {
+          strengthId,
+          name: strength?.name || `資質${strengthId}`,
+          frequency: freq,
+          percentage: (freq / totalStrengths) * 100
+        };
+      });
+  }
+
+  /**
+   * STEP 4: カテゴリ別傾向を生成
+   */
+  private static generateCategoryTendencies(
+    distribution: Record<StrengthGroup, { count: number; percentage: number }>,
+    frequency: Map<number, number>
+  ): Array<{
+    category: StrengthGroup;
+    percentage: number;
+    topStrengths: Array<{ strengthId: number; name: string; frequency: number; description: string }>;
+  }> {
+    return Object.entries(distribution)
+      .sort(([, a], [, b]) => b.percentage - a.percentage)
+      .map(([category, { percentage }]) => {
+        const group = category as StrengthGroup;
+
+        // このカテゴリのTOP3資質を抽出
+        const categoryStrengths = Array.from(frequency.entries())
+          .filter(([strengthId]) => {
+            const strength = StrengthsService.getStrengthById(strengthId);
+            return strength?.group === group;
+          })
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([strengthId, freq]) => {
+            const strength = StrengthsService.getStrengthById(strengthId);
+            return {
+              strengthId,
+              name: strength?.name || `資質${strengthId}`,
+              frequency: freq,
+              description: strength?.description.substring(0, 30) + '...' || ''
+            };
+          });
+
+        return {
+          category: group,
+          percentage,
+          topStrengths: categoryStrengths
+        };
+      });
+  }
+
+  /**
+   * STEP 5: タイトルを生成
+   */
+  private static generateTeamTitle(
+    distribution: Record<StrengthGroup, { count: number; percentage: number }>
+  ): string {
+    const sorted = Object.entries(distribution)
+      .sort(([, a], [, b]) => b.percentage - a.percentage);
+
+    const top1 = sorted[0];
+    const top2 = sorted[1];
+
+    // バランス判定（すべて20-30%の範囲）
+    const isBalanced = sorted.every(([, { percentage }]) =>
+      percentage >= 20 && percentage <= 30
+    );
+
+    if (isBalanced) {
+      return 'バランス型チーム';
+    }
+
+    // 1カテゴリ特化（TOP1が40%以上）
+    if (top1[1].percentage >= 40) {
+      return `${GROUP_LABELS[top1[0] as StrengthGroup]}特化チーム`;
+    }
+
+    // 2カテゴリ複合（TOP2が両方30%以上）
+    if (top1[1].percentage >= 30 && top2[1].percentage >= 30) {
+      return `${GROUP_LABELS[top1[0] as StrengthGroup]}×${GROUP_LABELS[top2[0] as StrengthGroup]}チーム`;
+    }
+
+    // デフォルト
+    return `${GROUP_LABELS[top1[0] as StrengthGroup]}中心チーム`;
+  }
+
+  /**
+   * STEP 6: サマリー文を生成
+   */
+  private static generateTeamSummary(
+    distribution: Record<StrengthGroup, { count: number; percentage: number }>,
+    topStrengths: Array<{ name: string }>
+  ): string {
+    const sorted = Object.entries(distribution)
+      .sort(([, a], [, b]) => b.percentage - a.percentage)
+      .slice(0, 2);
+
+    const top1 = sorted[0];
+    const top2 = sorted[1];
+
+    const top3Names = topStrengths.slice(0, 3).map(s => s.name).join('・');
+
+    return `このチームは、${GROUP_LABELS[top1[0] as StrengthGroup]}(${top1[1].percentage.toFixed(0)}%)と` +
+           `${GROUP_LABELS[top2[0] as StrengthGroup]}(${top2[1].percentage.toFixed(0)}%)を主軸とし、` +
+           `${top3Names}を中心とした強みを併せ持ちます。`;
+  }
+
+  /**
+   * STEP 7: 可能性リストを生成（MVP: 固定3項目）
+   */
+  private static generateTeamPossibilities(
+    distribution: Record<StrengthGroup, { count: number; percentage: number }>,
+    topStrengths: Array<{ name: string }>
+  ): string[] {
+    const sorted = Object.entries(distribution)
+      .sort(([, a], [, b]) => b.percentage - a.percentage);
+
+    const top1Group = sorted[0][0] as StrengthGroup;
+    const top1Name = topStrengths[0]?.name || '主要資質';
+
+    // MVP: カテゴリベースの固定メッセージ
+    const categoryMessages: Record<StrengthGroup, string[]> = {
+      [StrengthGroup.EXECUTING]: [
+        `${top1Name}による確実な目標達成力`,
+        '計画的な実行と着実な成果創出',
+        '責任感のある安定したチーム運営'
+      ],
+      [StrengthGroup.INFLUENCING]: [
+        `${top1Name}によるチーム牽引力`,
+        '周囲を動かす影響力の発揮',
+        '意欲的な挑戦と成果の追求'
+      ],
+      [StrengthGroup.RELATIONSHIP_BUILDING]: [
+        `${top1Name}による協力的なチーム構築`,
+        'メンバーの調和と相互理解',
+        '信頼関係を基盤とした協働'
+      ],
+      [StrengthGroup.STRATEGIC_THINKING]: [
+        `${top1Name}による戦略的な問題解決`,
+        '分析と洞察に基づく意思決定',
+        '革新的なアイデアの創出'
+      ]
+    };
+
+    return categoryMessages[top1Group] || [
+      'チームの多様な強みを活かした活動',
+      '柔軟な対応力と適応性',
+      'メンバーの個性を尊重した運営'
+    ];
   }
 }
