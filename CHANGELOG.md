@@ -6,6 +6,80 @@
 
 ## [Unreleased]
 
+### v3.1.1: マネージャー機能 - UI/UX改善 (2025-10-31)
+
+#### 🎯 主要な改善
+
+**数値入力の誤操作防止**
+- 問題: 単価入力時にスピナーボタンを誤クリックし、699,999円のような一桁ズレた値が登録される
+- 修正: 全ての`<input type="number">`要素のスピナーボタンをCSSで無効化
+- 影響範囲: `src/index.css` - グローバルスタイルとして適用
+
+**メンバー選択の視覚的フィードバック強化**
+- 個人分析で選択中のメンバーカードに青いリング（`ring-2 ring-blue-400`）と強い影（`shadow-lg`）を追加
+- 選択状態が一目で分かるように改善
+- 影響範囲: `src/components/strengths/MembersList.tsx`
+
+**部署フィルターのUX改善**
+- 部署コード選択を番号順で自動ソート（自然順序）
+- メンバー一覧と部署分析画面の部署選択を連動
+  - `StrengthsContext`で`selectedDepartment`状態を共有
+  - タブ切り替え時に部署選択が維持される
+- 影響範囲: `src/components/strengths/MembersList.tsx`, `src/components/strengths/DepartmentAnalysis.tsx`
+
+**ステージ別内訳の表示順序固定**
+- 利益率分析のステージ別内訳を「S1, S2, S3, S4, CONTRACT, BP」の固定順序で表示
+- `STAGE_ORDER`定数を定義し、予測可能な表示順序を実現
+- 影響範囲: `src/components/strengths/ProfitabilityDashboard.tsx`
+
+**ダッシュボードの統合と簡素化**
+- 💰売上予測と📊利益率分析で月間売上が重複していた問題を解消
+- `FinancialDashboard`コンポーネントを削除し、`ProfitabilityDashboard`に統合
+- レイアウトを3カラムから4カラム（`md:grid-cols-2 lg:grid-cols-4`）に拡張
+- 新規追加: 📅年間予測カラム（月額利益 × 12ヶ月）
+- 影響範囲: `src/components/strengths/DepartmentAnalysis.tsx`, `src/components/strengths/ProfitabilityDashboard.tsx`
+
+#### 🔧 技術的な変更
+
+**src/index.css**
+```css
+/* 数値入力フィールドのスピナーボタンを非表示（誤操作防止） */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+```
+
+**src/components/strengths/MembersList.tsx**
+- 部署ソート: `[...new Set(members.map(member => member.department))].sort()`
+- カード強調: `ring-2 ring-blue-400 dark:ring-blue-500 shadow-lg`
+- Context連携: `selectedDepartment`と`setSelectedDepartment`を`useStrengths()`から取得
+
+**src/components/strengths/DepartmentAnalysis.tsx**
+- 部署ソート: `['all', ...[...new Set(members.map(m => m.department))].sort()]`
+- `FinancialDashboard`の削除、`ProfitabilityDashboard`のみを表示
+
+**src/components/strengths/ProfitabilityDashboard.tsx**
+- `STAGE_ORDER = ['S1', 'S2', 'S3', 'S4', 'CONTRACT', 'BP']` 定数追加
+- 4カラムレイアウトに変更
+- 年間予測カラム追加: `{FinancialService.formatCurrency(teamProfitability.totalProfit * 12)}`
+
+#### 📊 表示改善の効果
+
+- **誤操作防止**: スピナーボタン無効化により入力ミスが大幅減少
+- **視認性向上**: 選択中のメンバーが明確に識別可能
+- **操作性向上**: 部署フィルターの並び順が予測可能に
+- **一貫性向上**: 画面間での部署選択が連動し、UXが統一
+- **情報集約**: 重複表示を排除し、必要な情報（年間予測）を追加
+
+---
+
 ### v1.2: SF-onlyモード分析改善 (2025-01-23)
 
 #### 🎯 主要な改善
