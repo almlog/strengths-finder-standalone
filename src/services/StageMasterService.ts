@@ -77,18 +77,39 @@ export class StageMasterService {
       throw new Error('ステージマスタは最低1件必要です');
     }
 
-    // 基本的なバリデーション
+    // 基本的なバリデーション（v3.1対応）
     for (const stage of stageMasters) {
-      if (!stage.id || !stage.name || !stage.type) {
+      if (!stage.id || !stage.name) {
         throw new Error('ステージマスタの必須フィールドが不足しています');
       }
 
-      if (stage.type === 'employee' && stage.averageSalary === undefined) {
-        throw new Error('社員ステージには平均給与が必要です');
+      // v3.1: employmentType を使った判定（v3.0互換: type も参照）
+      // 型アサーション: v3.0の 'employee' と v3.1の 'regular' を両方許容
+      const employmentType = (stage.employmentType || stage.type) as 'regular' | 'contract' | 'bp' | 'employee' | undefined;
+
+      if (!employmentType) {
+        throw new Error('雇用形態（employmentType）が設定されていません');
       }
 
-      if (stage.expenseRate === undefined) {
-        throw new Error('経費率は必須です');
+      // 正社員の場合: averageSalary と salaryExpenseRate が必要（v3.0互換: expenseRate も許容）
+      if (employmentType === 'regular' || employmentType === 'employee') {
+        if (stage.averageSalary === undefined) {
+          throw new Error('社員ステージには人件費合計が必要です');
+        }
+        // v3.1: salaryExpenseRate、v3.0互換: expenseRate
+        if (stage.salaryExpenseRate === undefined && stage.expenseRate === undefined) {
+          throw new Error('給与経費率（salaryExpenseRate）は必須です');
+        }
+      }
+
+      // 契約社員・BPの場合: fixedExpense と contractExpenseRate が必要（v3.0互換: expenseRate も許容）
+      if (employmentType === 'contract' || employmentType === 'bp') {
+        // v3.1では fixedExpense と contractExpenseRate が推奨
+        // v3.0互換として expenseRate も許容
+        if (stage.fixedExpense === undefined && stage.expenseRate === undefined) {
+          // どちらも未設定の場合のみエラー
+          throw new Error('固定経費（fixedExpense）または経費率（expenseRate）が必要です');
+        }
       }
     }
 
@@ -351,18 +372,39 @@ export class StageMasterService {
         throw new Error('ステージマスタは最低1件必要です');
       }
 
-      // 各ステージのバリデーション
+      // 各ステージのバリデーション（v3.1対応）
       for (const stage of parsed) {
-        if (!stage.id || !stage.name || !stage.type) {
+        if (!stage.id || !stage.name) {
           throw new Error('ステージマスタの必須フィールドが不足しています');
         }
 
-        if (stage.type === 'employee' && stage.averageSalary === undefined) {
-          throw new Error('社員ステージには平均給与が必要です');
+        // v3.1: employmentType を使った判定（v3.0互換: type も参照）
+        // 型アサーション: v3.0の 'employee' と v3.1の 'regular' を両方許容
+        const employmentType = (stage.employmentType || stage.type) as 'regular' | 'contract' | 'bp' | 'employee' | undefined;
+
+        if (!employmentType) {
+          throw new Error('雇用形態（employmentType）が設定されていません');
         }
 
-        if (stage.expenseRate === undefined) {
-          throw new Error('経費率は必須です');
+        // 正社員の場合: averageSalary と salaryExpenseRate が必要（v3.0互換: expenseRate も許容）
+        if (employmentType === 'regular' || employmentType === 'employee') {
+          if (stage.averageSalary === undefined) {
+            throw new Error('社員ステージには人件費合計が必要です');
+          }
+          // v3.1: salaryExpenseRate、v3.0互換: expenseRate
+          if (stage.salaryExpenseRate === undefined && stage.expenseRate === undefined) {
+            throw new Error('給与経費率（salaryExpenseRate）は必須です');
+          }
+        }
+
+        // 契約社員・BPの場合: fixedExpense と contractExpenseRate が必要（v3.0互換: expenseRate も許容）
+        if (employmentType === 'contract' || employmentType === 'bp') {
+          // v3.1では fixedExpense と contractExpenseRate が推奨
+          // v3.0互換として expenseRate も許容
+          if (stage.fixedExpense === undefined && stage.expenseRate === undefined) {
+            // どちらも未設定の場合のみエラー
+            throw new Error('固定経費（fixedExpense）または経費率（expenseRate）が必要です');
+          }
         }
       }
 

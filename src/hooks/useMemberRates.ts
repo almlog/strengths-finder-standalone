@@ -8,7 +8,7 @@
 
 import { useState, useCallback } from 'react';
 import { MemberRateService } from '../services/MemberRateService';
-import { MemberRate, MemberRateRecord } from '../types/financial';
+import { MemberRate, MemberRateRecord, ContractRate } from '../types/financial';
 
 /**
  * インポート戦略
@@ -25,8 +25,11 @@ export interface UseMemberRatesResult {
   /** 特定メンバーの単価を取得 */
   getMemberRate: (memberId: string) => MemberRate | undefined;
 
+  /** 特定メンバーの契約単価を取得 */
+  getContractRate: (memberId: string) => ContractRate | undefined;
+
   /** 特定メンバーの単価を設定 */
-  setMemberRate: (memberId: string, memberRate: MemberRate) => void;
+  setMemberRate: (memberId: string, memberRate: MemberRate, contractRate?: ContractRate) => void;
 
   /** 特定メンバーの単価を削除 */
   deleteMemberRate: (memberId: string) => void;
@@ -100,10 +103,21 @@ export function useMemberRates(): UseMemberRatesResult {
   );
 
   /**
+   * 特定メンバーの契約単価を取得
+   */
+  const getContractRate = useCallback(
+    (memberId: string): ContractRate | undefined => {
+      const record = memberRates.find(r => r.memberId === memberId);
+      return record?.contractRate;
+    },
+    [memberRates]
+  );
+
+  /**
    * 特定メンバーの単価を設定
    */
-  const setMemberRate = useCallback((memberId: string, memberRate: MemberRate) => {
-    MemberRateService.setMemberRate(memberId, memberRate);
+  const setMemberRate = useCallback((memberId: string, memberRate: MemberRate, contractRate?: ContractRate) => {
+    MemberRateService.setMemberRate(memberId, memberRate, contractRate);
     // LocalStorageから最新の状態を読み込んで反映
     setMemberRates(MemberRateService.getMemberRates());
   }, []);
@@ -153,6 +167,7 @@ export function useMemberRates(): UseMemberRatesResult {
   return {
     memberRates,
     getMemberRate,
+    getContractRate,
     setMemberRate,
     deleteMemberRate,
     refreshRates,

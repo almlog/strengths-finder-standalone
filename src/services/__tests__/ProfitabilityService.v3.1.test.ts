@@ -99,7 +99,7 @@ describe('ProfitabilityService v3.1', () => {
         rate: 600000 // 契約単価（支払額）
       };
 
-      // Expected: v3.1では契約社員の原価は contractAmount + fixedExpense
+      // Expected: v3.1では契約社員の原価は contractAmount + fixedExpense + (contractAmount × contractExpenseRate)
       // Act
       const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate, contractRate);
 
@@ -107,13 +107,14 @@ describe('ProfitabilityService v3.1', () => {
       // 売上: 800,000円
       // 契約単価: 600,000円
       // 固定経費: 50,000円
-      // 原価: 650,000円
-      // 利益: 150,000円
-      // 利益率: 18.75%
+      // 社内経費: 600,000 × 26% = 156,000円
+      // 原価: 806,000円
+      // 利益: -6,000円
+      // 利益率: -0.75%
       expect(result.revenue).toBe(800000);
-      expect(result.cost).toBe(650000);
-      expect(result.profit).toBe(150000);
-      expect(result.profitMargin).toBeCloseTo(18.75, 2);
+      expect(result.cost).toBe(806000);
+      expect(result.profit).toBe(-6000);
+      expect(result.profitMargin).toBeCloseTo(-0.75, 2);
     });
 
     test('CONTRACT社員（時給制）：売上80万、時給4000円×160h、固定経費5万', () => {
@@ -136,7 +137,7 @@ describe('ProfitabilityService v3.1', () => {
         hours: 160
       };
 
-      // Expected: v3.1では契約時給の月額換算 + 固定経費
+      // Expected: v3.1では契約時給の月額換算 + 固定経費 + (契約単価 × 社内経費率)
       // Act
       const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate, contractRate);
 
@@ -144,18 +145,19 @@ describe('ProfitabilityService v3.1', () => {
       // 売上: 5,000 × 160 = 800,000円
       // 契約単価: 4,000 × 160 = 640,000円
       // 固定経費: 50,000円
-      // 原価: 690,000円
-      // 利益: 110,000円
-      // 利益率: 13.75%
+      // 社内経費: 640,000 × 26% = 166,400円
+      // 原価: 856,400円
+      // 利益: -56,400円
+      // 利益率: -7.05%
       expect(result.revenue).toBe(800000);
-      expect(result.cost).toBe(690000);
-      expect(result.profit).toBe(110000);
-      expect(result.profitMargin).toBeCloseTo(13.75, 2);
+      expect(result.cost).toBe(856400);
+      expect(result.profit).toBe(-56400);
+      expect(result.profitMargin).toBeCloseTo(-7.05, 2);
     });
   });
 
   describe('ビジネスパートナー（BP）の利益計算 - 契約単価 + 固定経費モデル', () => {
-    test('BP：売上100万、契約単価85万、固定経費3万', () => {
+    test('BP：売上100万、契約単価85万、固定経費4万', () => {
       // Arrange
       const member: MemberStrengths = {
         id: 'bp001',
@@ -173,21 +175,22 @@ describe('ProfitabilityService v3.1', () => {
         rate: 850000 // 契約単価
       };
 
-      // Expected: v3.1ではBPの原価は contractAmount + fixedExpense
+      // Expected: v3.1ではBPの原価は contractAmount + fixedExpense + (contractAmount × contractExpenseRate)
       // Act
       const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, memberRate, contractRate);
 
       // Assert
       // 売上: 1,000,000円
       // 契約単価: 850,000円
-      // 固定経費: 30,000円
-      // 原価: 880,000円
-      // 利益: 120,000円
-      // 利益率: 12%
+      // 固定経費: 40,000円
+      // 社内経費: 850,000 × 9% = 76,500円
+      // 原価: 966,500円
+      // 利益: 33,500円
+      // 利益率: 3.35%
       expect(result.revenue).toBe(1000000);
-      expect(result.cost).toBe(880000);
-      expect(result.profit).toBe(120000);
-      expect(result.profitMargin).toBeCloseTo(12.0, 2);
+      expect(result.cost).toBe(966500);
+      expect(result.profit).toBe(33500);
+      expect(result.profitMargin).toBeCloseTo(3.35, 2);
     });
   });
 
@@ -233,7 +236,7 @@ describe('ProfitabilityService v3.1', () => {
         rate: 600000
       };
 
-      // Expected: v3.1では研修期間でも契約単価は発生
+      // Expected: v3.1では研修期間でも契約単価 + 固定経費 + 社内経費は発生
       // Act
       const result = ProfitabilityService.calculateMemberProfitability(member, stageMasters, undefined, contractRate);
 
@@ -241,12 +244,13 @@ describe('ProfitabilityService v3.1', () => {
       // 売上: 0円
       // 契約単価: 600,000円
       // 固定経費: 50,000円
-      // 原価: 650,000円
-      // 利益: -650,000円
+      // 社内経費: 600,000 × 26% = 156,000円
+      // 原価: 806,000円
+      // 利益: -806,000円
       // 利益率: -100%
       expect(result.revenue).toBe(0);
-      expect(result.cost).toBe(650000);
-      expect(result.profit).toBe(-650000);
+      expect(result.cost).toBe(806000);
+      expect(result.profit).toBe(-806000);
       expect(result.profitMargin).toBe(-100);
     });
   });

@@ -155,7 +155,7 @@ export const StageMasterSettings: React.FC = () => {
       }
 
       if (newStageForm.type === 'employee' && newStageForm.averageSalary === undefined) {
-        alert('社員タイプの場合は平均給与が必要です');
+        alert('社員タイプの場合は人件費合計が必要です');
         return;
       }
 
@@ -329,8 +329,9 @@ export const StageMasterSettings: React.FC = () => {
             <tr className="bg-gray-100">
               <th className="border px-4 py-2 text-left">ステージID</th>
               <th className="border px-4 py-2 text-left">ステージ名</th>
-              <th className="border px-4 py-2 text-left">タイプ</th>
-              <th className="border px-4 py-2 text-right">平均給与（円）</th>
+              <th className="border px-4 py-2 text-left">雇用形態</th>
+              <th className="border px-4 py-2 text-right">人件費合計（円）</th>
+              <th className="border px-4 py-2 text-right">固定経費（円）</th>
               <th className="border px-4 py-2 text-right">経費率（%）</th>
               <th className="border px-4 py-2 text-center">操作</th>
             </tr>
@@ -339,6 +340,19 @@ export const StageMasterSettings: React.FC = () => {
             {stageMasters.map((stage) => {
               const isEditing = editingId === stage.id;
               const displayStage = isEditing && editForm ? editForm : stage;
+
+              // v3.1: employmentType を使った判定（v3.0互換: type も参照）
+              // 型アサーション: v3.0の 'employee' と v3.1の 'regular' を両方許容
+              const employmentType = (stage.employmentType || stage.type) as 'regular' | 'contract' | 'bp' | 'employee';
+              const isRegular = employmentType === 'regular' || employmentType === 'employee';
+              const isContract = employmentType === 'contract';
+              const isBp = employmentType === 'bp';
+
+              // 雇用形態の表示名
+              let employmentTypeName = '不明';
+              if (isRegular) employmentTypeName = '正社員';
+              else if (isContract) employmentTypeName = '契約社員';
+              else if (isBp) employmentTypeName = 'BP';
 
               return (
                 <tr key={stage.id} className="hover:bg-gray-50">
@@ -356,10 +370,10 @@ export const StageMasterSettings: React.FC = () => {
                     )}
                   </td>
                   <td className="border px-4 py-2">
-                    {stage.type === 'employee' ? '社員' : 'BP'}
+                    {employmentTypeName}
                   </td>
                   <td className="border px-4 py-2 text-right">
-                    {stage.type === 'employee' ? (
+                    {isRegular ? (
                       isEditing ? (
                         <input
                           type="number"
@@ -375,18 +389,49 @@ export const StageMasterSettings: React.FC = () => {
                     )}
                   </td>
                   <td className="border px-4 py-2 text-right">
+                    {(isContract || isBp) ? (
+                      isEditing ? (
+                        <input
+                          type="number"
+                          value={displayStage.fixedExpense || 0}
+                          onChange={(e) => handleFormChange('fixedExpense', parseInt(e.target.value, 10))}
+                          className="w-full px-2 py-1 border rounded text-right"
+                        />
+                      ) : (
+                        stage.fixedExpense?.toLocaleString()
+                      )
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+                  <td className="border px-4 py-2 text-right">
                     {isEditing ? (
                       <input
                         type="number"
                         step="0.01"
                         min="0"
                         max="1"
-                        value={displayStage.expenseRate}
-                        onChange={(e) => handleFormChange('expenseRate', parseFloat(e.target.value))}
+                        value={
+                          isRegular
+                            ? (displayStage.salaryExpenseRate ?? displayStage.expenseRate ?? 0)
+                            : (displayStage.contractExpenseRate ?? displayStage.expenseRate ?? 0)
+                        }
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value);
+                          if (isRegular) {
+                            handleFormChange('salaryExpenseRate', value);
+                          } else {
+                            handleFormChange('contractExpenseRate', value);
+                          }
+                        }}
                         className="w-full px-2 py-1 border rounded text-right"
                       />
                     ) : (
-                      `${((stage.salaryExpenseRate ?? stage.expenseRate ?? 0) * 100).toFixed(0)}%`
+                      `${(
+                        isRegular
+                          ? ((stage.salaryExpenseRate ?? stage.expenseRate ?? 0) * 100)
+                          : ((stage.contractExpenseRate ?? stage.expenseRate ?? 0) * 100)
+                      ).toFixed(0)}%`
                     )}
                   </td>
                   <td className="border px-4 py-2 text-center">
@@ -469,7 +514,7 @@ export const StageMasterSettings: React.FC = () => {
             </div>
             {newStageForm.type === 'employee' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">平均給与（円） *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">人件費合計（円） *</label>
                 <input
                   type="number"
                   value={newStageForm.averageSalary || 0}
@@ -521,13 +566,17 @@ export const StageMasterSettings: React.FC = () => {
       )}
 
       <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">💡 設定のヒント</h3>
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">💡 設定のヒント（v3.1）</h3>
         <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
           <li>• <strong>ステージマスタとは</strong>: 原価計算のテンプレートです（売上単価は個人編集画面で別途設定）</li>
-          <li>• <strong>平均給与（社員のみ）</strong>: 各ステージの社員の平均月額給与を設定します</li>
-          <li>• <strong>給与経費率（社員のみ）</strong>: 給与に対する経費率（福利厚生費、交通費など）</li>
-          <li>• <strong>経費率（BPのみ）</strong>: 売上に対する経費率（管理費、手数料など）</li>
-          <li>• <strong>原価計算</strong>: 社員 = 給与 + (給与 × 給与経費率)、BP = 個別単価 × 経費率</li>
+          <li>• <strong>正社員（S1-S4）</strong>:</li>
+          <li className="ml-4">- <strong>人件費合計</strong>: 給与 + 交通費 + 残業見込み + 賞与引当などの総額（円/月）</li>
+          <li className="ml-4">- <strong>経費率</strong>: 所属部署諸経費 + 本社経費 + 営業口銭の合計をステージメンバーで平均した値</li>
+          <li className="ml-4">- <strong>原価計算</strong>: 人件費合計 + (人件費合計 × 経費率)</li>
+          <li>• <strong>契約社員・BP</strong>:</li>
+          <li className="ml-4">- <strong>固定経費</strong>: 月額固定経費（円）</li>
+          <li className="ml-4">- <strong>経費率</strong>: 契約単価に対する社内経費率（管理費など）</li>
+          <li className="ml-4">- <strong>原価計算</strong>: 契約単価 + 固定経費 + (契約単価 × 経費率)</li>
         </ul>
       </div>
 

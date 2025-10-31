@@ -106,15 +106,17 @@ export class ProfitabilityService {
     const employmentType = stage.employmentType || stage.type; // v3.0互換
 
     if (employmentType === 'contract' || employmentType === 'bp') {
-      // v3.1: 契約社員・BPの場合: 原価 = 契約単価 + 固定経費
+      // v3.1: 契約社員・BPの場合: 原価 = 契約単価 + 固定経費 + (契約単価 × 社内経費率)
       if (contractRate) {
-        // v3.1方式: 契約単価 + 固定経費
+        // v3.1方式: 契約単価 + 固定経費 + (契約単価 × 社内経費率)
         const contractAmount = contractRate.rateType === 'hourly'
           ? contractRate.rate * (contractRate.hours || 160)
           : contractRate.rate;
         const fixedExpense = stage.fixedExpense || 0;
-        cost = contractAmount + fixedExpense;
-        expense = fixedExpense;
+        const contractExpenseRate = stage.contractExpenseRate || 0;
+        const contractExpense = contractAmount * contractExpenseRate;
+        cost = contractAmount + fixedExpense + contractExpense;
+        expense = fixedExpense + contractExpense;
         salary = undefined;
       } else {
         // v3.0互換: 契約単価がない場合は売上 × 経費率
@@ -199,18 +201,23 @@ export class ProfitabilityService {
       return this.getEmptyTeamProfitability();
     }
 
-    // memberRateをIDでマッピング
+    // memberRateとcontractRateをIDでマッピング (v3.1)
     const rateMap = new Map<string, MemberRate>();
+    const contractRateMap = new Map<string, ContractRate>();
     if (memberRates) {
       memberRates.forEach(record => {
         rateMap.set(record.memberId, record.memberRate);
+        if (record.contractRate) {
+          contractRateMap.set(record.memberId, record.contractRate);
+        }
       });
     }
 
-    // 各メンバーの利益を計算
+    // 各メンバーの利益を計算 (v3.1: contractRateも渡す)
     const memberProfitabilities = validMembers.map(m => {
       const memberRate = rateMap.get(m.id);
-      return this.calculateMemberProfitability(m, stageMasters, memberRate);
+      const contractRate = contractRateMap.get(m.id);
+      return this.calculateMemberProfitability(m, stageMasters, memberRate, contractRate);
     });
 
     // 総計

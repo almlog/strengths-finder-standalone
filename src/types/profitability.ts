@@ -27,6 +27,8 @@ export interface StageMaster {
 
   /** v3.1: 固定経費（契約社員・BPのみ、月額） */
   fixedExpense?: number;
+  /** v3.1: 契約単価に対する社内経費率（契約社員・BPのみ、0.26 = 26%） */
+  contractExpenseRate?: number;
 
   /** 説明文（任意） */
   description?: string;
@@ -96,7 +98,8 @@ export const DEFAULT_STAGE_MASTERS: StageMaster[] = [
     name: '契約社員',
     employmentType: 'contract',
     fixedExpense: 50000,
-    description: '契約社員（個別契約単価 + 固定経費50,000円）',
+    contractExpenseRate: 0.26,
+    description: '契約社員（個別契約単価 + 固定経費50,000円 + 社内経費26%）',
     // v3.0互換（契約社員は従来存在しないため、デフォルト値）
     type: 'employee',
     expenseRate: 0.0,
@@ -106,8 +109,9 @@ export const DEFAULT_STAGE_MASTERS: StageMaster[] = [
     id: 'BP',
     name: 'ビジネスパートナー',
     employmentType: 'bp',
-    fixedExpense: 30000,
-    description: '外部協力者（個別契約単価 + 固定経費30,000円）',
+    fixedExpense: 40000,
+    contractExpenseRate: 0.09,
+    description: '外部協力者（個別契約単価 + 固定経費40,000円 + 経費率9%）',
     // v3.0互換（従来はexpenseRate: 0.85だったが、v3.1では固定経費方式に変更）
     type: 'bp',
     expenseRate: 0.85,

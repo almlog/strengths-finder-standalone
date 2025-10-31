@@ -96,8 +96,10 @@ export type StandardPositionId = 'MG' | 'SM' | 'PO' | 'SL' | 'SST' | 'ST' | 'DIS
 export interface MemberRateRecord {
   /** メンバーID */
   memberId: string;
-  /** 単価情報 */
+  /** 単価情報（売上単価・顧客請求額） */
   memberRate: MemberRate;
+  /** 契約単価情報（契約社員・BPのみ、支払額・原価） */
+  contractRate?: ContractRate;
   /** 最終更新日時（ISO 8601形式） */
   updatedAt?: string;
 }

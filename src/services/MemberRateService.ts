@@ -5,7 +5,7 @@
  * @description マネージャーモード専用機能。単価情報をLocalStorageで別管理し、機密性を確保
  */
 
-import { MemberRate, MemberRateRecord, MemberRatesExport } from '../types/financial';
+import { MemberRate, MemberRateRecord, MemberRatesExport, ContractRate } from '../types/financial';
 import { STORAGE_KEYS } from '../constants/storage';
 
 /**
@@ -63,14 +63,16 @@ export class MemberRateService {
    *
    * @param {string} memberId - メンバーID
    * @param {MemberRate} memberRate - 単価情報
+   * @param {ContractRate} [contractRate] - 契約単価情報（契約社員・BPのみ）
    */
-  static setMemberRate(memberId: string, memberRate: MemberRate): void {
+  static setMemberRate(memberId: string, memberRate: MemberRate, contractRate?: ContractRate): void {
     const rates = this.getMemberRates();
     const existingIndex = rates.findIndex(r => r.memberId === memberId);
 
     const newRecord: MemberRateRecord = {
       memberId,
       memberRate,
+      contractRate,
       updatedAt: new Date().toISOString()
     };
 
@@ -83,6 +85,18 @@ export class MemberRateService {
     }
 
     this.saveMemberRates(rates);
+  }
+
+  /**
+   * 特定メンバーの契約単価を取得
+   *
+   * @param {string} memberId - メンバーID
+   * @returns {ContractRate | undefined} 契約単価情報（存在しない場合はundefined）
+   */
+  static getContractRate(memberId: string): ContractRate | undefined {
+    const rates = this.getMemberRates();
+    const record = rates.find(r => r.memberId === memberId);
+    return record?.contractRate;
   }
 
   /**
