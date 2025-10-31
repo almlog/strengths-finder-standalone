@@ -355,7 +355,7 @@ describe('SimulationService', () => {
       expect(updated[2].department).toBe('未配置');
     });
 
-    test('TC-SIM-020: 未配置メンバーは「未配置」部署に', () => {
+    test('TC-SIM-020: 未配置メンバーは「未配置」部署コードに', () => {
       const state = SimulationService.createInitialState(mockMembers);
       const updated = SimulationService.applyToProduction(state, mockMembers);
 

@@ -153,7 +153,9 @@ export interface ApplyPreview {
   changes: Array<{
     memberId: string;
     memberName: string;
+    /** 変更前の部署コード */
     oldDepartment: string;
+    /** 変更後の部署コード */
     newDepartment: string;
   }>;
 }
