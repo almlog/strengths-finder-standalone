@@ -38,7 +38,7 @@
 - `src/components/strengths/TeamSimulation.tsx` - メインUI
   - DnD context、ツールバー、ダイアログ管理
 - `src/components/strengths/simulation/MemberCard.tsx` - ドラッグ可能カード
-  - @dnd-kit/sortable統合、TOP3資質表示
+  - @dnd-kit/sortable統合、TOP5資質表示
 - `src/components/strengths/simulation/GroupCard.tsx` - ドロップゾーン
   - グループ統計、円グラフ、利益率表示
 
@@ -142,6 +142,24 @@ interface SimulationState {
 **SimulationService.test.ts**
 - TC-SIM-001 ~ TC-SIM-021: 全22テスト合格
 - グループ作成、メンバー移動、統計計算、エクスポート/インポート、本番反映をカバー
+
+#### 🐛 バグ修正
+
+**ドラッグ&ドロップの不具合修正**
+1. **未配置プールがドロップゾーンとして機能していない**
+   - `useDroppable()`を追加して未配置プールをドロップ可能に
+   - `SortableContext`でメンバーをラップ
+   - 修正コミット: `4602129`
+
+2. **メンバーカードに資質が3つしか表示されない**
+   - TOP3表示からTOP5表示に変更
+   - `flex-wrap`を追加して2行表示に対応
+   - 修正コミット: `4602129`
+
+3. **グループに3人以上入らないバグ**
+   - 原因: `over.id`がメンバーIDの場合、グループIDとして処理されエラー
+   - 解決: `over.id`がメンバーIDの場合、所属グループIDに自動変換
+   - 修正コミット: `38065b1`
 
 ---
 
