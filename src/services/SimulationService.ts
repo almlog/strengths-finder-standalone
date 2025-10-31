@@ -17,7 +17,8 @@ import {
 } from '../types/simulation';
 import { MemberStrengths, StrengthGroup } from '../models/StrengthsTypes';
 import StrengthsService from './StrengthsService';
-import { StageMaster, MemberRateRecord } from '../types/profitability';
+import { StageMaster } from '../types/profitability';
+import { MemberRateRecord } from '../types/financial';
 
 const MAX_GROUPS = 10;
 const DEFAULT_GROUP_NAMES = ['グループ1', 'グループ2', 'グループ3'];

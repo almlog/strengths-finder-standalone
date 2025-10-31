@@ -140,7 +140,9 @@ const GroupCard: React.FC<GroupCardProps> = ({
                     cx="50%"
                     cy="50%"
                     outerRadius={50}
-                    label={({ name, percent }) => `${name.substring(0, 2)}: ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }: { name?: string; percent?: number }) =>
+                      name && percent !== undefined ? `${name.substring(0, 2)}: ${(percent * 100).toFixed(0)}%` : ''
+                    }
                     dataKey="value"
                   >
                     {chartData.map((entry, index) => (

@@ -9,7 +9,16 @@
       "Bash(git push:*)",
       "Bash(git merge:*)",
       "Bash(npm run build:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(findstr:*)",
+      "Bash(netstat:*)",
+      "Bash(tasklist:*)",
+      "Bash(npm test:*)",
+      "Bash(git pull:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npm install:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

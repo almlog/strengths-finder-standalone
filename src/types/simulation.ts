@@ -63,7 +63,6 @@ export interface SimulationExport {
     members: Array<{
       id: string;
       name: string;
-      employeeNumber: string;
     }>;
   }>;
   /** 未配置プール情報 */
@@ -72,7 +71,6 @@ export interface SimulationExport {
     members: Array<{
       id: string;
       name: string;
-      employeeNumber: string;
     }>;
   };
 }

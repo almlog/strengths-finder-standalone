@@ -54,7 +54,6 @@ const MemberCard: React.FC<MemberCardProps> = ({ member, isDragging }) => {
               <Crown className="w-3 h-3 text-yellow-500" />
             )}
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{member.employeeNumber}</p>
         </div>
       </div>
       <div className="flex gap-1 mt-2">
