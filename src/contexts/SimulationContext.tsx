@@ -48,7 +48,7 @@ const SimulationContext = createContext<SimulationContextType | undefined>(undef
  * SimulationProvider
  */
 export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { members, updateMember } = useStrengths();
+  const { members, addOrUpdateMember } = useStrengths();
   const [state, setState] = useState<SimulationState | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -232,7 +232,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       // 各メンバーの部署を更新
       updatedMembers.forEach(member => {
-        updateMember(member);
+        addOrUpdateMember(member);
       });
 
       // シミュレーションをリセット
@@ -241,7 +241,7 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       console.error('Failed to apply to production:', error);
       throw error;
     }
-  }, [state, members, updateMember]);
+  }, [state, members, addOrUpdateMember]);
 
   /**
    * シミュレーションをリセット

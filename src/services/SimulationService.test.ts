@@ -12,7 +12,6 @@ import { MemberStrengths, StrengthGroup, Position } from '../models/StrengthsTyp
 const mockMember1: MemberStrengths = {
   id: 'm001',
   name: '山田太郎',
-  employeeNumber: 'EMP001',
   department: '営業部',
   position: Position.GENERAL,
   strengths: [
@@ -27,7 +26,6 @@ const mockMember1: MemberStrengths = {
 const mockMember2: MemberStrengths = {
   id: 'm002',
   name: '佐藤花子',
-  employeeNumber: 'EMP002',
   department: '開発部',
   position: Position.GENERAL,
   strengths: [
@@ -42,7 +40,6 @@ const mockMember2: MemberStrengths = {
 const mockMember3: MemberStrengths = {
   id: 'm003',
   name: '鈴木一郎',
-  employeeNumber: 'EMP003',
   department: '営業部',
   position: Position.GENERAL,
   strengths: [

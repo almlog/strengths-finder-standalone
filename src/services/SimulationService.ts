@@ -17,7 +17,7 @@ import {
 } from '../types/simulation';
 import { MemberStrengths, StrengthGroup } from '../models/StrengthsTypes';
 import StrengthsService from './StrengthsService';
-import { StageMaster, MemberRateRecord } from '../types/financial';
+import { StageMaster, MemberRateRecord } from '../types/profitability';
 
 const MAX_GROUPS = 10;
 const DEFAULT_GROUP_NAMES = ['グループ1', 'グループ2', 'グループ3'];
@@ -291,11 +291,10 @@ export class SimulationService {
             if (!member) return null;
             return {
               id: member.id,
-              name: member.name,
-              employeeNumber: member.employeeNumber
+              name: member.name
             };
           })
-          .filter((m): m is { id: string; name: string; employeeNumber: string } => m !== null)
+          .filter((m): m is { id: string; name: string } => m !== null)
       })),
       unassignedPool: {
         memberIds: state.unassignedPool,
@@ -305,11 +304,10 @@ export class SimulationService {
             if (!member) return null;
             return {
               id: member.id,
-              name: member.name,
-              employeeNumber: member.employeeNumber
+              name: member.name
             };
           })
-          .filter((m): m is { id: string; name: string; employeeNumber: string } => m !== null)
+          .filter((m): m is { id: string; name: string } => m !== null)
       }
     };
 
