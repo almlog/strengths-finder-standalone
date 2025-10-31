@@ -622,53 +622,224 @@ class PersonalityAnalysisEngine {
   ): string[] {
     const messages: string[] = [];
 
-    // 第1文: TOP3資質の紹介
-    messages.push(
-      `「${topStrengths[0]}」「${topStrengths[1]}」「${topStrengths[2]}」を中心とした資質を持つプロフェッショナルです。`
-    );
+    // 第1文: TOP3資質の組み合わせから独自の説明を生成
+    messages.push(this.buildTop3CombinationDescription(topStrengths));
 
-    // 第2文: チームスタイル（teamFitScoreベース）
-    if (teamFitScore >= 70) {
-      messages.push('チームワークを重視し、他者と協力して成果を上げることが得意です。');
-    } else if (teamFitScore >= 50) {
-      messages.push('チームワークと個人作業の両方に対応できる柔軟性を持っています。');
-    } else {
-      messages.push('独立して業務を進めることが得意で、集中力を発揮します。');
-    }
+    // 第2文: チームスタイル（teamFitScoreで7段階評価）
+    messages.push(this.getTeamFitDescription(teamFitScore));
 
-    // 第3文: 役割期待（leadershipPotentialベース）
-    if (leadershipPotential >= 70) {
-      messages.push('リーダーシップを発揮し、チームを牽引する役割が期待できます。');
-    } else if (leadershipPotential >= 50) {
-      messages.push('状況に応じてリーダーシップとサポートを使い分けることができます。');
-    } else {
-      messages.push('専門性を活かし、深い知識やスキルで貢献することが得意です。');
-    }
+    // 第3文: 役割期待（leadershipPotentialで7段階評価）
+    messages.push(this.getLeadershipDescription(leadershipPotential));
 
     return messages;
   }
 
   /**
-   * 資質から役割を推定
+   * TOP3資質の組み合わせから独自の説明を生成
+   */
+  private buildTop3CombinationDescription(topStrengths: string[]): string {
+    const strength1 = StrengthsService.getStrengthByName(topStrengths[0]);
+    const strength2 = StrengthsService.getStrengthByName(topStrengths[1]);
+    const strength3 = StrengthsService.getStrengthByName(topStrengths[2]);
+
+    if (!strength1 || !strength2 || !strength3) {
+      return `「${topStrengths[0]}」「${topStrengths[1]}」「${topStrengths[2]}」を中心とした資質を持つプロフェッショナルです。`;
+    }
+
+    // 資質の詳細説明から特徴を抽出して組み合わせる
+    const trait1 = this.extractKeyTrait(strength1);
+    const trait2 = this.extractKeyTrait(strength2);
+    const trait3 = this.extractKeyTrait(strength3);
+
+    return `「${strength1.name}」で${trait1}、「${strength2.name}」で${trait2}、「${strength3.name}」を併せ持つプロフェッショナルです。`;
+  }
+
+  /**
+   * 資質の説明から核となる特徴を抽出
+   */
+  private extractKeyTrait(strength: { id: number; name: string; description: string; group: any }): string {
+    const desc = strength.description;
+
+    // 資質ごとにカスタマイズされた特徴抽出
+    const traitMap: Record<number, string> = {
+      1: '目標達成に向けて懸命に働き',
+      2: '公平性を重視し',
+      3: '問題解決に長け',
+      4: '柔軟に物事を組み立て',
+      5: 'リスクを慎重に評価し',
+      6: '約束を必ず実行し',
+      7: '強い信念を持ち',
+      8: '秩序と計画を重視し',
+      9: '目標に向けて突き進み',
+      10: 'アイデアを素早く行動に移し',
+      11: '競争心を持って一番を目指し',
+      12: '自分の判断に自信を持ち',
+      13: '主導権を握って物事を進め',
+      14: '常により良い改善を追求し',
+      15: '新しい人とのつながりを広げ',
+      16: '言葉で効果的に伝え',
+      17: '自分の道を確信を持って進み',
+      18: '状況に柔軟に対応し',
+      19: '運命や意味を感じ取り',
+      20: '他者の感情を深く理解し',
+      21: '調和を大切にし',
+      22: '強い絆を築き',
+      23: '多様性を受け入れ',
+      24: '人の成長を支援し',
+      25: '一人ひとりの個性を見極め',
+      26: '包含と一体感を重視し',
+      27: '前向きさでエネルギーを与え',
+      28: '親密な関係を深め',
+      29: '未来のビジョンを描き',
+      30: '創造的なアイデアを生み出し',
+      31: '深く内省し',
+      32: '戦略的に道筋を見出し',
+      33: '学び続ける姿勢を持ち',
+      34: '情報を収集・整理し'
+    };
+
+    return traitMap[strength.id] || desc.substring(0, 20);
+  }
+
+  /**
+   * チーム適合度の7段階説明
+   */
+  private getTeamFitDescription(score: number): string {
+    if (score >= 80) {
+      return '非常に高いチームワーク志向を持ち、協働で最大の成果を発揮します。';
+    }
+    if (score >= 70) {
+      return 'チームワークを重視し、他者と協力して成果を上げることが得意です。';
+    }
+    if (score >= 60) {
+      return 'チームでの協力を大切にしながら、個人の責任も果たせます。';
+    }
+    if (score >= 50) {
+      return 'チームワークと個人作業の両方に対応できる柔軟性を持っています。';
+    }
+    if (score >= 40) {
+      return 'やや個人作業を好みますが、必要に応じてチームにも貢献できます。';
+    }
+    if (score >= 30) {
+      return '独立して業務を進めることを好み、集中力を発揮します。';
+    }
+    return '高い自律性を持ち、個人として最大の成果を追求します。';
+  }
+
+  /**
+   * リーダーシップ潜在力の7段階説明
+   */
+  private getLeadershipDescription(score: number): string {
+    if (score >= 80) {
+      return '強力なリーダーシップを発揮し、組織全体を牽引する役割が期待できます。';
+    }
+    if (score >= 70) {
+      return 'リーダーシップを発揮し、チームを牽引する役割が期待できます。';
+    }
+    if (score >= 60) {
+      return 'プロジェクトリーダーとして、小規模なチームをまとめる力があります。';
+    }
+    if (score >= 50) {
+      return '状況に応じてリーダーシップとサポートを使い分けることができます。';
+    }
+    if (score >= 40) {
+      return 'サブリーダーとして、リーダーを支える役割で力を発揮します。';
+    }
+    if (score >= 30) {
+      return '専門性を活かし、深い知識やスキルで貢献することが得意です。';
+    }
+    return 'スペシャリストとして、特定分野で卓越した成果を追求します。';
+  }
+
+  /**
+   * 資質から役割を推定（TOP5全体の構成を考慮）
    */
   private inferRoleFromStrengths(strengths: Member['strengths']): string {
     if (!strengths || strengths.length === 0) return '不明';
 
-    const topIds = strengths.slice(0, 3).map(s => s.id);
+    // TOP5全体のカテゴリ分布を分析
+    const top5Ids = strengths.slice(0, 5).map(s => s.id);
+    const analyticalCount = top5Ids.filter(id => ANALYTICAL_STRENGTHS.includes(id)).length;
+    const executionCount = top5Ids.filter(id => EXECUTION_STRENGTHS.includes(id)).length;
+    const leadershipCount = top5Ids.filter(id => LEADERSHIP_STRENGTHS.includes(id)).length;
+    const teamCount = top5Ids.filter(id => TEAM_ORIENTED_STRENGTHS.includes(id)).length;
 
-    const hasAnalytical = topIds.some(id => ANALYTICAL_STRENGTHS.includes(id));
-    const hasExecution = topIds.some(id => EXECUTION_STRENGTHS.includes(id));
-    const hasLeadership = topIds.some(id => LEADERSHIP_STRENGTHS.includes(id));
-    const hasTeam = topIds.some(id => TEAM_ORIENTED_STRENGTHS.includes(id));
+    // バランス型の判定（複数カテゴリに分散）
+    const categoryCount = [
+      analyticalCount > 0 ? 1 : 0,
+      executionCount > 0 ? 1 : 0,
+      leadershipCount > 0 ? 1 : 0,
+      teamCount > 0 ? 1 : 0
+    ].reduce((a, b) => a + b, 0);
 
+    if (categoryCount >= 4) {
+      return 'オールラウンダー（多面的な貢献者）';
+    }
+
+    if (categoryCount >= 3) {
+      // 3カテゴリに分散 - 最も多いカテゴリで判定
+      const maxCount = Math.max(analyticalCount, executionCount, leadershipCount, teamCount);
+      if (analyticalCount === maxCount && executionCount >= 1) {
+        return '戦略的実行者（理論と実践の融合）';
+      }
+      if (leadershipCount === maxCount && teamCount >= 1) {
+        return 'ピープルリーダー（人を動かす力）';
+      }
+      if (analyticalCount === maxCount && teamCount >= 1) {
+        return '分析型コミュニケーター（洞察と共感）';
+      }
+      return 'バランス型プロフェッショナル';
+    }
+
+    // 専門型（1-2カテゴリに集中）
     // リーダーシップ資質の優先判定
-    if (hasLeadership && hasExecution) return 'リーダー・推進者';
-    if (hasLeadership) return 'リーダー・推進者';
+    if (leadershipCount >= 3) {
+      return 'リーダー・推進者（影響力の中心）';
+    }
+    if (leadershipCount >= 2 && executionCount >= 1) {
+      return 'リーダー・実行者（率先垂範型）';
+    }
+    if (leadershipCount >= 2) {
+      return 'インフルエンサー（影響力重視）';
+    }
 
-    if (hasAnalytical && hasExecution) return '戦略家・実行者';
-    if (hasTeam && hasExecution) return 'チームプレイヤー';
-    if (hasAnalytical) return 'アナリスト・思考家';
-    if (hasExecution) return '実行者・達成者';
+    // 戦略的思考×実行力
+    if (analyticalCount >= 3) {
+      return 'ストラテジスト（戦略思考の専門家）';
+    }
+    if (analyticalCount >= 2 && executionCount >= 2) {
+      return '戦略家・実行者（計画と実践）';
+    }
+    if (analyticalCount >= 2) {
+      return 'アナリスト・思考家（深い分析力）';
+    }
+
+    // 実行力×チーム志向
+    if (executionCount >= 3) {
+      return '実行者・達成者（成果にコミット）';
+    }
+    if (executionCount >= 2 && teamCount >= 2) {
+      return 'チームプレイヤー（協働で成果を出す）';
+    }
+    if (executionCount >= 2) {
+      return '実務推進者（確実な遂行力）';
+    }
+
+    // 人間関係構築力
+    if (teamCount >= 3) {
+      return 'リレーションシップビルダー（つながりの構築者）';
+    }
+    if (teamCount >= 2) {
+      return 'ハーモナイザー（調和を生む力）';
+    }
+
+    // 上記に該当しない場合
+    if (leadershipCount >= 1 && executionCount >= 1) {
+      return 'リーダー・推進者';
+    }
+    if (analyticalCount >= 1 && executionCount >= 1) {
+      return '戦略家・実行者';
+    }
 
     return '多才なプロフェッショナル';
   }

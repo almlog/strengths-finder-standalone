@@ -47,7 +47,7 @@ export interface StrengthsData {
 export interface MemberStrengths {
   id: string;
   name: string;
-  department: string;
+  department: string; // 部署コード（例: "ONE_PIECE", "営業部"）
   position?: Position | string; // デフォルト役職またはカスタム役職ID
   stageId?: string; // v3.1: ステージID（S1, S2, S3, S4, BP） - 原価テンプレート参照用
 

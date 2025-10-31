@@ -390,6 +390,8 @@ export class SimulationService {
   /**
    * シミュレーション結果を本番データに反映
    *
+   * グループ名が部署コードとして設定されます。
+   *
    * @param state - シミュレーション状態
    * @param members - 全メンバー配列
    * @returns 更新されたメンバー配列
@@ -398,7 +400,7 @@ export class SimulationService {
     state: SimulationState,
     members: MemberStrengths[]
   ): MemberStrengths[] {
-    // グループIDからグループ名へのマッピング
+    // メンバーIDから設定されるグループ名（部署コードになる）へのマッピング
     const groupNameMap = new Map<string, string>();
     state.groups.forEach(group => {
       group.memberIds.forEach(memberId => {
@@ -406,12 +408,12 @@ export class SimulationService {
       });
     });
 
-    // 未配置メンバーは「未配置」部署に
+    // 未配置メンバーは「未配置」部署コードに
     state.unassignedPool.forEach(memberId => {
       groupNameMap.set(memberId, '未配置');
     });
 
-    // メンバーの部署を更新
+    // メンバーの部署コードを更新
     return members.map(member => ({
       ...member,
       department: groupNameMap.get(member.id) || member.department
@@ -421,12 +423,14 @@ export class SimulationService {
   /**
    * 本番反映のプレビューを生成
    *
+   * グループ名が部署コードとしてどのように設定されるかのプレビューを返します。
+   *
    * @param state - シミュレーション状態
    * @param members - 全メンバー配列
    * @returns 変更プレビュー
    */
   static getApplyPreview(state: SimulationState, members: MemberStrengths[]): ApplyPreview {
-    // グループIDからグループ名へのマッピング
+    // メンバーIDから設定されるグループ名（部署コードになる）へのマッピング
     const groupNameMap = new Map<string, string>();
     state.groups.forEach(group => {
       group.memberIds.forEach(memberId => {

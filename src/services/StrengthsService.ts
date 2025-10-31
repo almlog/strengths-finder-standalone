@@ -205,6 +205,13 @@ class StrengthsService {
   }
 
   /**
+   * 名前から資質を取得
+   */
+  public getStrengthByName(name: string): Strength | undefined {
+    return STRENGTHS_DATA.find(s => s.name === name);
+  }
+
+  /**
    * 全ての資質情報を取得
    */
   public getAllStrengths(): Strength[] {
