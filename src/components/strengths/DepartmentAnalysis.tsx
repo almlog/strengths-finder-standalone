@@ -16,7 +16,6 @@ import {
   Cell
 } from 'recharts';
 import { useManagerMode } from '../../hooks/useManagerMode';
-import FinancialDashboard from './FinancialDashboard';
 import ProfitabilityDashboard from './ProfitabilityDashboard';
 
 const DepartmentAnalysis: React.FC = () => {
@@ -127,9 +126,6 @@ const DepartmentAnalysis: React.FC = () => {
           ))}
         </select>
       </div>
-
-      {/* Manager mode: Financial Dashboard (売上分析) */}
-      {isManagerMode && <FinancialDashboard members={departmentMembers} />}
 
       {/* Manager mode: Profitability Dashboard (利益率分析) */}
       {isManagerMode && <ProfitabilityDashboard members={departmentMembers} />}
