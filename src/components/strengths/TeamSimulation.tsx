@@ -15,9 +15,10 @@ import {
   useSensor,
   useSensors,
   DragStartEvent,
-  DragEndEvent
+  DragEndEvent,
+  useDroppable
 } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSimulation } from '../../contexts/SimulationContext';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { useStageMasters } from '../../hooks/useStageMasters';
@@ -58,6 +59,11 @@ const TeamSimulation: React.FC = () => {
     if (!state) return [];
     return state.unassignedPool.map(id => memberMap.get(id)).filter(Boolean);
   }, [state, memberMap]);
+
+  // 未配置プールのドロップゾーン
+  const { setNodeRef: setUnassignedRef, isOver: isUnassignedOver } = useDroppable({
+    id: 'unassigned'
+  });
 
   // グループごとのメンバーと統計
   const groupsData = useMemo(() => {
@@ -250,16 +256,23 @@ const TeamSimulation: React.FC = () => {
         <div className="grid grid-cols-4 gap-4">
           {/* 未配置プール */}
           <div className="col-span-1">
-            <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-4 min-h-[400px]">
+            <div
+              ref={setUnassignedRef}
+              className={`bg-gray-100 dark:bg-gray-900 rounded-lg p-4 min-h-[400px] transition-colors ${
+                isUnassignedOver
+                  ? 'border-2 border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  : 'border-2 border-transparent'
+              }`}
+            >
               <h3 className="font-semibold mb-3 dark:text-gray-100 flex items-center gap-2">
                 📦 未配置プール
                 <span className="text-sm text-gray-500">({unassignedMembers.length}人)</span>
               </h3>
-              <div id="unassigned">
+              <SortableContext items={unassignedMembers.map(m => m.id)} strategy={verticalListSortingStrategy}>
                 {unassignedMembers.map(member => (
                   <MemberCard key={member.id} member={member} />
                 ))}
-              </div>
+              </SortableContext>
             </div>
           </div>
 

@@ -31,10 +31,10 @@ const MemberCard: React.FC<MemberCardProps> = ({ member, isDragging }) => {
     opacity: isDragging ? 0.5 : 1
   };
 
-  // TOP3資質を取得
-  const top3Strengths = [...member.strengths]
+  // TOP5資質を取得（全て表示）
+  const topStrengths = [...member.strengths]
     .sort((a, b) => a.score - b.score)
-    .slice(0, 3)
+    .slice(0, 5)
     .map(rs => StrengthsService.getStrengthById(rs.id))
     .filter(s => s !== null);
 
@@ -56,8 +56,8 @@ const MemberCard: React.FC<MemberCardProps> = ({ member, isDragging }) => {
           </div>
         </div>
       </div>
-      <div className="flex gap-1 mt-2">
-        {top3Strengths.map(strength => (
+      <div className="flex flex-wrap gap-1 mt-2">
+        {topStrengths.map(strength => (
           <div
             key={strength?.id}
             className="px-2 py-0.5 rounded text-xs"
