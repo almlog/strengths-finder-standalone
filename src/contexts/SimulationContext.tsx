@@ -7,7 +7,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { SimulationState, DestinationId, ImportResult, ApplyPreview } from '../types/simulation';
-import { MemberStrengths } from '../models/StrengthsTypes';
 import { SimulationService } from '../services/SimulationService';
 import { useStrengths } from './StrengthsContext';
 

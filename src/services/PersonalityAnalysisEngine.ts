@@ -651,7 +651,7 @@ class PersonalityAnalysisEngine {
     const trait2 = this.extractKeyTrait(strength2);
     const trait3 = this.extractKeyTrait(strength3);
 
-    return `「${strength1.name}」で${trait1}、「${strength2.name}」で${trait2}、「${strength3.name}」を併せ持つプロフェッショナルです。`;
+    return `「${strength1.name}」で${trait1}、「${strength2.name}」で${trait2}、「${strength3.name}」で${trait3}を併せ持つプロフェッショナルです。`;
   }
 
   /**
