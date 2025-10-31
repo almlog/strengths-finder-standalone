@@ -5,7 +5,7 @@
  * @description ドラッグ&ドロップによる動的チーム編成シミュレーション
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -39,7 +39,9 @@ const TeamSimulation: React.FC = () => {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
-  const [departmentFilter, setDepartmentFilter] = useState<string>('ALL'); // 部署コードフィルタ
+  const [selectedDepartments, setSelectedDepartments] = useState<Set<string>>(new Set()); // 選択中の部署コード（複数）
+  const [showDepartmentMenu, setShowDepartmentMenu] = useState(false); // 部署フィルタメニューの表示状態
+  const departmentMenuRef = useRef<HTMLDivElement>(null); // 部署フィルタメニューの参照
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -72,11 +74,13 @@ const TeamSimulation: React.FC = () => {
 
   // 未配置プールのメンバー（フィルタ適用後）
   const unassignedMembers = useMemo(() => {
-    if (departmentFilter === 'ALL') {
+    if (selectedDepartments.size === 0) {
+      // 何も選択されていない場合は全員表示
       return unassignedMembersAll;
     }
-    return unassignedMembersAll.filter(m => m.department === departmentFilter);
-  }, [unassignedMembersAll, departmentFilter]);
+    // 選択された部署のメンバーのみ表示
+    return unassignedMembersAll.filter(m => m.department && selectedDepartments.has(m.department));
+  }, [unassignedMembersAll, selectedDepartments]);
 
   // 未配置プールのドロップゾーン
   const { setNodeRef: setUnassignedRef, isOver: isUnassignedOver } = useDroppable({
@@ -141,10 +145,50 @@ const TeamSimulation: React.FC = () => {
     }
   };
 
+  // 部署の選択/解除をトグル
+  const toggleDepartment = (dept: string) => {
+    setSelectedDepartments(prev => {
+      const next = new Set(prev);
+      if (next.has(dept)) {
+        next.delete(dept);
+      } else {
+        next.add(dept);
+      }
+      return next;
+    });
+  };
+
+  // 全て選択/解除をトグル
+  const toggleAllDepartments = () => {
+    if (selectedDepartments.size === allDepartments.length) {
+      // 全て選択されている場合は全て解除
+      setSelectedDepartments(new Set());
+    } else {
+      // 一部または未選択の場合は全て選択
+      setSelectedDepartments(new Set(allDepartments));
+    }
+  };
+
   const handleAddGroup = () => {
     const groupNumber = (state?.groups.length || 0) + 1;
     addGroup(`グループ${groupNumber}`);
   };
+
+  // 部署フィルタメニューの外側クリックで閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (departmentMenuRef.current && !departmentMenuRef.current.contains(event.target as Node)) {
+        setShowDepartmentMenu(false);
+      }
+    };
+
+    if (showDepartmentMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showDepartmentMenu]);
 
   const handleExport = () => {
     try {
@@ -303,23 +347,65 @@ const TeamSimulation: React.FC = () => {
                 </span>
               </h3>
 
-              {/* 部署コードフィルタ */}
-              <div className="mb-3">
-                <select
-                  value={departmentFilter}
-                  onChange={(e) => setDepartmentFilter(e.target.value)}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-gray-100"
+              {/* 部署コードフィルタ（複数選択） */}
+              <div ref={departmentMenuRef} className="mb-3 relative">
+                <button
+                  onClick={() => setShowDepartmentMenu(!showDepartmentMenu)}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-gray-100 text-left flex items-center justify-between"
                 >
-                  <option value="ALL">全ての部署 ({unassignedMembersAll.length}人)</option>
-                  {allDepartments.map(dept => {
-                    const count = unassignedMembersAll.filter(m => m.department === dept).length;
-                    return (
-                      <option key={dept} value={dept}>
-                        {dept} ({count}人)
-                      </option>
-                    );
-                  })}
-                </select>
+                  <span>
+                    {selectedDepartments.size === 0
+                      ? `🏢 部署フィルタ (全て: ${unassignedMembersAll.length}人)`
+                      : `🏢 部署フィルタ (${selectedDepartments.size}件選択中)`
+                    }
+                  </span>
+                  <span className="text-gray-400">{showDepartmentMenu ? '▲' : '▼'}</span>
+                </button>
+
+                {showDepartmentMenu && (
+                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow-lg max-h-60 overflow-y-auto">
+                    {/* 全て選択/解除 */}
+                    <label className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b dark:border-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={selectedDepartments.size === allDepartments.length}
+                        onChange={toggleAllDepartments}
+                        className="mr-2"
+                      />
+                      <span className="text-sm font-semibold dark:text-gray-100">
+                        {selectedDepartments.size === allDepartments.length ? '全て解除' : '全て選択'}
+                      </span>
+                    </label>
+
+                    {/* 部署リスト */}
+                    {allDepartments.map(dept => {
+                      const count = unassignedMembersAll.filter(m => m.department === dept).length;
+                      return (
+                        <label
+                          key={dept}
+                          className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedDepartments.has(dept)}
+                            onChange={() => toggleDepartment(dept)}
+                            className="mr-2"
+                          />
+                          <span className="text-sm dark:text-gray-100">
+                            {dept} ({count}人)
+                          </span>
+                        </label>
+                      );
+                    })}
+
+                    {/* 選択中の合計 */}
+                    {selectedDepartments.size > 0 && (
+                      <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border-t dark:border-gray-600 text-sm dark:text-gray-100">
+                        選択中: {unassignedMembers.length}人
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <SortableContext items={unassignedMembers.map(m => m.id)} strategy={verticalListSortingStrategy}>
