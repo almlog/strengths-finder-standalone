@@ -19,7 +19,14 @@
       "mcp__ide__getDiagnostics",
       "Bash(npm install:*)",
       "WebSearch",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npx tsc:*)",
+      "Bash(Select-String -Pattern \"(PASS|FAIL|Tests:)\")",
+      "Bash(Select-Object -Last 20)",
+      "Bash(pkill:*)",
+      "Bash(timeout 30 npm test:*)",
+      "Skill(strengths-analyzer)",
+      "Bash(npx kill-port:*)"
     ],
     "deny": [],
     "ask": []
