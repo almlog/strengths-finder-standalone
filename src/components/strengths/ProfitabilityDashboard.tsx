@@ -83,8 +83,8 @@ const ProfitabilityDashboard: React.FC<ProfitabilityDashboardProps> = ({ members
       </div>
 
       {/* メイン指標 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {/* 総売上 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* 総売上（月額） */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm mb-1">
             <span>💰</span>
@@ -98,7 +98,7 @@ const ProfitabilityDashboard: React.FC<ProfitabilityDashboardProps> = ({ members
           </div>
         </div>
 
-        {/* 総原価 */}
+        {/* 総原価（月額） */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm mb-1">
             <span>💸</span>
@@ -112,7 +112,7 @@ const ProfitabilityDashboard: React.FC<ProfitabilityDashboardProps> = ({ members
           </div>
         </div>
 
-        {/* 総利益 */}
+        {/* 総利益（月額） */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm mb-1">
             <span>📈</span>
@@ -123,6 +123,20 @@ const ProfitabilityDashboard: React.FC<ProfitabilityDashboardProps> = ({ members
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             平均: {FinancialService.formatCurrency(teamProfitability.averageProfit)}/人
+          </div>
+        </div>
+
+        {/* 年間予測 */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm mb-1">
+            <span>📅</span>
+            <span>年間予測</span>
+          </div>
+          <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-400">
+            {FinancialService.formatCurrency(teamProfitability.totalProfit * 12)}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            月額利益 × 12ヶ月
           </div>
         </div>
       </div>
