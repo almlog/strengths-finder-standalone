@@ -12,13 +12,12 @@ interface MembersListProps {
 }
 
 const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId }) => {
-  const { members, toggleMemberSelection, selectedMemberIds, deleteMember, getPositionInfo, selectAllMembers, clearAllSelections } = useStrengths();
+  const { members, toggleMemberSelection, selectedMemberIds, deleteMember, getPositionInfo, selectAllMembers, clearAllSelections, selectedDepartment, setSelectedDepartment } = useStrengths();
   const [editMemberId, setEditMemberId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
 
-  // 部署の重複なしリストを取得
-  const departments = [...new Set(members.map(member => member.department))];
+  // 部署の重複なしリストを取得し、番号順でソート
+  const departments = [...new Set(members.map(member => member.department))].sort();
   
   // 選択された部署でフィルタリングされたメンバーリスト
   const filteredMembers = selectedDepartment === 'all' 
@@ -155,10 +154,12 @@ const MembersList: React.FC<MembersListProps> = ({ onSelect, selectedMemberId })
           const isCheckedForAnalysis = selectedMemberIds.includes(member.id);
 
           return (
-            <div 
+            <div
               key={member.id}
-              className={`border-l-4 bg-white dark:bg-gray-700 rounded-lg shadow-sm p-3 transition-all ${
-                isSelected ? 'bg-blue-50 dark:bg-blue-900' : ''
+              className={`border-l-4 bg-white dark:bg-gray-700 rounded-lg p-3 transition-all ${
+                isSelected
+                  ? 'bg-blue-50 dark:bg-blue-900 shadow-lg ring-2 ring-blue-400 dark:ring-blue-500'
+                  : 'shadow-sm'
               }`}
               style={{ borderLeftColor: borderColor }}
             >
