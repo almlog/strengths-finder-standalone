@@ -29,7 +29,7 @@ import MemberCard from './simulation/MemberCard';
 import GroupCard from './simulation/GroupCard';
 
 const TeamSimulation: React.FC = () => {
-  const { state, addGroup, removeGroup, renameGroup, moveMember, exportSimulation, importSimulation, getApplyPreview, applyToProduction, resetSimulation } = useSimulation();
+  const { state, addGroup, removeGroup, renameGroup, moveMember, exportSimulation, importSimulation, getApplyPreview, applyToProduction } = useSimulation();
   const { members } = useStrengths();
   const { stageMasters } = useStageMasters();
   const { memberRates } = useMemberRates();
@@ -255,7 +255,7 @@ const TeamSimulation: React.FC = () => {
     } catch {
       return null;
     }
-  }, [getApplyPreview, state]);
+  }, [getApplyPreview]);
 
   if (!state) {
     return (

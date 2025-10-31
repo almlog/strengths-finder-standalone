@@ -87,6 +87,7 @@ const MemberForm: React.FC<MemberFormProps> = ({ memberId, onClose }) => {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId, members, getMemberRate]);
 
   const handleSubmit = (e: React.FormEvent) => {
