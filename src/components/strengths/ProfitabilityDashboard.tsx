@@ -30,6 +30,11 @@ const getProfitMarginColorClass = (profitMargin: number): string => {
 };
 
 /**
+ * ステージIDの表示順序（固定）
+ */
+const STAGE_ORDER = ['S1', 'S2', 'S3', 'S4', 'CONTRACT', 'BP'];
+
+/**
  * マネージャー専用: 利益率ダッシュボード
  * 選択されたメンバーの利益率情報を集計・表示
  */
@@ -149,37 +154,40 @@ const ProfitabilityDashboard: React.FC<ProfitabilityDashboardProps> = ({ members
             ステージ別内訳
           </h4>
           <div className="space-y-3">
-            {Object.entries(teamProfitability.profitByStage).map(([stageId, data]) => {
-              const stage = stageMasters.find(s => s.id === stageId);
-              if (!stage) return null;
+            {STAGE_ORDER
+              .filter(stageId => teamProfitability.profitByStage[stageId]) // 存在するステージのみ
+              .map(stageId => {
+                const data = teamProfitability.profitByStage[stageId];
+                const stage = stageMasters.find(s => s.id === stageId);
+                if (!stage) return null;
 
-              return (
-                <div
-                  key={stageId}
-                  className="border dark:border-gray-700 rounded p-3"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
-                        {stage.name}
-                      </span>
-                      <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">
-                        {stage.type === 'employee' ? '社員' : 'BP'}
-                      </span>
-                      <span className="text-gray-500 dark:text-gray-400 text-sm">
-                        × {data.count}名
-                      </span>
+                return (
+                  <div
+                    key={stageId}
+                    className="border dark:border-gray-700 rounded p-3"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                          {stage.name}
+                        </span>
+                        <span className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">
+                          {stage.type === 'employee' ? '社員' : 'BP'}
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400 text-sm">
+                          × {data.count}名
+                        </span>
+                      </div>
+                      <div className={`px-3 py-1 rounded-full text-sm font-semibold ${getProfitMarginColorClass(data.averageProfitMargin)}`}>
+                        {data.averageProfitMargin.toFixed(1)}%
+                      </div>
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-sm font-semibold ${getProfitMarginColorClass(data.averageProfitMargin)}`}>
-                      {data.averageProfitMargin.toFixed(1)}%
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      総利益: {FinancialService.formatCurrency(data.totalProfit)}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    総利益: {FinancialService.formatCurrency(data.totalProfit)}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
       )}
