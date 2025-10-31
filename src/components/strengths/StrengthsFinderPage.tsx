@@ -23,6 +23,12 @@ type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths' | 'sim
 // DOMの更新を待つために必要
 const SCROLL_DELAY_MS = 100;
 
+// メンバーリストの幅の初期値とLocalStorageキー
+const DEFAULT_SIDEBAR_WIDTH = 300; // 25%相当
+const MIN_SIDEBAR_WIDTH = 200;
+const MAX_SIDEBAR_WIDTH = 600;
+const SIDEBAR_WIDTH_STORAGE_KEY = 'strengths-sidebar-width';
+
 // インポート・エクスポートボタンコンポーネント
 const ImportExportButtons: React.FC = () => {
   const { exportData, importData } = useStrengths();
@@ -194,6 +200,15 @@ const StrengthsFinderPage: React.FC = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const analysisAreaRef = useRef<HTMLDivElement>(null);
 
+  // リサイザー機能のstate
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    const saved = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    return saved ? parseInt(saved, 10) : DEFAULT_SIDEBAR_WIDTH;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartX = useRef<number>(0);
+  const resizeStartWidth = useRef<number>(0);
+
   // 初回マウント時にデータマイグレーションを実行
   useEffect(() => {
     if (MigrationService.needsMigration()) {
@@ -202,6 +217,42 @@ const StrengthsFinderPage: React.FC = () => {
       console.log('[Migration] マイグレーション完了');
     }
   }, []);
+
+  // リサイザー: マウスダウン
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartX.current = e.clientX;
+    resizeStartWidth.current = sidebarWidth;
+  };
+
+  // リサイザー: マウスムーブ（グローバル）
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - resizeStartX.current;
+      const newWidth = Math.min(
+        Math.max(resizeStartWidth.current + deltaX, MIN_SIDEBAR_WIDTH),
+        MAX_SIDEBAR_WIDTH
+      );
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      // LocalStorageに保存
+      localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, sidebarWidth.toString());
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, sidebarWidth]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as AnalysisTab);
@@ -262,9 +313,12 @@ const StrengthsFinderPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-12 gap-6">
+      <div className="flex flex-col md:flex-row gap-0 md:gap-6">
         {/* メンバーリスト */}
-        <div className="col-span-12 md:col-span-4 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div
+          className="w-full md:flex-shrink-0 bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 md:mb-0"
+          style={{ width: window.innerWidth >= 768 ? `${sidebarWidth}px` : '100%' }}
+        >
           <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-800 dark:text-gray-100">
             <Users className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
             メンバー一覧
@@ -275,8 +329,21 @@ const StrengthsFinderPage: React.FC = () => {
           />
         </div>
 
+        {/* リサイザーハンドル */}
+        <div
+          className="hidden md:block w-1 cursor-col-resize hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors relative group"
+          onMouseDown={handleResizeStart}
+          style={{
+            backgroundColor: isResizing ? '#3b82f6' : 'transparent',
+            userSelect: 'none'
+          }}
+        >
+          {/* ホバー時の視覚的なインジケーター */}
+          <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-500/20 dark:group-hover:bg-blue-400/20 rounded" />
+        </div>
+
         {/* 分析エリア */}
-        <div ref={analysisAreaRef} className="col-span-12 md:col-span-8 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div ref={analysisAreaRef} className="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow p-4" style={{ minWidth: 0 }}>
           <Tabs activeTab={activeTab} onTabChange={handleTabChange}>
             <Tab id="individual" label={
               <div className="flex items-center">
