@@ -39,6 +39,7 @@ const TeamSimulation: React.FC = () => {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
+  const [departmentFilter, setDepartmentFilter] = useState<string>('ALL'); // 部署コードフィルタ
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -54,11 +55,28 @@ const TeamSimulation: React.FC = () => {
     return map;
   }, [members]);
 
-  // 未配置プールのメンバー
-  const unassignedMembers = useMemo(() => {
+  // 全部署コードを抽出
+  const allDepartments = useMemo(() => {
+    const depts = new Set<string>();
+    members.forEach(m => {
+      if (m.department) depts.add(m.department);
+    });
+    return Array.from(depts).sort();
+  }, [members]);
+
+  // 未配置プールのメンバー（全体）
+  const unassignedMembersAll = useMemo(() => {
     if (!state) return [];
     return state.unassignedPool.map(id => memberMap.get(id)).filter(Boolean);
   }, [state, memberMap]);
+
+  // 未配置プールのメンバー（フィルタ適用後）
+  const unassignedMembers = useMemo(() => {
+    if (departmentFilter === 'ALL') {
+      return unassignedMembersAll;
+    }
+    return unassignedMembersAll.filter(m => m.department === departmentFilter);
+  }, [unassignedMembersAll, departmentFilter]);
 
   // 未配置プールのドロップゾーン
   const { setNodeRef: setUnassignedRef, isOver: isUnassignedOver } = useDroppable({
@@ -280,8 +298,30 @@ const TeamSimulation: React.FC = () => {
             >
               <h3 className="font-semibold mb-3 dark:text-gray-100 flex items-center gap-2">
                 📦 未配置プール
-                <span className="text-sm text-gray-500">({unassignedMembers.length}人)</span>
+                <span className="text-sm text-gray-500">
+                  ({unassignedMembers.length}/{unassignedMembersAll.length}人)
+                </span>
               </h3>
+
+              {/* 部署コードフィルタ */}
+              <div className="mb-3">
+                <select
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-gray-100"
+                >
+                  <option value="ALL">全ての部署 ({unassignedMembersAll.length}人)</option>
+                  {allDepartments.map(dept => {
+                    const count = unassignedMembersAll.filter(m => m.department === dept).length;
+                    return (
+                      <option key={dept} value={dept}>
+                        {dept} ({count}人)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
               <SortableContext items={unassignedMembers.map(m => m.id)} strategy={verticalListSortingStrategy}>
                 {unassignedMembers.map(member => (
                   <MemberCard key={member.id} member={member} />
