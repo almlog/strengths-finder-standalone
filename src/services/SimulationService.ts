@@ -828,54 +828,100 @@ export class SimulationService {
     const top1 = sorted[0];
     const top2 = sorted[1];
 
-    const top3Names = topStrengths.slice(0, 3).map(s => s.name).join('・');
+    const frequentStrengths = topStrengths.slice(0, 3).map(s => s.name).join('・');
 
     return `このチームは、${GROUP_LABELS[top1[0] as StrengthGroup]}(${top1[1].percentage.toFixed(0)}%)と` +
            `${GROUP_LABELS[top2[0] as StrengthGroup]}(${top2[1].percentage.toFixed(0)}%)を主軸とし、` +
-           `${top3Names}を中心とした強みを併せ持ちます。`;
+           `「${frequentStrengths}」が頻出する強みを併せ持ちます。`;
   }
 
   /**
-   * STEP 7: 可能性リストを生成（MVP: 固定3項目）
+   * STEP 7: 可能性リストを生成（頻出資質ベース）
    */
   private static generateTeamPossibilities(
     distribution: Record<StrengthGroup, { count: number; percentage: number }>,
-    topStrengths: Array<{ name: string }>
+    topStrengths: Array<{ name: string; strengthId: number }>
   ): string[] {
-    const sorted = Object.entries(distribution)
-      .sort(([, a], [, b]) => b.percentage - a.percentage);
+    const possibilities: string[] = [];
 
-    const top1Group = sorted[0][0] as StrengthGroup;
-    const top1Name = topStrengths[0]?.name || '主要資質';
+    // 頻出資質TOP5から特性を抽出
+    const top5 = topStrengths.slice(0, 5);
 
-    // MVP: カテゴリベースの固定メッセージ
-    const categoryMessages: Record<StrengthGroup, string[]> = {
-      [StrengthGroup.EXECUTING]: [
-        `${top1Name}による確実な目標達成力`,
-        '計画的な実行と着実な成果創出',
-        '責任感のある安定したチーム運営'
-      ],
-      [StrengthGroup.INFLUENCING]: [
-        `${top1Name}によるチーム牽引力`,
-        '周囲を動かす影響力の発揮',
-        '意欲的な挑戦と成果の追求'
-      ],
-      [StrengthGroup.RELATIONSHIP_BUILDING]: [
-        `${top1Name}による協力的なチーム構築`,
-        'メンバーの調和と相互理解',
-        '信頼関係を基盤とした協働'
-      ],
-      [StrengthGroup.STRATEGIC_THINKING]: [
-        `${top1Name}による戦略的な問題解決`,
-        '分析と洞察に基づく意思決定',
-        '革新的なアイデアの創出'
-      ]
+    top5.forEach((strength, index) => {
+      const keyword = this.getStrengthKeyword(strength.name);
+      if (keyword && index < 3) {
+        possibilities.push(keyword);
+      }
+    });
+
+    // カテゴリ分布に基づく補足（30%以上のカテゴリ）
+    const sortedCategories = Object.entries(distribution)
+      .sort(([, a], [, b]) => b.percentage - a.percentage)
+      .filter(([, { percentage }]) => percentage >= 30);
+
+    if (sortedCategories.length >= 2) {
+      const cat1 = GROUP_LABELS[sortedCategories[0][0] as StrengthGroup];
+      const cat2 = GROUP_LABELS[sortedCategories[1][0] as StrengthGroup];
+      possibilities.push(`${cat1}と${cat2}のバランスを活かした多角的アプローチ`);
+    }
+
+    // 最低3項目を保証
+    if (possibilities.length < 3) {
+      possibilities.push('チームの多様な強みを活かした活動');
+    }
+
+    return possibilities.slice(0, 5); // 最大5項目
+  }
+
+  /**
+   * 資質名から特性キーワードを取得
+   * 各資質の特性をチームの可能性として表現
+   */
+  private static getStrengthKeyword(strengthName: string): string | null {
+    const keywords: Record<string, string> = {
+      // 実行力（EXECUTING）
+      '達成欲': '高い目標設定と確実な達成への推進力',
+      '公平性': 'ルールの公正な適用と平等な扱い',
+      '回復志向': '問題発見と迅速な解決能力',
+      'アレンジ': '柔軟な状況対応と効率的な資源配分',
+      '慎重さ': 'リスク管理と慎重な意思決定',
+      '規律性': '計画的な実行と秩序ある運営',
+      '目標志向': '明確な方向性の設定と優先順位づけ',
+      '責任感': 'コミットメントの遂行と信頼構築',
+      '回復志向': '課題解決と改善への継続的な取り組み',
+
+      // 影響力（INFLUENCING）
+      '活発性': 'エネルギッシュな行動開始と周囲の巻き込み',
+      '指令性': '明確な方向性の提示と決断力',
+      'コミュニケーション': 'アイデアの効果的な伝達と共有',
+      '競争性': '高い目標設定と卓越性の追求',
+      '最上志向': '強みの最大化と質の高い成果創出',
+      '自己確信': '確信を持った意思決定と実行',
+      '自我': '影響力の発揮と認知の獲得',
+      '社交性': '広範なネットワーク構築と関係性の活用',
+
+      // 人間関係構築力（RELATIONSHIP_BUILDING）
+      '適応性': '柔軟な対応と変化への順応',
+      '運命思考': 'つながりの重視と協働の促進',
+      '成長促進': 'メンバーの成長支援と可能性の開花',
+      '共感性': 'メンバーの感情理解と配慮ある対応',
+      '調和性': '対立回避と合意形成による円滑な運営',
+      '包含': '多様性の尊重と全員参加の促進',
+      '個別化': '個性の理解と最適な役割配置',
+      'ポジティブ': '楽観的な雰囲気づくりと前向きな姿勢',
+      '親密性': '深い信頼関係の構築とチームの結束',
+
+      // 戦略的思考力（STRATEGIC_THINKING）
+      '分析思考': 'データに基づく論理的な判断と検証',
+      '原点思考': '過去の経験からの学びと文脈理解',
+      '未来志向': '長期的ビジョンの描画と革新的な発想',
+      '着想': '創造的なアイデア創出と新しい視点の提供',
+      '収集心': '情報収集と知識の蓄積・活用',
+      '内省': '深い思考と本質的な理解の追求',
+      '学習欲': '継続的な学びと専門性の向上',
+      '戦略性': '最適な道筋の発見と戦略的な計画立案'
     };
 
-    return categoryMessages[top1Group] || [
-      'チームの多様な強みを活かした活動',
-      '柔軟な対応力と適応性',
-      'メンバーの個性を尊重した運営'
-    ];
+    return keywords[strengthName] || null;
   }
 }
