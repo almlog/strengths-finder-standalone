@@ -7,7 +7,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { MemberStrengths } from '../../../models/StrengthsTypes';
+import { MemberStrengths, Position } from '../../../models/StrengthsTypes';
 import { Crown } from 'lucide-react';
 import StrengthsService, { GROUP_COLORS } from '../../../services/StrengthsService';
 
@@ -38,6 +38,9 @@ const MemberCard: React.FC<MemberCardProps> = ({ member, isDragging }) => {
     .map(rs => StrengthsService.getStrengthById(rs.id))
     .filter(s => s !== null);
 
+  // 役職情報を取得
+  const positionInfo = member.position ? StrengthsService.getPositionInfo(member.position) : null;
+
   return (
     <div
       ref={setNodeRef}
@@ -50,8 +53,11 @@ const MemberCard: React.FC<MemberCardProps> = ({ member, isDragging }) => {
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <h5 className="font-medium dark:text-gray-100">{member.name}</h5>
-            {member.position && member.position !== 'general' && (
-              <Crown className="w-3 h-3 text-yellow-500" />
+            {positionInfo && member.position !== Position.GENERAL && (
+              <Crown
+                className="w-3 h-3"
+                style={{ color: positionInfo.color }}
+              />
             )}
           </div>
         </div>
