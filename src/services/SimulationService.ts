@@ -15,14 +15,16 @@ import {
   ImportWarning,
   ApplyPreview,
   DestinationId,
-  SimulationExport
+  SimulationExport,
+  ScoreBreakdown,
+  ScoreComponent
 } from '../types/simulation';
 import { MemberStrengths, StrengthGroup } from '../models/StrengthsTypes';
 import StrengthsService, { GROUP_LABELS } from './StrengthsService';
 import { StageMaster } from '../types/profitability';
 import { MemberRateRecord } from '../types/financial';
 import { PersonalityAnalysisEngine } from './PersonalityAnalysisEngine';
-import { Member, MBTIType } from '../models/PersonalityAnalysis';
+import { Member, MBTIType, TEAM_ORIENTED_STRENGTHS, LEADERSHIP_STRENGTHS } from '../models/PersonalityAnalysis';
 import { getPersonalityById } from './Personality16Service';
 
 const MAX_GROUPS = 10;
@@ -871,6 +873,191 @@ export class SimulationService {
     }
 
     return possibilities.slice(0, 5); // 最大5項目
+  }
+
+  /**
+   * リーダーシップスコアのブレークダウン計算
+   */
+  public static calculateLeadershipBreakdown(members: MemberStrengths[]): ScoreBreakdown {
+    const components: ScoreComponent[] = [];
+    let totalScore = 40; // BASE
+
+    components.push({ label: 'ベーススコア', value: 40 });
+
+    // MBTI型ごとのボーナス集計
+    let eCount = 0, tCount = 0, jCount = 0;
+    members.forEach(m => {
+      if (m.mbti) {
+        if (m.mbti.startsWith('E')) eCount++;
+        if (m.mbti.includes('T')) tCount++;
+        if (m.mbti.endsWith('J')) jCount++;
+      }
+    });
+
+    const eBonus = eCount * 15;
+    const tBonus = tCount * 12;
+    const jBonus = jCount * 18;
+
+    if (eCount > 0) components.push({ label: `E型メンバー: ${eCount}名`, value: eBonus });
+    if (tCount > 0) components.push({ label: `T型メンバー: ${tCount}名`, value: tBonus });
+    if (jCount > 0) components.push({ label: `J型メンバー: ${jCount}名`, value: jBonus });
+
+    totalScore += eBonus + tBonus + jBonus;
+
+    // リーダーシップ資質からの加算
+    let strengthBonus = 0;
+    members.forEach(m => {
+      m.strengths.slice(0, 5).forEach((s, index) => {
+        if (LEADERSHIP_STRENGTHS.includes(s.id)) {
+          strengthBonus += (12 - index * 2);
+        }
+      });
+    });
+
+    if (strengthBonus > 0) {
+      components.push({ label: 'リーダーシップ資質保有者', value: strengthBonus });
+      totalScore += strengthBonus;
+    }
+
+    // 上限100、人数で平均
+    const avgScore = Math.min(100, Math.round(totalScore / members.length));
+
+    // 閾値と改善提案
+    const threshold = {
+      high: { min: 70, label: 'リーダー型', description: '明確な指示系統と迅速な意思決定' },
+      balanced: { min: 50, label: 'バランス型', description: 'リーダーシップの分散と柔軟な役割分担' },
+      low: { label: '専門家型', description: '✨ ユニーク: フラットで民主的なチーム。全員が専門家としての意見を持つボトムアップの意思決定' }
+    };
+
+    const improvements: string[] = [];
+    if (avgScore < 70) {
+      improvements.push('E型メンバーを追加: +15点/人');
+      improvements.push('T型メンバーを追加: +12点/人');
+      improvements.push('J型メンバーを追加: +18点/人');
+      improvements.push('リーダーシップ資質保有者を追加（指令性、最上志向、活発性など）');
+    }
+
+    return {
+      type: 'leadership',
+      totalScore: avgScore,
+      components,
+      threshold,
+      improvements
+    };
+  }
+
+  /**
+   * チーム適合度スコアのブレークダウン計算
+   */
+  public static calculateTeamFitBreakdown(members: MemberStrengths[]): ScoreBreakdown {
+    const components: ScoreComponent[] = [];
+    let totalScore = 50; // BASE
+
+    components.push({ label: 'ベーススコア', value: 50 });
+
+    // F型ボーナス集計
+    let fCount = 0;
+    members.forEach(m => {
+      if (m.mbti?.includes('F')) fCount++;
+    });
+
+    const fBonus = fCount * 10;
+    if (fCount > 0) {
+      components.push({ label: `F型メンバー: ${fCount}名`, value: fBonus });
+      totalScore += fBonus;
+    }
+
+    // チーム志向資質からの加算
+    let strengthBonus = 0;
+    members.forEach(m => {
+      m.strengths.slice(0, 5).forEach((s, index) => {
+        if (TEAM_ORIENTED_STRENGTHS.includes(s.id)) {
+          strengthBonus += (10 - index * 2);
+        }
+      });
+    });
+
+    if (strengthBonus > 0) {
+      components.push({ label: 'チーム志向資質保有者', value: strengthBonus });
+      totalScore += strengthBonus;
+    }
+
+    // 上限100、人数で平均
+    const avgScore = Math.min(100, Math.round(totalScore / members.length));
+
+    // 閾値と改善提案
+    const threshold = {
+      high: { min: 70, label: 'チーム協調型', description: '密な連携と協力が必要なプロジェクト向き' },
+      balanced: { min: 50, label: 'バランス型', description: '協働と個人作業の柔軟な切り替えが可能' },
+      low: { label: '個人作業型', description: '✨ ユニーク: 独立性の高い専門家集団。深い専門性を活かした高度なタスクに集中' }
+    };
+
+    const improvements: string[] = [];
+    if (avgScore < 70) {
+      improvements.push('F型メンバーを追加: +10点/人');
+      improvements.push('チーム志向資質保有者を追加（調和性、共感性、包含など）');
+    }
+
+    return {
+      type: 'teamFit',
+      totalScore: avgScore,
+      components,
+      threshold,
+      improvements
+    };
+  }
+
+  /**
+   * 相性スコアのブレークダウン計算
+   */
+  public static calculateSynergyBreakdown(members: MemberStrengths[]): ScoreBreakdown {
+    const components: ScoreComponent[] = [];
+
+    // グループ分析から平均相性スコアを取得
+    const groupAnalysis = this.calculateGroupAnalysis(members);
+    const avgScore = Math.round(groupAnalysis?.avgSynergyScore ?? 50);
+
+    components.push({
+      label: '重み付けTOP5資質',
+      value: avgScore,
+      description: '重み: [0.5, 0.3, 0.15, 0.03, 0.02]'
+    });
+
+    // MBTI分布の分析
+    const mbtiCounts: Record<string, number> = {};
+    members.forEach(m => {
+      if (m.mbti) {
+        mbtiCounts[m.mbti] = (mbtiCounts[m.mbti] || 0) + 1;
+      }
+    });
+
+    const diversityScore = Object.keys(mbtiCounts).length;
+    components.push({
+      label: `MBTI多様性: ${diversityScore}タイプ`,
+      value: diversityScore,
+      description: `${members.length}人中${diversityScore}種類のMBTI`
+    });
+
+    // 閾値と改善提案
+    const threshold = {
+      high: { min: 85, label: '統合型', description: '類似の資質・性格で統一された効率的なチーム' },
+      balanced: { min: 55, label: 'バランス型', description: '相性と多様性のバランスが取れたチーム' },
+      low: { label: '多面型', description: '✨ ユニーク: 異なる視点が交差するイノベーティブなチーム。新しいアイデアが生まれやすく、多角的な問題解決が可能' }
+    };
+
+    const improvements: string[] = [];
+    if (avgScore < 85) {
+      improvements.push('類似のMBTIタイプを追加してスコアアップ');
+      improvements.push('低スコア=多様性のメリットを活かす（創造的課題に最適）');
+    }
+
+    return {
+      type: 'synergy',
+      totalScore: avgScore,
+      components,
+      threshold,
+      improvements
+    };
   }
 
   /**
