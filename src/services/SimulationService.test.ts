@@ -899,4 +899,198 @@ describe('SimulationService', () => {
       expect(result!.summary).not.toContain('TOP3を中心とした'); // 旧表現は含まれない
     });
   });
+
+  /**
+   * スコアブレークダウン計算テスト
+   */
+  describe('calculateLeadershipBreakdown', () => {
+    test('TC-TOOLTIP-001: リーダーシップ60のブレークダウンを正しく計算', () => {
+      // ENTJメンバー（E=15, T=12, J=18, リーダー資質あり）
+      const entjMember: MemberStrengths = {
+        id: 'm801',
+        name: 'ENTJ社長',
+        department: 'テスト部',
+        position: Position.GENERAL,
+        mbti: 'ENTJ',
+        strengths: [
+          { id: 7, score: 1 },  // 指令性（リーダーシップ資質）
+          { id: 2, score: 2 },
+          { id: 3, score: 3 },
+          { id: 4, score: 4 },
+          { id: 5, score: 5 }
+        ]
+      };
+
+      const breakdown = SimulationService.calculateLeadershipBreakdown([entjMember]);
+
+      expect(breakdown.type).toBe('leadership');
+      expect(breakdown.totalScore).toBeGreaterThanOrEqual(40); // BASE 40
+      expect(breakdown.totalScore).toBeLessThanOrEqual(100); // 上限100
+
+      // ベーススコアコンポーネントが含まれること
+      const baseComponent = breakdown.components.find(c => c.label === 'ベーススコア');
+      expect(baseComponent).toBeDefined();
+      expect(baseComponent?.value).toBe(40);
+
+      // 閾値が定義されていること
+      expect(breakdown.threshold.high.min).toBe(70);
+      expect(breakdown.threshold.balanced.min).toBe(50);
+      expect(breakdown.threshold.low.label).toContain('型');
+    });
+
+    test('TC-TOOLTIP-002: リーダーシップが低い場合のユニークさを強調', () => {
+      // ISFPメンバー（I型、F型、P型 = リーダーシップボーナスなし）
+      const isfpMember: MemberStrengths = {
+        id: 'm802',
+        name: 'ISFP職人',
+        department: 'テスト部',
+        position: Position.GENERAL,
+        mbti: 'ISFP',
+        strengths: [
+          { id: 22, score: 1 },  // 調和性（非リーダー資質）
+          { id: 21, score: 2 },
+          { id: 3, score: 3 },
+          { id: 4, score: 4 },
+          { id: 5, score: 5 }
+        ]
+      };
+
+      const breakdown = SimulationService.calculateLeadershipBreakdown([isfpMember]);
+
+      expect(breakdown.totalScore).toBeLessThan(50);
+      expect(breakdown.threshold.low.description).toContain('ユニーク');
+    });
+  });
+
+  describe('calculateTeamFitBreakdown', () => {
+    test('TC-TOOLTIP-003: チーム適合度のブレークダウンを正しく計算', () => {
+      // ENFP（F型ボーナス10点）
+      const enfpMember: MemberStrengths = {
+        id: 'm803',
+        name: 'ENFP広報',
+        department: 'テスト部',
+        position: Position.GENERAL,
+        mbti: 'ENFP',
+        strengths: [
+          { id: 22, score: 1 },  // 調和性（チーム志向資質）
+          { id: 16, score: 2 },  // 共感性（チーム志向資質）
+          { id: 3, score: 3 },
+          { id: 4, score: 4 },
+          { id: 5, score: 5 }
+        ]
+      };
+
+      const breakdown = SimulationService.calculateTeamFitBreakdown([enfpMember]);
+
+      expect(breakdown.type).toBe('teamFit');
+      expect(breakdown.totalScore).toBeGreaterThanOrEqual(50);
+
+      // F型ボーナスコンポーネントが含まれること
+      const fBonusComponent = breakdown.components.find(c => c.label.includes('F型'));
+      expect(fBonusComponent).toBeDefined();
+      expect(fBonusComponent?.value).toBeGreaterThan(0);
+
+      // チーム志向資質コンポーネントが含まれること
+      const teamStrengthComponent = breakdown.components.find(c => c.label.includes('チーム志向'));
+      expect(teamStrengthComponent).toBeDefined();
+    });
+
+    test('TC-TOOLTIP-004: 改善提案がスコアに基づいて生成される', () => {
+      // T型メンバー（F型ボーナスなし）
+      const intjMember: MemberStrengths = {
+        id: 'm804',
+        name: 'INTJ研究者',
+        department: 'テスト部',
+        position: Position.GENERAL,
+        mbti: 'INTJ',
+        strengths: [
+          { id: 1, score: 1 },  // 達成欲（非チーム資質）
+          { id: 2, score: 2 },
+          { id: 3, score: 3 },
+          { id: 4, score: 4 },
+          { id: 5, score: 5 }
+        ]
+      };
+
+      const breakdown = SimulationService.calculateTeamFitBreakdown([intjMember]);
+
+      // 改善提案が生成されること
+      expect(breakdown.improvements.length).toBeGreaterThan(0);
+      expect(breakdown.improvements.some(imp => imp.includes('F型'))).toBe(true);
+    });
+  });
+
+  describe('calculateSynergyBreakdown', () => {
+    test('TC-TOOLTIP-005: 相性スコアのブレークダウンを正しく計算', () => {
+      // 同じMBTIタイプのメンバー（高相性）
+      const entjMembers: MemberStrengths[] = [
+        {
+          id: 'm805',
+          name: 'ENTJ-A',
+          department: 'テスト部',
+          position: Position.GENERAL,
+          mbti: 'ENTJ',
+          strengths: [
+            { id: 7, score: 1 },  // 指令性
+            { id: 2, score: 2 },
+            { id: 3, score: 3 },
+            { id: 4, score: 4 },
+            { id: 5, score: 5 }
+          ]
+        },
+        {
+          id: 'm806',
+          name: 'ENTJ-B',
+          department: 'テスト部',
+          position: Position.GENERAL,
+          mbti: 'ENTJ',
+          strengths: [
+            { id: 7, score: 1 },  // 指令性
+            { id: 2, score: 2 },
+            { id: 3, score: 3 },
+            { id: 4, score: 4 },
+            { id: 5, score: 5 }
+          ]
+        }
+      ];
+
+      const breakdown = SimulationService.calculateSynergyBreakdown(entjMembers);
+
+      expect(breakdown.type).toBe('synergy');
+      expect(breakdown.totalScore).toBeGreaterThanOrEqual(0);
+      expect(breakdown.totalScore).toBeLessThanOrEqual(100);
+
+      // 重み付け計算の説明が含まれること
+      expect(breakdown.components.length).toBeGreaterThan(0);
+    });
+
+    test('TC-TOOLTIP-006: 低相性スコアでユニークさを強調', () => {
+      // 異なるMBTIタイプのメンバー（低相性=多様性）
+      const diverseMembers: MemberStrengths[] = [
+        {
+          id: 'm807',
+          name: 'ENTJ戦略家',
+          department: 'テスト部',
+          position: Position.GENERAL,
+          mbti: 'ENTJ',
+          strengths: [{ id: 1, score: 1 }, { id: 2, score: 2 }, { id: 3, score: 3 }, { id: 4, score: 4 }, { id: 5, score: 5 }]
+        },
+        {
+          id: 'm808',
+          name: 'ISFP職人',
+          department: 'テスト部',
+          position: Position.GENERAL,
+          mbti: 'ISFP',
+          strengths: [{ id: 11, score: 1 }, { id: 12, score: 2 }, { id: 13, score: 3 }, { id: 14, score: 4 }, { id: 15, score: 5 }]
+        }
+      ];
+
+      const breakdown = SimulationService.calculateSynergyBreakdown(diverseMembers);
+
+      // 低スコアの場合、ユニークさを強調する説明があること
+      if (breakdown.totalScore < 55) {
+        expect(breakdown.threshold.low.description).toContain('ユニーク');
+      }
+    });
+  });
 });

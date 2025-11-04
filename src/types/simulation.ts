@@ -243,3 +243,64 @@ export interface ApplyPreview {
     newDepartment: string;
   }>;
 }
+
+/**
+ * スコアの内訳コンポーネント
+ */
+export interface ScoreComponent {
+  /** ラベル（例：「ベーススコア」「E型メンバー」） */
+  label: string;
+  /** スコア値 */
+  value: number;
+  /** 説明（オプション） */
+  description?: string;
+}
+
+/**
+ * スコアの評価基準閾値
+ */
+export interface ScoreThreshold {
+  /** 高スコア基準 */
+  high: {
+    /** 最小値 */
+    min: number;
+    /** ラベル（例：「リーダー型」） */
+    label: string;
+    /** 説明 */
+    description: string;
+  };
+  /** バランス型基準 */
+  balanced: {
+    /** 最小値 */
+    min: number;
+    /** ラベル（例：「バランス型」） */
+    label: string;
+    /** 説明 */
+    description: string;
+  };
+  /** 低スコア基準 */
+  low: {
+    /** ラベル（例：「専門家型」） */
+    label: string;
+    /** 説明（ユニークさを強調） */
+    description: string;
+  };
+}
+
+/**
+ * スコアブレークダウン
+ *
+ * スコアの計算式内訳と改善提案を含む
+ */
+export interface ScoreBreakdown {
+  /** スコアの種類 */
+  type: 'synergy' | 'teamFit' | 'leadership';
+  /** 合計スコア */
+  totalScore: number;
+  /** スコアの構成要素 */
+  components: ScoreComponent[];
+  /** 評価基準 */
+  threshold: ScoreThreshold;
+  /** 改善提案リスト */
+  improvements: string[];
+}
