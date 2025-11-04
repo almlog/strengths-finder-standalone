@@ -251,7 +251,7 @@ const SelectedAnalysis: React.FC = () => {
       {/* Manager mode: Profitability Dashboard (利益率分析) */}
       {isManagerMode && <ProfitabilityDashboard members={selectedMembers} />}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* グループ分布 */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <h4 className="text-md font-semibold mb-3 dark:text-gray-100">強みグループ分布</h4>

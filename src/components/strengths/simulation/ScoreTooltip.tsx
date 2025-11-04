@@ -44,9 +44,9 @@ const ScoreTooltip: React.FC<ScoreTooltipProps> = ({ score, breakdown, children 
 
   // スコアに基づく評価を取得
   const getEvaluation = () => {
-    if (score >= breakdown.threshold.high.min) {
+    if (breakdown.totalScore >= breakdown.threshold.high.min) {
       return breakdown.threshold.high;
-    } else if (score >= breakdown.threshold.balanced.min) {
+    } else if (breakdown.totalScore >= breakdown.threshold.balanced.min) {
       return breakdown.threshold.balanced;
     } else {
       return breakdown.threshold.low;
@@ -121,7 +121,7 @@ const ScoreTooltip: React.FC<ScoreTooltipProps> = ({ score, breakdown, children 
           {breakdown.improvements.length > 0 && (
             <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
               <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">
-                {score >= breakdown.threshold.high.min ? 'このスコアの活かし方' : 'スコアを変えるには'}
+                {breakdown.totalScore >= breakdown.threshold.high.min ? 'このスコアの活かし方' : 'スコアを変えるには'}
               </div>
               <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1">
                 {breakdown.improvements.map((improvement, index) => (
