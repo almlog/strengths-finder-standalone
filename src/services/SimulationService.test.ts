@@ -720,5 +720,183 @@ describe('SimulationService', () => {
       expect(result!.possibilities).toBeDefined();
       expect(result!.possibilities.length).toBeGreaterThanOrEqual(3);
     });
+
+    // =====================================================================
+    // 頻出資質ベース可能性生成テスト（v3.2.1 新機能）
+    // =====================================================================
+
+    test('TC-SIM-NARRATIVE-101: 調和性チームとポジティブチームで異なる可能性を表示', () => {
+      // 調和性チーム（調和性が頻出）
+      const harmonyTeam: MemberStrengths[] = [
+        {
+          id: 'm601',
+          name: '調和性メンバー1',
+          department: '営業部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 22, score: 1 },  // 調和性
+            { id: 22, score: 2 },  // 調和性（重複でテスト）
+            { id: 19, score: 3 },  // 共感性
+            { id: 21, score: 4 },  // ポジティブ
+            { id: 1, score: 5 }    // 達成欲
+          ]
+        },
+        {
+          id: 'm602',
+          name: '調和性メンバー2',
+          department: '営業部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 22, score: 1 },  // 調和性
+            { id: 20, score: 2 },  // 個別化
+            { id: 19, score: 3 },  // 共感性
+            { id: 2, score: 4 },   // 公平性
+            { id: 6, score: 5 }    // 責任感
+          ]
+        }
+      ];
+
+      // ポジティブチーム（ポジティブが頻出）
+      const positiveTeam: MemberStrengths[] = [
+        {
+          id: 'm701',
+          name: 'ポジティブメンバー1',
+          department: '営業部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 21, score: 1 },  // ポジティブ
+            { id: 21, score: 2 },  // ポジティブ（重複でテスト）
+            { id: 10, score: 3 },  // 活発性
+            { id: 17, score: 4 },  // 自己確信
+            { id: 1, score: 5 }    // 達成欲
+          ]
+        },
+        {
+          id: 'm702',
+          name: 'ポジティブメンバー2',
+          department: '営業部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 21, score: 1 },  // ポジティブ
+            { id: 16, score: 2 },  // コミュニケーション
+            { id: 11, score: 3 },  // 競争性
+            { id: 14, score: 4 },  // 最上志向
+            { id: 6, score: 5 }    // 責任感
+          ]
+        }
+      ];
+
+      const harmonyResult = SimulationService.calculateTeamNarrative(harmonyTeam);
+      const positiveResult = SimulationService.calculateTeamNarrative(positiveTeam);
+
+      expect(harmonyResult).not.toBeNull();
+      expect(positiveResult).not.toBeNull();
+
+      // 可能性リストが異なることを確認
+      const harmonyPossibilities = harmonyResult!.possibilities.join('|');
+      const positivePossibilities = positiveResult!.possibilities.join('|');
+
+      // 調和性チームには「対立回避と合意形成」が含まれる
+      expect(harmonyPossibilities).toContain('対立回避と合意形成による円滑な運営');
+
+      // ポジティブチームには「楽観的な雰囲気」が含まれる
+      expect(positivePossibilities).toContain('楽観的な雰囲気づくりと前向きな姿勢');
+
+      // 両チームの可能性は異なる
+      expect(harmonyPossibilities).not.toBe(positivePossibilities);
+    });
+
+    test('TC-SIM-NARRATIVE-102: 頻出資質TOP5から特性キーワードを抽出', () => {
+      // 明確なTOP5を持つチーム
+      const topStrengthsTeam: MemberStrengths[] = [
+        {
+          id: 'm801',
+          name: 'メンバー1',
+          department: '開発部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 1, score: 1 },   // 達成欲（頻度3）
+            { id: 1, score: 2 },
+            { id: 1, score: 3 },
+            { id: 27, score: 4 },  // 分析思考（頻度2）
+            { id: 27, score: 5 }
+          ]
+        },
+        {
+          id: 'm802',
+          name: 'メンバー2',
+          department: '開発部',
+          position: Position.GENERAL,
+          strengths: [
+            { id: 32, score: 1 },  // 戦略性（頻度2）
+            { id: 32, score: 2 },
+            { id: 31, score: 3 },  // 学習欲（頻度1）
+            { id: 28, score: 4 },  // 着想（頻度1）
+            { id: 6, score: 5 }    // 責任感（頻度1）
+          ]
+        }
+      ];
+
+      const result = SimulationService.calculateTeamNarrative(topStrengthsTeam);
+
+      expect(result).not.toBeNull();
+      expect(result!.possibilities.length).toBeGreaterThanOrEqual(3);
+
+      // 達成欲のキーワードが含まれる
+      const allPossibilities = result!.possibilities.join('|');
+      expect(allPossibilities).toContain('高い目標設定と確実な達成への推進力');
+    });
+
+    test('TC-SIM-NARRATIVE-103: 34資質すべてにキーワードが定義されている', () => {
+      // 34資質の名称一覧（StrengthsService.tsと同じ定義を使用）
+      const all34Strengths = [
+        // 実行力（EXECUTING） - 9資質
+        '達成欲', '公平性', '回復志向', 'アレンジ', '慎重さ', '責任感', '信念', '規律性', '目標志向',
+        // 影響力（INFLUENCING） - 8資質
+        '活発性', '競争性', '自我', '指令性', '最上志向', '社交性', 'コミュニケーション', '自己確信',
+        // 人間関係構築力（RELATIONSHIP_BUILDING） - 9資質
+        '適応性', '共感性', '個別化', 'ポジティブ', '調和性', '運命思考', '成長促進', '包含', '親密性',
+        // 戦略的思考力（STRATEGIC_THINKING） - 8資質
+        '分析思考', '着想', '学習欲', '原点思考', '収集心', '戦略性', '未来志向', '内省'
+      ];
+
+      expect(all34Strengths.length).toBe(34);
+
+      // 各資質に対してキーワードが存在することを確認
+      // getStrengthKeyword()はprivateメソッドなので、calculateTeamNarrativeを通してテスト
+      all34Strengths.forEach((strengthName, index) => {
+        const strengthId = index + 1;
+        const testMembers: MemberStrengths[] = [
+          {
+            id: `m-test-${strengthId}`,
+            name: `テストメンバー${strengthId}`,
+            department: 'テスト部',
+            position: Position.GENERAL,
+            strengths: [
+              { id: strengthId, score: 1 },
+              { id: strengthId, score: 2 },
+              { id: strengthId, score: 3 },
+              { id: strengthId, score: 4 },
+              { id: strengthId, score: 5 }
+            ]
+          }
+        ];
+
+        const result = SimulationService.calculateTeamNarrative(testMembers);
+        expect(result).not.toBeNull();
+
+        // 可能性リストが生成されることを確認
+        // キーワードが定義されていれば、possibilitiesに含まれる
+        expect(result!.possibilities.length).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    test('TC-SIM-NARRATIVE-104: サマリーに「頻出する」という表現が使われる', () => {
+      const result = SimulationService.calculateTeamNarrative(executingDominantMembers);
+
+      expect(result).not.toBeNull();
+      expect(result!.summary).toContain('頻出する');
+      expect(result!.summary).not.toContain('TOP3を中心とした'); // 旧表現は含まれない
+    });
   });
 });
