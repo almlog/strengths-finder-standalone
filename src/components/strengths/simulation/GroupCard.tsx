@@ -209,32 +209,38 @@ const GroupCard: React.FC<GroupCardProps> = ({
                     </ScoreTooltip>
                   </div>
                 )}
-                {stats.analysis.avgTeamFit !== null && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">チーム適合度:</span>
-                    <ScoreTooltip
-                      score={Math.round(stats.analysis.avgTeamFit)}
-                      breakdown={SimulationService.calculateTeamFitBreakdown(members)}
-                    >
-                      <span className="font-medium dark:text-gray-100">
-                        {stats.analysis.avgTeamFit.toFixed(1)}
-                      </span>
-                    </ScoreTooltip>
-                  </div>
-                )}
-                {stats.analysis.avgLeadership !== null && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">リーダーシップ:</span>
-                    <ScoreTooltip
-                      score={Math.round(stats.analysis.avgLeadership)}
-                      breakdown={SimulationService.calculateLeadershipBreakdown(members)}
-                    >
-                      <span className="font-medium dark:text-gray-100">
-                        {stats.analysis.avgLeadership.toFixed(1)}
-                      </span>
-                    </ScoreTooltip>
-                  </div>
-                )}
+                {stats.analysis.avgTeamFit !== null && (() => {
+                  const teamFitBreakdown = SimulationService.calculateTeamFitBreakdown(members);
+                  return (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">チーム適合度:</span>
+                      <ScoreTooltip
+                        score={teamFitBreakdown.totalScore}
+                        breakdown={teamFitBreakdown}
+                      >
+                        <span className="font-medium dark:text-gray-100">
+                          {teamFitBreakdown.totalScore.toFixed(1)}
+                        </span>
+                      </ScoreTooltip>
+                    </div>
+                  );
+                })()}
+                {stats.analysis.avgLeadership !== null && (() => {
+                  const leadershipBreakdown = SimulationService.calculateLeadershipBreakdown(members);
+                  return (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">リーダーシップ:</span>
+                      <ScoreTooltip
+                        score={leadershipBreakdown.totalScore}
+                        breakdown={leadershipBreakdown}
+                      >
+                        <span className="font-medium dark:text-gray-100">
+                          {leadershipBreakdown.totalScore.toFixed(1)}
+                        </span>
+                      </ScoreTooltip>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* チーム特性バッジ */}
