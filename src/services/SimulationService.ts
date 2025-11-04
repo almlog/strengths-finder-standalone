@@ -877,14 +877,35 @@ export class SimulationService {
 
   /**
    * リーダーシップスコアのブレークダウン計算
+   * PersonalityAnalysisEngineと同じロジックで個人スコアを計算して平均を取る
    */
   public static calculateLeadershipBreakdown(members: MemberStrengths[]): ScoreBreakdown {
     const components: ScoreComponent[] = [];
-    let totalScore = 40; // BASE
 
-    components.push({ label: 'ベーススコア', value: 40 });
+    // 各メンバーの個人スコアを計算
+    const individualScores = members.map(member => {
+      let score = 40; // BASE
+      if (member.mbti) {
+        if (member.mbti.startsWith('E')) score += 15; // EXTROVERT
+        if (member.mbti.includes('T')) score += 12;   // THINKING
+        if (member.mbti.endsWith('J')) score += 18;   // JUDGING
+      }
+      // リーダーシップ資質加算: TOP1=12, TOP2=10, TOP3=8, TOP4=6, TOP5=4
+      member.strengths.slice(0, 5).forEach((s, index) => {
+        if (LEADERSHIP_STRENGTHS.includes(s.id)) {
+          score += (12 - index * 2);
+        }
+      });
+      return Math.min(100, score);
+    });
 
-    // MBTI型ごとのボーナス集計
+    // 平均スコアを計算
+    const avgScore = Math.round(individualScores.reduce((a, b) => a + b, 0) / members.length);
+
+    // 内訳: チーム全体の傾向を表示
+    components.push({ label: 'ベーススコア（全員）', value: 40 });
+
+    // MBTI型ごとのボーナス集計（人数表示）
     let eCount = 0, tCount = 0, jCount = 0;
     members.forEach(m => {
       if (m.mbti) {
@@ -894,33 +915,26 @@ export class SimulationService {
       }
     });
 
-    const eBonus = eCount * 15;
-    const tBonus = tCount * 12;
-    const jBonus = jCount * 18;
+    if (eCount > 0) components.push({ label: `E型（外向的）: ${eCount}/${members.length}名`, value: eCount * 15 });
+    if (tCount > 0) components.push({ label: `T型（論理思考）: ${tCount}/${members.length}名`, value: tCount * 12 });
+    if (jCount > 0) components.push({ label: `J型（計画的）: ${jCount}/${members.length}名`, value: jCount * 18 });
 
-    if (eCount > 0) components.push({ label: `E型メンバー: ${eCount}名`, value: eBonus });
-    if (tCount > 0) components.push({ label: `T型メンバー: ${tCount}名`, value: tBonus });
-    if (jCount > 0) components.push({ label: `J型メンバー: ${jCount}名`, value: jBonus });
-
-    totalScore += eBonus + tBonus + jBonus;
-
-    // リーダーシップ資質からの加算
-    let strengthBonus = 0;
+    // リーダーシップ資質の合計値（参考情報）
+    let totalStrengthBonus = 0;
     members.forEach(m => {
       m.strengths.slice(0, 5).forEach((s, index) => {
         if (LEADERSHIP_STRENGTHS.includes(s.id)) {
-          strengthBonus += (12 - index * 2);
+          totalStrengthBonus += (12 - index * 2);
         }
       });
     });
 
-    if (strengthBonus > 0) {
-      components.push({ label: 'リーダーシップ資質保有者', value: strengthBonus });
-      totalScore += strengthBonus;
+    if (totalStrengthBonus > 0) {
+      const strengthCount = members.filter(m =>
+        m.strengths.slice(0, 5).some(s => LEADERSHIP_STRENGTHS.includes(s.id))
+      ).length;
+      components.push({ label: `リーダーシップ資質: ${strengthCount}名`, value: totalStrengthBonus });
     }
-
-    // 上限100、人数で平均
-    const avgScore = Math.min(100, Math.round(totalScore / members.length));
 
     // 閾値と改善提案
     const threshold = {
@@ -931,10 +945,14 @@ export class SimulationService {
 
     const improvements: string[] = [];
     if (avgScore < 70) {
-      improvements.push('E型メンバーを追加: +15点/人');
-      improvements.push('T型メンバーを追加: +12点/人');
-      improvements.push('J型メンバーを追加: +18点/人');
-      improvements.push('リーダーシップ資質保有者を追加（指令性、最上志向、活発性など）');
+      improvements.push('E型（外向的）メンバーを追加: +15点/人');
+      improvements.push('  例: ENTJ、ESTJ、ENFJなどの性格タイプ');
+      improvements.push('T型（論理思考）メンバーを追加: +12点/人');
+      improvements.push('  例: INTJ、ISTJ、ENTJなどの性格タイプ');
+      improvements.push('J型（計画的）メンバーを追加: +18点/人');
+      improvements.push('  例: ISTJ、ESTJ、INFJなどの性格タイプ');
+      improvements.push('【重要】高スコア = 正解ではありません');
+      improvements.push('あなたのプロジェクトに最適なスコアを選びましょう！');
     }
 
     return {
@@ -948,42 +966,67 @@ export class SimulationService {
 
   /**
    * チーム適合度スコアのブレークダウン計算
+   * PersonalityAnalysisEngineと同じロジックで個人スコアを計算して平均を取る
    */
   public static calculateTeamFitBreakdown(members: MemberStrengths[]): ScoreBreakdown {
     const components: ScoreComponent[] = [];
-    let totalScore = 50; // BASE
 
-    components.push({ label: 'ベーススコア', value: 50 });
+    // 各メンバーの個人スコアを計算
+    // PersonalityAnalysisEngineと同じロジック: BASE 50 + Belbin(8-18) + F(10) + TeamStrengths(10,8,6,4,2)
+    const individualScores = members.map(member => {
+      let score = 50; // BASE
 
-    // F型ボーナス集計
+      // Belbin role score (簡易版: デフォルト8点)
+      // 詳細は PersonalityAnalysisEngine の getBelbinRoleScore 参照
+      score += 8;  // BELBIN_DEFAULT
+
+      // F型ボーナス
+      if (member.mbti?.includes('F')) {
+        score += 10; // FEELING_BONUS
+      }
+
+      // チーム志向資質加算: TOP1=10, TOP2=8, TOP3=6, TOP4=4, TOP5=2
+      member.strengths.slice(0, 5).forEach((s, index) => {
+        if (TEAM_ORIENTED_STRENGTHS.includes(s.id)) {
+          score += (10 - index * 2);
+        }
+      });
+
+      return Math.min(100, score);
+    });
+
+    // 平均スコアを計算
+    const avgScore = Math.round(individualScores.reduce((a, b) => a + b, 0) / members.length);
+
+    // 内訳: チーム全体の傾向を表示
+    components.push({ label: 'ベーススコア（全員）', value: 50 });
+    components.push({ label: 'Belbinロール平均', value: 8, description: '詳細はMBTIによる適性評価' });
+
+    // F型ボーナス集計（人数表示）
     let fCount = 0;
     members.forEach(m => {
       if (m.mbti?.includes('F')) fCount++;
     });
-
-    const fBonus = fCount * 10;
     if (fCount > 0) {
-      components.push({ label: `F型メンバー: ${fCount}名`, value: fBonus });
-      totalScore += fBonus;
+      components.push({ label: `F型（感情重視）: ${fCount}/${members.length}名`, value: fCount * 10 });
     }
 
-    // チーム志向資質からの加算
-    let strengthBonus = 0;
+    // チーム志向資質の合計値（参考情報）
+    let totalStrengthBonus = 0;
     members.forEach(m => {
       m.strengths.slice(0, 5).forEach((s, index) => {
         if (TEAM_ORIENTED_STRENGTHS.includes(s.id)) {
-          strengthBonus += (10 - index * 2);
+          totalStrengthBonus += (10 - index * 2);
         }
       });
     });
 
-    if (strengthBonus > 0) {
-      components.push({ label: 'チーム志向資質保有者', value: strengthBonus });
-      totalScore += strengthBonus;
+    if (totalStrengthBonus > 0) {
+      const strengthCount = members.filter(m =>
+        m.strengths.slice(0, 5).some(s => TEAM_ORIENTED_STRENGTHS.includes(s.id))
+      ).length;
+      components.push({ label: `チーム志向資質: ${strengthCount}名`, value: totalStrengthBonus });
     }
-
-    // 上限100、人数で平均
-    const avgScore = Math.min(100, Math.round(totalScore / members.length));
 
     // 閾値と改善提案
     const threshold = {
@@ -994,8 +1037,11 @@ export class SimulationService {
 
     const improvements: string[] = [];
     if (avgScore < 70) {
-      improvements.push('F型メンバーを追加: +10点/人');
+      improvements.push('F型（感情重視）メンバーを追加: +10点/人');
+      improvements.push('  例: INFJ、ENFJ、ISFJなどの性格タイプ');
       improvements.push('チーム志向資質保有者を追加（調和性、共感性、包含など）');
+      improvements.push('【重要】高スコア = 正解ではありません');
+      improvements.push('独立性の高い専門家集団も素晴らしい価値があります');
     }
 
     return {

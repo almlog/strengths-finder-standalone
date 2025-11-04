@@ -928,7 +928,7 @@ describe('SimulationService', () => {
       expect(breakdown.totalScore).toBeLessThanOrEqual(100); // 上限100
 
       // ベーススコアコンポーネントが含まれること
-      const baseComponent = breakdown.components.find(c => c.label === 'ベーススコア');
+      const baseComponent = breakdown.components.find(c => c.label.includes('ベーススコア'));
       expect(baseComponent).toBeDefined();
       expect(baseComponent?.value).toBe(40);
 

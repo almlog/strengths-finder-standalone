@@ -262,7 +262,9 @@ const DepartmentAnalysis: React.FC = () => {
 
       {/* 部署コードの代表的な強み（すべての資質） */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <h4 className="text-md font-semibold mb-3 dark:text-gray-100">部署コードの代表的な強み</h4>
+        <h4 className="text-md font-semibold mb-3 dark:text-gray-100">
+          {selectedDepartment === 'all' ? '全部署' : `部署コード: ${selectedDepartment}`} の代表的な強み
+        </h4>
         <div className="space-y-3">
           {Object.entries(analysisResult.strengthsFrequency)
             .filter(([_, count]) => count > 0)
