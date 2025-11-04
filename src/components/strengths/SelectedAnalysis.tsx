@@ -1,5 +1,5 @@
 // src/components/strengths/SelectedAnalysis.tsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CheckSquare, AlertCircle, Users } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import StrengthsService, { GROUP_LABELS, GROUP_COLORS } from '../../services/StrengthsService';
@@ -24,6 +24,7 @@ import {
 import { useManagerMode } from '../../hooks/useManagerMode';
 import FinancialDashboard from './FinancialDashboard';
 import ProfitabilityDashboard from './ProfitabilityDashboard';
+import { SimulationService } from '../../services/SimulationService';
 
 // Variant colors for consistent theming
 const VARIANT_COLORS = {
@@ -45,7 +46,12 @@ const SelectedAnalysis: React.FC = () => {
 
   // 選択メンバーの情報
   const selectedMembers = members.filter(m => selectedMemberIds.includes(m.id));
-  
+
+  // チーム特性ナラティブを計算
+  const teamNarrative = useMemo(() => {
+    return SimulationService.calculateTeamNarrative(selectedMembers);
+  }, [selectedMembers]);
+
   // 選択されていない場合はプレースホルダーを表示
   if (selectedMemberIds.length === 0) {
     return (
@@ -282,7 +288,7 @@ const SelectedAnalysis: React.FC = () => {
               >
                 <XAxis type="number" domain={[0, 'dataMax']} />
                 <YAxis type="category" dataKey="name" />
-                <Tooltip 
+                <Tooltip
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
@@ -311,11 +317,70 @@ const SelectedAnalysis: React.FC = () => {
             </ResponsiveContainer>
           </div>
         </div>
+
+        {/* チーム特性ナラティブ（分析コメント） */}
+        {teamNarrative && (
+          <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg shadow p-4 overflow-y-auto" style={{ maxHeight: '450px' }}>
+            <h4 className="text-md font-semibold mb-3 dark:text-gray-100">分析結果コメント</h4>
+
+            {/* タイトル */}
+            <div className="mb-3">
+              <h5 className="text-lg font-bold text-blue-800 dark:text-blue-300">
+                {teamNarrative.title}
+              </h5>
+            </div>
+
+            {/* サマリー */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                {teamNarrative.summary}
+              </p>
+            </div>
+
+            {/* 頻出資質TOP5 */}
+            <div className="mb-4">
+              <h6 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                頻出資質TOP5
+              </h6>
+              <div className="flex flex-wrap gap-2">
+                {teamNarrative.topStrengths.slice(0, 5).map(s => (
+                  <span
+                    key={s.strengthId}
+                    className="px-2 py-1 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded text-xs font-medium"
+                    title={`${s.frequency}人が保有 (${s.percentage.toFixed(0)}%)`}
+                  >
+                    {s.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* チームの可能性 */}
+            <div>
+              <h6 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                このチームの可能性
+              </h6>
+              <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-2">
+                {teamNarrative.possibilities.map((poss, idx) => (
+                  <li key={idx} className="flex items-start">
+                    <span className="text-blue-500 mr-2">▸</span>
+                    <span>{poss}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* チームの代表的な強み（すべての資質） */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <h4 className="text-md font-semibold mb-3 dark:text-gray-100">チームの代表的な強み</h4>
+        <h4 className="text-md font-semibold mb-3 dark:text-gray-100">
+          {selectedMembers.length <= 3
+            ? `${selectedMembers.map(m => m.name).join('・')} の代表的な強み`
+            : `${selectedMembers.slice(0, 3).map(m => m.name).join('・')} 他${selectedMembers.length - 3}名 の代表的な強み`
+          }
+        </h4>
         <div className="space-y-3">
           {Object.entries(analysisResult.strengthsFrequency)
             .filter(([_, count]) => count > 0)

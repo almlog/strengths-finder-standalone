@@ -62,14 +62,14 @@ const ScoreTooltip: React.FC<ScoreTooltipProps> = ({ score, breakdown, children 
       onMouseLeave={handleMouseLeave}
     >
       {/* トリガー要素 */}
-      <div className="cursor-help">
+      <div>
         {children}
       </div>
 
       {/* ツールチップ */}
       {isVisible && (
         <div
-          className="absolute z-50 w-80 p-4 bg-gray-900 dark:bg-gray-800 text-white rounded-lg shadow-xl border border-gray-700"
+          className="absolute z-50 w-80 p-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
           style={{
             bottom: '100%',
             left: '50%',
@@ -79,7 +79,7 @@ const ScoreTooltip: React.FC<ScoreTooltipProps> = ({ score, breakdown, children 
         >
           {/* 矢印 */}
           <div
-            className="absolute w-3 h-3 bg-gray-900 dark:bg-gray-800 border-r border-b border-gray-700"
+            className="absolute w-3 h-3 bg-white dark:bg-gray-800 border-r border-b border-gray-200 dark:border-gray-700"
             style={{
               bottom: '-6px',
               left: '50%',
@@ -97,18 +97,18 @@ const ScoreTooltip: React.FC<ScoreTooltipProps> = ({ score, breakdown, children 
               </span>
               <span className="text-xl font-bold">{breakdown.totalScore}</span>
             </div>
-            <div className="text-xs text-gray-300">
+            <div className="text-xs text-gray-600 dark:text-gray-300">
               {evaluation.label} - {evaluation.description}
             </div>
           </div>
 
           {/* スコア内訳 */}
           <div className="mb-3">
-            <div className="text-xs font-semibold text-gray-300 mb-2">計算内訳</div>
+            <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">計算内訳</div>
             <div className="space-y-1">
               {breakdown.components.map((component, index) => (
                 <div key={index} className="flex justify-between text-xs">
-                  <span className="text-gray-300">{component.label}</span>
+                  <span className="text-gray-600 dark:text-gray-300">{component.label}</span>
                   <span className="font-medium">
                     {component.value > 0 ? '+' : ''}{component.value}
                   </span>
@@ -117,13 +117,13 @@ const ScoreTooltip: React.FC<ScoreTooltipProps> = ({ score, breakdown, children 
             </div>
           </div>
 
-          {/* 改善提案 */}
+          {/* スコアを変えるには */}
           {breakdown.improvements.length > 0 && (
-            <div className="pt-3 border-t border-gray-700">
-              <div className="text-xs font-semibold text-gray-300 mb-2">
-                {score >= breakdown.threshold.high.min ? '維持のポイント' : '改善提案'}
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                {score >= breakdown.threshold.high.min ? 'このスコアの活かし方' : 'スコアを変えるには'}
               </div>
-              <ul className="text-xs text-gray-300 space-y-1">
+              <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1">
                 {breakdown.improvements.map((improvement, index) => (
                   <li key={index} className="flex items-start">
                     <span className="mr-1">•</span>

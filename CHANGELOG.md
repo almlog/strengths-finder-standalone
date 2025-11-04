@@ -6,6 +6,74 @@
 
 ## [Unreleased]
 
+### v3.2.1: チームシミュレーション スコアツールチップ実装とバグ修正 (2025-11-04)
+
+#### 🐛 重要なバグ修正
+
+**スコア計算ロジックの修正 (SimulationService.ts:878-1054)**
+- **問題**: リーダーシップスコアとチーム適合度スコアが不正確（チーム合計を人数で割る誤った計算）
+  - 例: 4人チーム、表示43.8なのにツールチップは13と表示
+- **修正**: PersonalityAnalysisEngineと同じロジックに統一（個人スコアを計算してから平均）
+  - `calculateLeadershipBreakdown()`: 各メンバーのスコア (BASE 40 + E/T/J + 資質) を計算後に平均
+  - `calculateTeamFitBreakdown()`: 各メンバーのスコア (BASE 50 + Belbin + F + 資質) を計算後に平均
+  - `calculateSynergyBreakdown()`: 既に正しい実装（PersonalityAnalysisEngine使用）
+
+**参考**: [ANALYSIS_METHODOLOGY.md](./ANALYSIS_METHODOLOGY.md) のスコア計算理論を参照
+
+#### ✨ 新機能: スコアツールチップ実装
+
+**概要**
+- グループ分析の各スコア（リーダーシップ、チーム適合度、相性）にマウスオーバーでツールチップ表示
+- 計算式の内訳、評価基準、スコア調整のアドバイスを表示
+
+**実装詳細**
+- `src/components/strengths/simulation/ScoreTooltip.tsx` - 汎用ツールチップコンポーネント
+- `src/types/simulation.ts` - ScoreBreakdown型の追加
+- 300ms遅延表示でUX最適化
+- 白背景デザイン（既存Rechartsツールチップと統一）
+- ダークモード対応
+
+**ユーザーフレンドリーな表現**
+- 用語変更: "改善提案" → "スコアを変えるには"（中立的な表現）
+- 高スコア時: "このスコアの活かし方"を表示
+- 重要メッセージ: 「高スコア = 正解ではありません。プロジェクトに最適なスコアを選びましょう」
+
+#### 🎨 UI改善
+
+**動的ヘッダー表示**
+- 部署分析: "部署コード: 13D51110 の代表的な強み"（選択中の部署コードを表示）
+- 選択メンバー分析: "田中・鈴木・佐藤 の代表的な強み"（メンバー名を表示、4名以上は「他N名」）
+
+**選択メンバー分析にチーム特性ナラティブを追加 (SelectedAnalysis.tsx:50-53, 321-373)**
+- **問題**: 選択メンバー分析でチーム特性（分析結果コメント）が表示されなかった
+- **修正**: SimulationService.calculateTeamNarrative()を使用してチーム特性を計算・表示
+- **実装**: 部署分析と同じUI/UXでチーム特性ナラティブを表示
+  - タイトル、サマリー、頻出資質TOP5、チームの可能性を表示
+  - グラデーション背景で視認性向上
+
+**スコア内訳のラベル改善**
+- "E型: 3名" → "E型（外向的）: 3/5名"（説明と比率を追加）
+- "ベーススコア" → "ベーススコア（全員）"（全員が持つベース点を明示）
+
+#### 📚 ドキュメント更新
+
+- `TEAM_SIMULATION_SCORE_TOOLTIP_SPEC.md` - 実装状況を更新（Phase 1, 2完了）
+- テストスイート: TC-TOOLTIP-001～006 (6テスト全て合格)
+
+#### 📝 変更ファイル
+
+**修正**
+- `src/services/SimulationService.ts` (lines 878-1054)
+- `src/services/SimulationService.test.ts` (line 931)
+- `src/components/strengths/DepartmentAnalysis.tsx` (lines 265-267)
+- `src/components/strengths/SelectedAnalysis.tsx` (lines 318-323)
+- `src/components/strengths/simulation/ScoreTooltip.tsx` (lines 120-125)
+
+**関連仕様書**
+- [TEAM_SIMULATION_SCORE_TOOLTIP_SPEC.md](./TEAM_SIMULATION_SCORE_TOOLTIP_SPEC.md)
+
+---
+
 ### v3.2: チームシミュレーション機能 (2025-10-31)
 
 #### 🧪 新機能: 動的チーム編成シミュレーション

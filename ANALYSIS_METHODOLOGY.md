@@ -607,6 +607,19 @@ workStyle: undefined
 
 ## 📝 更新履歴
 
+### v1.3 (2025-11-04)
+- **🐛 重要なバグ修正**: チームシミュレーション グループ分析のスコア計算ロジック修正
+- **問題**: SimulationService.calculateLeadershipBreakdown() と calculateTeamFitBreakdown() が誤った計算方法を使用
+  - 誤: チーム全体のボーナスを合計してから人数で割る
+  - 正: 各メンバーの個人スコアを計算してから平均を取る
+- **影響**: スコア表示とツールチップの値が一致しない（例: 表示43.8 vs ツールチップ13）
+- **修正内容**:
+  - calculateLeadershipBreakdown(): PersonalityAnalysisEngineと同じロジックに統一（個人スコア計算後に平均）
+  - calculateTeamFitBreakdown(): 同上
+  - calculateSynergyBreakdown(): 既に正しい実装（PersonalityAnalysisEngine使用）
+- **備考**: 個人分析（PersonalityAnalysisEngine）とグループ分析（SimulationService）のスコア計算ロジックが完全に一致
+- **関連仕様書**: [TEAM_SIMULATION_SCORE_TOOLTIP_SPEC.md](./TEAM_SIMULATION_SCORE_TOOLTIP_SPEC.md)
+
 ### v1.2 (2025-01-23)
 - **SF-onlyモード分析の改善**: MBTIデータなしユーザーへのデータ駆動型分析を実装
 - 固定文字列を廃止し、スコアベースの動的メッセージ生成に変更
