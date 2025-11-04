@@ -11,10 +11,12 @@ import { X, Edit2, Check } from 'lucide-react';
 import { SimulationGroup, GroupStats } from '../../../types/simulation';
 import { MemberStrengths } from '../../../models/StrengthsTypes';
 import MemberCard from './MemberCard';
+import ScoreTooltip from './ScoreTooltip';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { GROUP_LABELS, GROUP_COLORS } from '../../../services/StrengthsService';
 import { StrengthGroup } from '../../../models/StrengthsTypes';
 import { useManagerMode } from '../../../hooks/useManagerMode';
+import { SimulationService } from '../../../services/SimulationService';
 
 interface GroupCardProps {
   group: SimulationGroup;
@@ -197,25 +199,40 @@ const GroupCard: React.FC<GroupCardProps> = ({
                 {stats.analysis.avgSynergyScore !== null && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">相性スコア:</span>
-                    <span className="font-medium dark:text-gray-100">
-                      {stats.analysis.avgSynergyScore.toFixed(1)}
-                    </span>
+                    <ScoreTooltip
+                      score={Math.round(stats.analysis.avgSynergyScore)}
+                      breakdown={SimulationService.calculateSynergyBreakdown(members)}
+                    >
+                      <span className="font-medium dark:text-gray-100">
+                        {stats.analysis.avgSynergyScore.toFixed(1)}
+                      </span>
+                    </ScoreTooltip>
                   </div>
                 )}
                 {stats.analysis.avgTeamFit !== null && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">チーム適合度:</span>
-                    <span className="font-medium dark:text-gray-100">
-                      {stats.analysis.avgTeamFit.toFixed(1)}
-                    </span>
+                    <ScoreTooltip
+                      score={Math.round(stats.analysis.avgTeamFit)}
+                      breakdown={SimulationService.calculateTeamFitBreakdown(members)}
+                    >
+                      <span className="font-medium dark:text-gray-100">
+                        {stats.analysis.avgTeamFit.toFixed(1)}
+                      </span>
+                    </ScoreTooltip>
                   </div>
                 )}
                 {stats.analysis.avgLeadership !== null && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">リーダーシップ:</span>
-                    <span className="font-medium dark:text-gray-100">
-                      {stats.analysis.avgLeadership.toFixed(1)}
-                    </span>
+                    <ScoreTooltip
+                      score={Math.round(stats.analysis.avgLeadership)}
+                      breakdown={SimulationService.calculateLeadershipBreakdown(members)}
+                    >
+                      <span className="font-medium dark:text-gray-100">
+                        {stats.analysis.avgLeadership.toFixed(1)}
+                      </span>
+                    </ScoreTooltip>
                   </div>
                 )}
               </div>
