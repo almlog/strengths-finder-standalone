@@ -97,6 +97,45 @@ export const SimulationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [state, isInitialized]);
 
+  // members が変更されたときにシミュレーション状態を同期
+  useEffect(() => {
+    if (!isInitialized || !state) return;
+
+    const memberIdSet = new Set(members.map(m => m.id));
+
+    // 現在シミュレーションで使用されている全てのメンバーID
+    const allUsedIds = new Set<string>();
+    state.groups.forEach(g => g.memberIds.forEach(id => allUsedIds.add(id)));
+    state.unassignedPool.forEach(id => allUsedIds.add(id));
+
+    // 存在しないメンバーIDがあるか、または新しいメンバーが追加されたかをチェック
+    const hasInvalidIds = Array.from(allUsedIds).some(id => !memberIdSet.has(id));
+    const hasNewMembers = members.some(m => !allUsedIds.has(m.id));
+
+    if (hasInvalidIds || hasNewMembers) {
+      // グループから存在しないメンバーIDを削除
+      const validGroups = state.groups.map(group => ({
+        ...group,
+        memberIds: group.memberIds.filter(id => memberIdSet.has(id))
+      }));
+
+      // 未配置プールから存在しないメンバーIDを削除
+      const validUnassignedPool = state.unassignedPool.filter(id => memberIdSet.has(id));
+
+      // 新しいメンバーを未配置プールに追加
+      const newMemberIds = members
+        .filter(m => !allUsedIds.has(m.id))
+        .map(m => m.id);
+
+      setState({
+        ...state,
+        groups: validGroups,
+        unassignedPool: [...validUnassignedPool, ...newMemberIds],
+        updatedAt: new Date().toISOString()
+      });
+    }
+  }, [members, state, isInitialized]);
+
   /**
    * 新しいシミュレーションを開始
    */
