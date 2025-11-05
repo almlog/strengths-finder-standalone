@@ -475,18 +475,19 @@ const AboutAnalysisTab: React.FC = () => {
                 author="Jung, C. G."
                 year="1921"
                 title="Psychological Types"
-                url="https://press.princeton.edu/books/paperback/9780691097701/psychological-types"
+                url="https://archive.org/details/psychological_types"
               />
               <Reference
                 author="Myers, I. B., & Myers, P. B."
                 year="1995"
                 title="Gifts Differing: Understanding Personality Type"
+                url="https://books.google.com/books/about/Gifts_Differing.html?id=WfR8DAAAQBAJ"
               />
               <Reference
                 author="Quenk, N. L."
                 year="2009"
                 title="Essentials of Myers-Briggs Type Indicator Assessment"
-                url="https://www.wiley.com/en-us"
+                url="https://www.wiley.com/en-us/Essentials%2Bof%2BMyers%2BBriggs%2BType%2BIndicator%2BAssessment%252C%2B2nd%2BEdition-p-9780470343906"
               />
             </ul>
           </div>
@@ -498,12 +499,13 @@ const AboutAnalysisTab: React.FC = () => {
                 author="Rath, T."
                 year="2007"
                 title="StrengthsFinder 2.0"
-                url="https://www.gallup.com/cliftonstrengths/en/home.aspx"
+                url="https://store.gallup.com/product/strengthsfinder-20/01tPa00000QhY36IAF"
               />
               <Reference
                 author="Buckingham, M., & Clifton, D. O."
                 year="2001"
                 title="Now, Discover Your Strengths"
+                url="https://www.gallup.com/cliftonstrengths/en/286556/ndys.aspx"
               />
             </ul>
           </div>
@@ -515,12 +517,13 @@ const AboutAnalysisTab: React.FC = () => {
                 author="Bass, B. M."
                 year="1985"
                 title="Leadership and Performance Beyond Expectations"
+                url="https://archive.org/details/leadershipperfor0000bass"
               />
               <Reference
                 author="Northouse, P. G."
                 year="2018"
                 title="Leadership: Theory and Practice (8th ed.)"
-                url="https://us.sagepub.com/en-us/nam/leadership/book246114"
+                url="https://books.google.com/books/about/Leadership.html?id=HJ08DwAAQBAJ"
               />
             </ul>
           </div>
@@ -532,12 +535,13 @@ const AboutAnalysisTab: React.FC = () => {
                 author="Belbin, R. M."
                 year="1981"
                 title="Management Teams: Why They Succeed or Fail"
-                url="https://www.belbin.com/"
+                url="https://www.taylorfrancis.com/books/mono/10.4324/9780080963594/management-teams-meredith-belbin"
               />
               <Reference
                 author="Hackman, J. R."
                 year="2002"
                 title="Leading Teams: Setting the Stage for Great Performances"
+                url="https://books.google.com/books/about/Leading_Teams.html?id=snfoCQAAQBAJ"
               />
             </ul>
           </div>
@@ -548,8 +552,8 @@ const AboutAnalysisTab: React.FC = () => {
               <Reference
                 author="Seligman, M. E. P., & Csikszentmihalyi, M."
                 year="2000"
-                title="Positive psychology: An introduction"
-                url="https://psycnet.apa.org/doi/10.1037/0003-066X.55.1.5"
+                title="Positive psychology: An introduction. American Psychologist, 55(1), 5-14"
+                url="https://doi.org/10.1037/0003-066X.55.1.5"
               />
             </ul>
           </div>
@@ -559,7 +563,7 @@ const AboutAnalysisTab: React.FC = () => {
       {/* フッター */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          最終更新: 2025-01-23 | バージョン: 1.3
+          最終更新: 2025-11-05 | バージョン: 1.3.1
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
           MBTI® は Myers-Briggs Type Indicator の商標です。<br />
