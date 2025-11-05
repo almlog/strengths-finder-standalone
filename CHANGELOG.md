@@ -6,6 +6,80 @@
 
 ## [Unreleased]
 
+### v3.3: 分析手法の説明タブと用語統一 (2025-11-05)
+
+#### ✨ 新機能: 「分析について」タブの追加
+
+**概要**
+- ANALYSIS_METHODOLOGY.mdの理論的背景を基にした、ツール説明タブを新設
+- 分析手法、スコアの見方、使い方のヒントを包括的に説明
+- アコーディオンUIで情報を整理し、読みやすさを重視
+
+**実装詳細**
+- `src/components/strengths/AboutAnalysisTab.tsx` (NEW, 569行) - 説明コンテンツコンポーネント
+  - AccordionSection: 折りたたみ可能なセクション
+  - Reference: 学術文献リンク
+  - ScoreTable: スコア区分説明テーブル
+- `src/components/strengths/StrengthsFinderPage.tsx` - 新タブ追加
+  - BookOpenアイコンで「分析について」タブを追加
+  - AnalysisTab型に'about'を追加
+
+**コンテンツ構成**
+1. **このツールに込めた想い**: 開発者の想いとツールの目的
+2. **このツールで何ができる？**: 5つの分析機能の概要
+3. **各スコアの見方**: 相性スコア、チーム適合度、リーダーシップの詳細
+4. **理論的背景**: MBTI、StrengthsFinder、統合の理論的根拠
+5. **使い方のヒント**: 実践的な使用方法
+6. **参考文献**: 学術文献とGallup公式ページへのリンク
+
+**デザイン**
+- グラデーション背景でセクションを強調
+- ダークモード完全対応
+- 外部リンクにExternalLinkアイコンを表示
+
+#### 📝 用語とツール定義の統一
+
+**StrengthsFinder を主軸、MBTI を補足に再定義**
+- **変更理由**: ユーザー登録にはStrengthsFinder資質の入力が必須、MBTIは任意
+- **タイトル統一**: 「メンバープロファイル分析 — StrengthsFinder × MBTI 統合分析ツール」
+- **表記順序**: 「MBTI × StrengthsFinder」→「StrengthsFinder × MBTI」に統一
+
+**説明文の更新**
+- 「このツールに込めた想い」:
+  - StrengthsFinderを軸に「何が得意か」を明らかにする
+  - MBTIを追加することで「どのように考えるか」の視点も加わる
+- 「このツールで何ができる？」:
+  - SF必須、MBTI任意を明記
+  - SFだけでも分析可能、MBTIで詳しい分析が可能
+- 「理論的背景」:
+  - StrengthsFinder → MBTI の順序に変更
+  - SFが「主軸となる診断」、MBTIが「より詳しい分析」と明示
+- 「使い方のヒント」:
+  - **StrengthsFinder（必須）**: Gallup公式で診断が必要
+  - **MBTI（任意）**: 16Personalitiesなどで診断可能
+
+#### 📚 ドキュメント更新箇所
+
+**変更ファイル**
+- `src/components/strengths/AboutAnalysisTab.tsx` (NEW, 569行)
+  - Line 5: モジュールdescription「StrengthsFinder × MBTI 統合分析」
+  - Line 153: サブタイトル「メンバープロファイル分析 — StrengthsFinder × MBTI 統合分析ツール」
+  - Lines 170-174: ツールの想い（SFを軸に、MBTIを補足として説明）
+  - Lines 193-194: ツール概要（SF必須、MBTI任意）
+  - Lines 243-244: 相性スコアの説明（SF資質カテゴリを基に、MBTIとの整合性も評価）
+  - Lines 360-385: 理論的背景（SF→MBTIの順序、それぞれの役割を明確化）
+  - Lines 399-401: 使い方のヒント（データ入力でSF必須、MBTI任意）
+- `src/components/strengths/StrengthsFinderPage.tsx`
+  - Line 3: BookOpenアイコンのimport
+  - Line 14: AboutAnalysisTabのimport
+  - Line 20: AnalysisTab型に'about'追加
+  - Lines 389-396: 「分析について」タブの追加
+
+**関連ドキュメント**
+- [ANALYSIS_METHODOLOGY.md](./ANALYSIS_METHODOLOGY.md) - 理論的背景の詳細
+
+---
+
 ### v3.2.1: チームシミュレーション スコアツールチップ実装とバグ修正 (2025-11-04)
 
 #### 🐛 重要なバグ修正

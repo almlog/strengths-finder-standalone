@@ -1,6 +1,6 @@
 // src/components/strengths/StrengthsFinderPage.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical } from 'lucide-react';
+import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical, BookOpen } from 'lucide-react';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { useManagerMode } from '../../hooks/useManagerMode';
 import { ThemeSwitcher } from '../theme/ThemeSwitcher';
@@ -11,13 +11,14 @@ import SelectedAnalysis from './SelectedAnalysis';
 import IndividualStrengths from './IndividualStrengths';
 import StrengthsAnalysis from './StrengthsAnalysis';
 import TeamSimulation from './TeamSimulation';
+import AboutAnalysisTab from './AboutAnalysisTab';
 import { StageMasterSettings } from './StageMasterSettings';
 import { MemberRateSettings } from './MemberRateSettings';
 import ImportConflictDialog, { ImportConflictInfo, ImportStrategy } from './ImportConflictDialog';
 import { Tabs, Tab } from '../ui/Tabs';
 import { MigrationService } from '../../services/MigrationService';
 
-type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths' | 'simulation' | 'settings';
+type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths' | 'simulation' | 'about' | 'settings';
 
 // スクロール処理の遅延時間（ms）
 // DOMの更新を待つために必要
@@ -384,6 +385,14 @@ const StrengthsFinderPage: React.FC = () => {
               </div>
             }>
               <TeamSimulation />
+            </Tab>
+            <Tab id="about" label={
+              <div className="flex items-center">
+                <BookOpen className="w-4 h-4 mr-1" />
+                <span>分析について</span>
+              </div>
+            }>
+              <AboutAnalysisTab />
             </Tab>
             {isManagerMode && (
               <Tab id="settings" label={
