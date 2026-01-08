@@ -163,15 +163,21 @@ strengths-finder-standalone/
 │       └── strengths-analyzer/           # 分析システム専門スキル
 │           └── SKILL.md                  # スキル定義
 ├── src/
-│   ├── App.tsx                           # メインアプリ
-│   ├── components/strengths/             # ストレングス関連コンポーネント
-│   │   ├── StrengthsFinderPage.tsx      # メインページ
-│   │   ├── MemberForm.tsx               # メンバー追加/編集
-│   │   ├── MembersList.tsx              # メンバー一覧
-│   │   ├── IndividualStrengths.tsx      # 個人分析
-│   │   ├── DepartmentAnalysis.tsx       # 部署分析
-│   │   ├── SelectedAnalysis.tsx         # 選択メンバー分析
-│   │   └── StrengthsAnalysis.tsx        # 資質分析
+│   ├── App.tsx                           # メインアプリ（ルーティング含む）
+│   ├── components/
+│   │   ├── auth/                         # 認証コンポーネント
+│   │   │   ├── LoginPage.tsx            # ログイン画面
+│   │   │   ├── RegistrationPage.tsx     # ユーザー招待（管理者用）
+│   │   │   ├── SetPasswordPage.tsx      # パスワード設定
+│   │   │   └── PasswordResetPage.tsx    # パスワードリセット
+│   │   └── strengths/                    # ストレングス関連コンポーネント
+│   │       ├── StrengthsFinderPage.tsx  # メインページ
+│   │       ├── MemberForm.tsx           # メンバー追加/編集
+│   │       ├── MembersList.tsx          # メンバー一覧
+│   │       └── ...                      # その他分析コンポーネント
+│   ├── config/firebase.ts               # Firebase設定
+│   ├── hooks/useAuth.ts                 # 認証状態管理フック
+│   ├── utils/auth/                      # 認証ユーティリティ
 │   ├── contexts/StrengthsContext.tsx    # 状態管理
 │   ├── services/
 │   │   ├── StrengthsService.ts          # ビジネスロジック
@@ -179,6 +185,10 @@ strengths-finder-standalone/
 │   │   ├── ProfitabilityService.ts      # 利益率計算
 │   │   └── SimulationService.ts         # チームシミュレーション
 │   └── models/StrengthsTypes.ts         # 型定義
+├── scripts/                              # 管理スクリプト
+│   ├── set-admin-role.js                # 管理者権限付与
+│   └── list-users.js                    # ユーザー一覧表示
+├── docs/                                 # ドキュメント（詳細は docs/README.md）
 ├── README.md                            # プロジェクト概要
 ├── DEVELOPMENT.md                       # 開発者ガイド
 └── CLAUDE.md                           # このファイル
@@ -238,7 +248,56 @@ npm run preview
 
 # テスト実行
 npm test
+
+# 認証関連テスト
+npm test -- --testPathPattern="auth"
+
+# Firebase Emulator起動（オプション）
+npm run emulator
+
+# 管理者権限付与
+npm run admin:set <email>
+
+# ユーザー一覧確認
+npm run admin:list
 ```
+
+### 🔐 Firebase認証開発
+
+#### 環境変数の設定
+
+```bash
+# .env.local を作成（.gitignoreに含まれている）
+cp .env.example .env.local
+
+# Firebase Console から設定値を取得して設定
+REACT_APP_FIREBASE_API_KEY=...
+REACT_APP_FIREBASE_AUTH_DOMAIN=...
+REACT_APP_FIREBASE_PROJECT_ID=...
+```
+
+#### 認証機能の開発時の注意
+
+1. **テスト必須**: 認証コンポーネントの変更時はTDDを厳守
+2. **セキュリティ**: ドメイン制限バリデーションを必ず実装
+3. **エラーハンドリング**: Firebase認証エラーを適切に処理
+
+#### 管理者権限の設定
+
+```bash
+# 1. Firebase Console → プロジェクト設定 → サービスアカウント
+# 2. 「新しい秘密鍵の生成」をクリック
+# 3. ダウンロードしたJSONを firebase-service-account.json に保存
+# 4. scripts/ または プロジェクトルートに配置
+
+# 管理者権限を付与
+npm run admin:set suzuki.shunpei@example.com
+
+# ユーザー一覧を確認
+npm run admin:list
+```
+
+**詳細なドキュメント**: [docs/auth/](docs/auth/) を参照
 
 ### 🎯 開発の進め方
 
@@ -403,9 +462,13 @@ ls -la build/
 
 - [README.md](./README.md) - プロジェクト概要
 - [DEVELOPMENT.md](./DEVELOPMENT.md) - 詳細な開発ガイド
+- [docs/README.md](./docs/README.md) - ドキュメント一覧
+- [docs/auth/](./docs/auth/) - Firebase認証ドキュメント
+- [docs/analysis/](./docs/analysis/) - 分析ロジックドキュメント
 - [React公式ドキュメント](https://react.dev/)
 - [Tailwind CSS公式ドキュメント](https://tailwindcss.com/)
 - [Recharts公式ドキュメント](https://recharts.org/)
+- [Firebase公式ドキュメント](https://firebase.google.com/docs)
 
 ### 💡 開発Tips
 
