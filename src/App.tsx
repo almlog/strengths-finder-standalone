@@ -10,6 +10,7 @@ import { migrateV2ToV3, needsMigration } from './utils/dataMigration';
 import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
 import SetPasswordPage from './components/auth/SetPasswordPage';
+import PasswordResetPage from './components/auth/PasswordResetPage';
 import { PrivateRoute } from './components/auth/PrivateRoute';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/set-password" element={<SetPasswordPage />} />
+          <Route path="/reset-password" element={<PasswordResetPage />} />
 
           {/* 認証必須ルート */}
           <Route
