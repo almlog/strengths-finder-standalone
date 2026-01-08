@@ -42,7 +42,9 @@
     "emulator:ui": "firebase emulators:start --only auth --ui --import=.emulator-data --export-on-exit=.emulator-data",
     "emulator:fresh": "firebase emulators:start --only auth",
     "create:user": "node scripts/create-local-user.js",
-    "create:admin": "node scripts/create-local-user.js --admin"
+    "create:admin": "node scripts/create-local-user.js --admin",
+    "admin:set": "node scripts/set-admin-role.js",
+    "admin:list": "node scripts/list-users.js"
   },
   "eslintConfig": {
     "extends": [

@@ -716,8 +716,58 @@ describe('LoginPage', () => {
 
 ---
 
+## 管理者権限管理
+
+### 概要
+
+本番環境での管理者権限は Firebase Custom Claims で管理します。
+管理用スクリプトを使用して権限を付与・確認できます。
+
+### 前提条件: サービスアカウントキーの取得
+
+1. Firebase Console にアクセス
+   https://console.firebase.google.com/project/strengths-finder-auth/settings/serviceaccounts/adminsdk
+
+2. 「新しい秘密鍵の生成」をクリック
+
+3. ダウンロードしたJSONファイルを `firebase-service-account.json` にリネーム
+
+4. `scripts/` ディレクトリに配置
+
+**注意**: このファイルは `.gitignore` で除外されています。絶対にコミットしないでください。
+
+### 管理者権限の付与
+
+```bash
+npm run admin:set <email>
+
+# 例
+npm run admin:set suzuki.shunpei@altx.co.jp
+```
+
+### ユーザー一覧の確認
+
+```bash
+npm run admin:list
+```
+
+### 権限反映のタイミング
+
+カスタムクレームを設定した後、ユーザーは以下のいずれかを行う必要があります:
+
+1. ログアウト → 再ログイン
+2. IDトークンの有効期限切れを待つ（最大1時間）
+
+### ローカル開発環境での管理者判定
+
+ローカル開発環境（Firebase Emulator使用時）では、`useAuth.ts` の `LOCAL_ADMIN_EMAILS` 配列で管理者を判定します。
+本番環境では Custom Claims が優先されます。
+
+---
+
 ## 変更履歴
 
 | バージョン | 日付 | 変更内容 | 担当者 |
 |-----------|------|---------|--------|
 | 1.0 | 2025-12-23 | 初版作成 | SUZUKI Shunpei |
+| 1.1 | 2026-01-08 | パスワードリセット機能追加、管理者権限管理スクリプト追加 | SUZUKI Shunpei |
