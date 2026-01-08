@@ -30,3 +30,11 @@ yarn-error.log*
 
 # Firebase Emulator data (local development only)
 .emulator-data/
+
+# Firebase service account key (NEVER commit this!)
+firebase-service-account.json
+service-account.json
+*-service-account*.json
+
+# Firebase cache
+.firebase/
