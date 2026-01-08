@@ -1,6 +1,10 @@
 // src/components/strengths/StrengthsFinderPage.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical, BookOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical, BookOpen, LogOut } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../config/firebase';
+import { useAuth } from '../../hooks/useAuth';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { useManagerMode } from '../../hooks/useManagerMode';
 import { ThemeSwitcher } from '../theme/ThemeSwitcher';
@@ -196,10 +200,22 @@ const ImportExportButtons: React.FC = () => {
 const StrengthsFinderPage: React.FC = () => {
   const { error, successMessage, clearMessages } = useStrengths();
   const isManagerMode = useManagerMode();
+  const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AnalysisTab>('individual');
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const analysisAreaRef = useRef<HTMLDivElement>(null);
+
+  // ログアウト処理
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   // リサイザー機能のstate
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
@@ -276,6 +292,17 @@ const StrengthsFinderPage: React.FC = () => {
           メンバープロファイル分析
         </h2>
         <div className="flex flex-wrap gap-2 items-center">
+          {/* ユーザー情報 */}
+          {user && (
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mr-2">
+              <span className="hidden sm:inline">{user.email}</span>
+              {isAdmin && (
+                <span className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded text-xs">
+                  管理者
+                </span>
+              )}
+            </div>
+          )}
           <ThemeSwitcher />
           <ImportExportButtons />
           <button
@@ -284,6 +311,15 @@ const StrengthsFinderPage: React.FC = () => {
           >
             <Plus className="w-4 h-4 mr-2" />
             メンバーを追加
+          </button>
+          {/* ログアウトボタン */}
+          <button
+            onClick={handleLogout}
+            className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-3 py-2 rounded flex items-center"
+            title="ログアウト"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline ml-2">ログアウト</span>
           </button>
         </div>
       </div>
