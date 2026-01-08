@@ -1,9 +1,16 @@
 import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import StrengthsFinderPage from './components/strengths/StrengthsFinderPage';
 import { StrengthsProvider } from './contexts/StrengthsContext';
 import { SimulationProvider } from './contexts/SimulationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { migrateV2ToV3, needsMigration } from './utils/dataMigration';
+
+// 認証コンポーネント
+import LoginPage from './components/auth/LoginPage';
+import RegisterPage from './components/auth/RegisterPage';
+import SetPasswordPage from './components/auth/SetPasswordPage';
+import { PrivateRoute } from './components/auth/PrivateRoute';
 
 function App() {
   // アプリ起動時にデータ移行を実行
@@ -23,13 +30,30 @@ function App() {
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <StrengthsProvider>
-          <SimulationProvider>
-            <StrengthsFinderPage />
-          </SimulationProvider>
-        </StrengthsProvider>
-      </div>
+      <BrowserRouter basename="/strengths-finder-standalone">
+        <Routes>
+          {/* 公開ルート（認証不要） */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/set-password" element={<SetPasswordPage />} />
+
+          {/* 認証必須ルート */}
+          <Route
+            path="/*"
+            element={
+              <PrivateRoute>
+                <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+                  <StrengthsProvider>
+                    <SimulationProvider>
+                      <StrengthsFinderPage />
+                    </SimulationProvider>
+                  </StrengthsProvider>
+                </div>
+              </PrivateRoute>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
     </ThemeProvider>
   );
 }
