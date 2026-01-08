@@ -27,6 +27,3 @@ yarn-error.log*
 
 # 16Personalities integration design documents (temporary, not for deployment)
 16Personalities/
-
-# Firebase Emulator data (local development only)
-.emulator-data/
