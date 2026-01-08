@@ -103,15 +103,13 @@ const LoginPage: React.FC = () => {
               アカウント作成
             </Link>
           </div>
-          <div className="text-gray-500 dark:text-gray-400">
-            パスワードを忘れた場合は
-            <a
-              href="mailto:suzuki.shunpei@altx.co.jp?subject=%E3%80%90%E3%83%91%E3%82%B9%E3%83%AF%E3%83%BC%E3%83%89%E3%83%AA%E3%82%BB%E3%83%83%E3%83%88%E4%BE%9D%E9%A0%BC%E3%80%91%E3%83%A1%E3%83%B3%E3%83%90%E3%83%BC%E3%83%97%E3%83%AD%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E5%88%86%E6%9E%90&body=%E3%81%8A%E7%96%B2%E3%82%8C%E6%A7%98%E3%81%A7%E3%81%99%E3%80%82%0A%0A%E3%83%A1%E3%83%B3%E3%83%90%E3%83%BC%E3%83%97%E3%83%AD%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E5%88%86%E6%9E%90%E3%83%84%E3%83%BC%E3%83%AB%E3%81%AE%E3%83%91%E3%82%B9%E3%83%AF%E3%83%BC%E3%83%89%E3%83%AA%E3%82%BB%E3%83%83%E3%83%88%E3%82%92%E3%81%8A%E9%A1%98%E3%81%84%E3%81%97%E3%81%BE%E3%81%99%E3%80%82%0A%0A%E3%83%A1%E3%83%BC%E3%83%AB%E3%82%A2%E3%83%89%E3%83%AC%E3%82%B9%EF%BC%9A%0A%E6%B0%8F%E5%90%8D%EF%BC%9A%0A%0A%E3%82%88%E3%82%8D%E3%81%97%E3%81%8F%E3%81%8A%E9%A1%98%E3%81%84%E3%81%84%E3%81%9F%E3%81%97%E3%81%BE%E3%81%99%E3%80%82"
+          <div>
+            <Link
+              to="/reset-password"
               className="text-blue-500 hover:underline"
             >
-              管理者にお問い合わせ
-            </a>
-            ください
+              パスワードを忘れた方
+            </Link>
           </div>
         </div>
       </div>
