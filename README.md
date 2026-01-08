@@ -22,6 +22,10 @@
 GitHub Pagesでホスティングされており、インストール不要で即座に利用できます。
 
 ## 特徴
+- 🔐 **Firebase認証**: メールリンク認証によるセキュアなログイン
+  - 管理者による招待制（ドメイン制限）
+  - パスワードレス認証とパスワード認証の両対応
+  - ロールベースアクセス制御（管理者/一般ユーザー）
 - 🔒 **プライバシー重視**: すべてのデータはローカルに保存され、外部サーバーには送信されません
 - 📊 **多角的な分析**: 個人分析、部署分析、選択メンバー分析、所有者分析（逆引き）
 - 💾 **データのインポート/エクスポート**: JSON形式でバックアップと共有が可能
@@ -213,9 +217,36 @@ npm run build
 - React 19 + TypeScript
 - Tailwind CSS 3.4.1 (Dark Mode対応)
 - Recharts (グラフ表示)
-- LocalStorage API
+- Firebase Authentication (認証)
+- LocalStorage API (データ永続化)
 - GitHub Actions (CI/CD)
 - GitHub Pages (ホスティング)
+
+## 認証システム
+
+### 概要
+Firebase Authenticationを使用した招待制の認証システムです。
+
+### ユーザー登録フロー
+1. 管理者が新規ユーザーのメールアドレスで招待リンクを送信
+2. ユーザーがメールのリンクをクリック
+3. パスワード設定画面でパスワードを設定
+4. ログイン完了
+
+### 管理者権限
+- Firebase Admin SDKを使用してカスタムクレームを設定
+- 詳細は [docs/auth/TECHNICAL_SPECIFICATION.md](docs/auth/TECHNICAL_SPECIFICATION.md) を参照
+
+```bash
+# 管理者権限の付与（要サービスアカウントキー）
+npm run admin:set suzuki.shunpei@altx.co.jp
+
+# ユーザー一覧の確認
+npm run admin:list
+```
+
+### ドメイン制限
+許可されたドメイン（altx.co.jp）のメールアドレスのみ登録可能です。
 
 ## 分析ロジック
 

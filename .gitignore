@@ -38,3 +38,10 @@ service-account.json
 
 # Firebase cache
 .firebase/
+firebase-debug.log
+
+# Claude Code temporary files
+claude-memory.txt
+
+# Windows artifacts
+nul

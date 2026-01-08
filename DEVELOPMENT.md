@@ -403,6 +403,78 @@ buildフォルダの内容をWebサーバーにデプロイ。
 - PORT: 適切なポート番号
 - NODE_ENV: production
 
+## Firebase認証開発
+
+### ローカル開発環境のセットアップ
+
+```bash
+# 環境変数ファイルを作成
+cp .env.example .env.local
+
+# .env.local に Firebase 設定を追加
+REACT_APP_FIREBASE_API_KEY=your-api-key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+REACT_APP_FIREBASE_PROJECT_ID=your-project-id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+REACT_APP_FIREBASE_APP_ID=your-app-id
+```
+
+### Firebase Emulator（オプション）
+
+```bash
+# Firebase CLIのインストール
+npm install -g firebase-tools
+
+# Emulatorの起動
+npm run emulator
+
+# UIありで起動
+npm run emulator:ui
+```
+
+### 認証コンポーネント
+
+| ファイル | 説明 |
+|---------|------|
+| `src/components/auth/LoginPage.tsx` | ログイン画面 |
+| `src/components/auth/RegistrationPage.tsx` | 管理者用ユーザー招待画面 |
+| `src/components/auth/SetPasswordPage.tsx` | 初回パスワード設定画面 |
+| `src/components/auth/PasswordResetPage.tsx` | パスワードリセット画面 |
+| `src/hooks/useAuth.ts` | 認証状態管理フック |
+| `src/config/firebase.ts` | Firebase設定 |
+| `src/utils/auth/` | 認証ユーティリティ |
+
+### 管理者権限の設定
+
+```bash
+# サービスアカウントキーを配置
+# Firebase Console → プロジェクト設定 → サービスアカウント
+# 「新しい秘密鍵の生成」→ firebase-service-account.json
+
+# 管理者権限を付与
+npm run admin:set <email>
+
+# ユーザー一覧を確認
+npm run admin:list
+```
+
+### テストの実行
+
+```bash
+# 認証関連テストの実行
+npm test -- --testPathPattern="auth"
+
+# 全テストの実行
+npm test
+```
+
+### ドキュメント
+
+- [認証要件定義](docs/auth/AUTHENTICATION_REQUIREMENTS.md)
+- [実装計画](docs/auth/IMPLEMENTATION_PLAN.md)
+- [技術仕様書](docs/auth/TECHNICAL_SPECIFICATION.md)
+
 ## 今後の改善案
 
 - [ ] ESLint/Prettierの導入
