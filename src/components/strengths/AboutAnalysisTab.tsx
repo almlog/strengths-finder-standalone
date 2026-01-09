@@ -1,8 +1,8 @@
 /**
- * 分析手法の説明タブ
+ * システム説明タブ
  *
  * @module components/strengths/AboutAnalysisTab
- * @description StrengthsFinder × MBTI 統合分析の理論的背景と使い方を説明
+ * @description StrengthsFinder × MBTI 統合分析と楽楽勤怠データ分析の説明
  */
 
 import React, { useState } from 'react';
@@ -16,7 +16,11 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
-  ExternalLink
+  ExternalLink,
+  Clock,
+  FileSpreadsheet,
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
 
 // アコーディオンセクションのProps
@@ -138,7 +142,7 @@ const ScoreTable: React.FC<ScoreTableProps> = ({ scoreType }) => {
 };
 
 /**
- * 分析手法説明タブのメインコンポーネント
+ * システム説明タブのメインコンポーネント
  */
 const AboutAnalysisTab: React.FC = () => {
   return (
@@ -147,12 +151,19 @@ const AboutAnalysisTab: React.FC = () => {
       <div className="mb-8 text-center">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3 flex items-center justify-center gap-3">
           <BookOpen className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-          このツールについて
+          このシステムについて
         </h1>
         <p className="text-lg text-gray-600 dark:text-gray-400">
-          メンバープロファイル分析 — StrengthsFinder × MBTI 統合分析ツール
+          メンバープロファイル分析 — StrengthsFinder × MBTI 統合分析と勤怠データ分析
         </p>
       </div>
+
+      {/* セクション1: StrengthsFinder × MBTI 統合分析 */}
+      <div className="mb-12">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 pb-3 border-b-2 border-blue-500 flex items-center gap-2">
+          <Target className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          StrengthsFinder × MBTI 統合分析
+        </h2>
 
       {/* ツールのビジョン */}
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-850 rounded-lg p-6 mb-8 border border-blue-200 dark:border-gray-700">
@@ -432,7 +443,208 @@ const AboutAnalysisTab: React.FC = () => {
         </div>
       </AccordionSection>
 
-      {/* 注意事項 */}
+      </div>{/* セクション1終了 */}
+
+      {/* セクション2: 楽楽勤怠データ分析 */}
+      <div className="mb-12">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 pb-3 border-b-2 border-green-500 flex items-center gap-2">
+          <Clock className="w-6 h-6 text-green-600 dark:text-green-400" />
+          楽楽勤怠データ分析
+        </h2>
+
+        {/* 概要 */}
+        <div className="bg-gradient-to-br from-green-50 to-teal-50 dark:from-gray-800 dark:to-gray-850 rounded-lg p-6 mb-8 border border-green-200 dark:border-gray-700">
+          <div className="flex items-start gap-4">
+            <FileSpreadsheet className="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0 mt-1" />
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                勤怠データ分析機能について
+              </h3>
+              <p className="text-gray-700 dark:text-gray-300">
+                楽楽勤怠システムからエクスポートしたXLSXファイルをアップロードすることで、
+                入力漏れの検出、残業時間の集計、休憩時間違反のチェックなどを自動で行います。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* データ集計と締め日 */}
+        <AccordionSection
+          title="データ集計と締め日の仕様"
+          icon={<Calendar className="w-5 h-5" />}
+          defaultOpen={true}
+        >
+          <div className="space-y-4">
+            <p className="text-gray-700 dark:text-gray-300">
+              勤怠データの確定タイミングと集計の基準です。分析システム上のデータ鮮度に関わります。
+            </p>
+            <div className="bg-gray-50 dark:bg-gray-850 rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">月次データの確定</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li><strong>締め切り:</strong> 翌月第1営業日の13:00まで</li>
+                <li><strong>集計基準:</strong> 13:00時点のデータを基に計算が行われます</li>
+                <li><strong>概算集計:</strong> 月末2営業日前に概算集計が行われるため、前日までの入力が必要です</li>
+              </ul>
+            </div>
+            <div className="bg-amber-50 dark:bg-gray-850 rounded-lg p-4 border-l-4 border-amber-500">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                <strong className="text-amber-800 dark:text-amber-400">注意:</strong>
+                締め処理後はデータがロックされます。締め後の修正は、上長承認および総務によるロック解除が必要です。
+              </p>
+            </div>
+          </div>
+        </AccordionSection>
+
+        {/* 申請ステータス */}
+        <AccordionSection
+          title="申請ステータスの定義"
+          icon={<AlertCircle className="w-5 h-5" />}
+        >
+          <div className="space-y-4">
+            <p className="text-gray-700 dark:text-gray-300">
+              楽楽勤怠からエクスポートされたデータや画面上の表示ステータスの意味です。
+            </p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border border-gray-200 dark:border-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">ステータス</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">表示色</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">説明</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-gray-200 dark:border-gray-700">
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">申請中</td>
+                    <td className="px-4 py-2 text-sm"><span className="px-2 py-1 bg-red-100 text-red-800 rounded">赤色</span></td>
+                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">申請提出済み、承認ルートで決裁待ち</td>
+                  </tr>
+                  <tr className="border-t border-gray-200 dark:border-gray-700">
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">承認済</td>
+                    <td className="px-4 py-2 text-sm"><span className="px-2 py-1 bg-gray-100 text-gray-800 rounded">灰色</span></td>
+                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">最終承認者が承認を完了した状態</td>
+                  </tr>
+                  <tr className="border-t border-gray-200 dark:border-gray-700">
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">システム登録</td>
+                    <td className="px-4 py-2 text-sm"><span className="px-2 py-1 bg-white border text-gray-800 rounded">白色</span></td>
+                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">システム管理者が直接登録したデータ</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="bg-red-50 dark:bg-gray-850 rounded-lg p-4 border-l-4 border-red-500">
+              <h4 className="font-semibold text-red-900 dark:text-red-300 mb-2">アラート（入力不備）</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li>出勤簿上の「赤い三角マーク」やトップページのアラート一覧に表示されます</li>
+                <li>アラートが残っている状態では「出勤簿提出（月締め）」ができません</li>
+                <li>対象日をクリックし、「打刻修正申請」等を行う必要があります</li>
+              </ul>
+            </div>
+          </div>
+        </AccordionSection>
+
+        {/* 残業・早出の判定ロジック */}
+        <AccordionSection
+          title="残業・早出の判定ロジック"
+          icon={<TrendingUp className="w-5 h-5" />}
+        >
+          <div className="space-y-4">
+            <p className="text-gray-700 dark:text-gray-300">
+              勤務形態（客先常駐か内勤か）によって、残業計算のトリガーが異なります。
+            </p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border border-gray-200 dark:border-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">勤務形態</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">早出残業</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">定時後残業</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-gray-200 dark:border-gray-700">
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">客先就業者</td>
+                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">「早出フラグ」に「1」を入力</td>
+                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">退社時刻から自動計算</td>
+                  </tr>
+                  <tr className="border-t border-gray-200 dark:border-gray-700">
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">内勤者</td>
+                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">「早出申請」の提出が必須</td>
+                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">「残業申請」の提出が必須</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </AccordionSection>
+
+        {/* 休憩時間の計算ルール */}
+        <AccordionSection
+          title="休憩時間の計算ルール"
+          icon={<Clock className="w-5 h-5" />}
+        >
+          <div className="space-y-4">
+            <div className="bg-blue-50 dark:bg-gray-850 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">法定基準（労働基準法）</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li>労働時間が<strong>6時間を超える</strong>場合は<strong>45分以上</strong>の休憩が必要</li>
+                <li>労働時間が<strong>8時間を超える</strong>場合は<strong>60分以上</strong>の休憩が必要</li>
+              </ul>
+            </div>
+            <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+              <p><strong>自動計算と修正:</strong></p>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>基本設定（例：12:00-13:00）以外で休憩を取った場合は「休憩時間修正申請」が必要</li>
+                <li>深夜休憩や時差出勤時は自動計算されません</li>
+              </ul>
+            </div>
+            <div className="bg-amber-50 dark:bg-gray-850 rounded-lg p-4 border-l-4 border-amber-500">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                <strong className="text-amber-800 dark:text-amber-400">注意:</strong>
+                時間有休取得時、休憩時間は労働時間にも有休時間にも含まれません。
+                所定休憩時間を削って退社時間を早めることは禁止されています。
+              </p>
+            </div>
+          </div>
+        </AccordionSection>
+
+        {/* 36協定・コンプライアンス */}
+        <AccordionSection
+          title="36協定・コンプライアンス情報"
+          icon={<AlertTriangle className="w-5 h-5" />}
+        >
+          <div className="space-y-4">
+            <p className="text-gray-700 dark:text-gray-300">
+              分析システム側でアラートを出す場合の閾値設定の参考情報です。
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-red-50 dark:bg-gray-850 rounded-lg p-4 border border-red-200 dark:border-gray-700">
+                <h4 className="font-semibold text-red-900 dark:text-red-300 mb-2">残業上限（36協定）</h4>
+                <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                  <li><strong>月45時間</strong>が原則的な上限</li>
+                  <li><strong>年360時間</strong>が原則的な上限</li>
+                </ul>
+              </div>
+              <div className="bg-orange-50 dark:bg-gray-850 rounded-lg p-4 border border-orange-200 dark:border-gray-700">
+                <h4 className="font-semibold text-orange-900 dark:text-orange-300 mb-2">特別条項</h4>
+                <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                  <li>月100時間未満（休日労働含む）</li>
+                  <li>2〜6ヶ月平均80時間以内</li>
+                </ul>
+              </div>
+            </div>
+            <div className="bg-purple-50 dark:bg-gray-850 rounded-lg p-4 border-l-4 border-purple-500">
+              <h4 className="font-semibold text-purple-900 dark:text-purple-300 mb-2">健康管理</h4>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                月80時間超の残業は脳・心臓疾患のリスクが高まるとされています（過労死ライン）。
+              </p>
+            </div>
+          </div>
+        </AccordionSection>
+
+      </div>{/* セクション2終了 */}
+
+      {/* 注意事項（両セクション共通） */}
       <div className="bg-red-50 dark:bg-gray-850 rounded-lg p-6 border-l-4 border-red-500 mb-8">
         <div className="flex items-start gap-4">
           <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-1" />
@@ -456,6 +668,11 @@ const AboutAnalysisTab: React.FC = () => {
               </li>
               <li>
                 <strong>強制的な配置転換の根拠としては使用しないでください。</strong>
+              </li>
+              <li>
+                <strong>勤怠データの取り扱い:</strong>
+                個人の勤怠情報は機密情報です。アップロードしたデータはブラウザ内でのみ処理され、
+                サーバーには送信されません。
               </li>
             </ul>
           </div>
