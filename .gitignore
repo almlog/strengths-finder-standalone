@@ -35,6 +35,7 @@ yarn-error.log*
 firebase-service-account.json
 service-account.json
 *-service-account*.json
+**/firebase-service-account.json
 
 # Firebase cache
 .firebase/

@@ -6,6 +6,65 @@
 
 ## [Unreleased]
 
+### v3.4: 勤怠分析機能 (2026-01-09)
+
+#### ✨ 新機能: 楽楽勤怠連携による勤怠分析
+
+**概要**
+- 楽楽勤怠からエクスポートしたXLSXファイルをアップロードして勤怠データを自動分析
+- 勤怠入力漏れ、申請漏れ、36協定違反などを自動検出
+- StrengthsFinderに登録済みの従業員情報と連携
+
+**違反検出機能 (AttendanceService.ts)**
+- `missing_clock`: 打刻漏れ（出勤/退勤）
+- `break_violation`: 休憩時間不足（法定基準未満）
+- `late_application_missing`: 遅刻申請漏れ
+- `early_leave_application_missing`: 早退申請漏れ
+- `early_start_application_missing`: 早出申請漏れ
+- `time_leave_punch_missing`: 時間有休の私用外出/戻り打刻漏れ
+- `night_break_application_missing`: 深夜休憩申請漏れ
+- `remarks_missing`: 備考欄未記入（直行・直帰・遅延・打刻修正時）
+- `remarks_format_warning`: 備考欄が5文字未満
+
+**36協定残業時間チェック（7段階）**
+| レベル | 閾値 | 対応 |
+|--------|------|------|
+| warning | 35h超 | 上長報告 |
+| exceeded | 45h超 | 36協定基本上限・特別条項確認 |
+| caution | 55h超 | 残業抑制指示 |
+| serious | 65h超 | 残業禁止措置の検討 |
+| severe | 70h超 | 親会社への報告 |
+| critical | 80h超 | 医師面接指導 |
+| illegal | 100h超 | 即時是正必須 |
+
+**予兆アラート機能**
+- 月の途中時点で月末の残業時間を予測
+- 45時間超過が見込まれる従業員を早期に検出
+- 計算式: `月末予測 = (現在の残業時間 ÷ データ最終日) × 30`
+
+**8時間勤務者への特別処理**
+- 8時間勤務カレンダーの判定（シート名・カレンダー列から自動検出）
+- 30分以内の遅刻で実働7.5h以上の場合は遅刻違反から除外
+
+**UI構成 (AttendanceAnalysisPage.tsx)**
+- **アップロード画面**: ドラッグ&ドロップ対応、ルール説明パネル
+- **サマリータブ**: 全体統計、36協定アラート、予兆アラート
+- **従業員別タブ**: 個別の勤怠詳細、StrengthsFinder Top5表示
+- **部門別タブ**: 部門ごとの集計
+- **違反一覧タブ**: 全違反の詳細リスト
+
+**実装ファイル**
+- `src/components/attendance/AttendanceAnalysisPage.tsx` (900+行)
+- `src/services/AttendanceService.ts` (1500+行)
+- `src/models/AttendanceTypes.ts` - 型定義
+- `src/__tests__/services/AttendanceService.*.test.ts` - TDDテスト
+
+**関連ドキュメント**
+- [docs/specs/SPEC_ATTENDANCE_ANALYSIS.md](./docs/specs/SPEC_ATTENDANCE_ANALYSIS.md) - 仕様書
+- [docs/rakurakukintai/rakurakukinntaimanual_v02.md](./docs/rakurakukintai/rakurakukinntaimanual_v02.md) - 運用マニュアル
+
+---
+
 ### v3.3: 分析手法の説明タブと用語統一 (2025-11-05)
 
 #### ✨ 新機能: 「分析について」タブの追加
