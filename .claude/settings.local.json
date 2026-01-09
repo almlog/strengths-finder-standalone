@@ -26,7 +26,14 @@
       "Bash(pkill:*)",
       "Bash(timeout 30 npm test:*)",
       "Skill(strengths-analyzer)",
-      "Bash(npx kill-port:*)"
+      "Bash(npx kill-port:*)",
+      "Bash(ls:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(node -e:*)",
+      "Bash(node scripts/analyze-columns.js:*)",
+      "Bash(curl:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

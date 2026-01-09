@@ -24,7 +24,7 @@ import { useStrengths } from '../../contexts/StrengthsContext';
 import { useStageMasters } from '../../hooks/useStageMasters';
 import { useMemberRates } from '../../hooks/useMemberRates';
 import { SimulationService } from '../../services/SimulationService';
-import { Download, Upload, CheckCircle, Plus, AlertTriangle } from 'lucide-react';
+import { Download, Upload, CheckCircle, Plus, AlertTriangle, Users } from 'lucide-react';
 import MemberCard from './simulation/MemberCard';
 import GroupCard from './simulation/GroupCard';
 
@@ -259,8 +259,9 @@ const TeamSimulation: React.FC = () => {
 
   if (!state) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex flex-col items-center justify-center p-8 text-gray-500 dark:text-gray-400">
+        <Users className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
+        <p>チームシミュレーションを利用するには、まず「メンバー管理」タブでメンバーを登録してください</p>
       </div>
     );
   }
