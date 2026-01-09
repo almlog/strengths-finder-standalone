@@ -1,0 +1,82 @@
+# ==========================================
+# AI Development Log Configuration (v4.0)
+# ==========================================
+
+# --------------------------------------------------
+# 1. Scope & Logic (自動判定ロジック)
+# --------------------------------------------------
+scope_logic:
+  mode: "Auto-Incremental"
+  instruction: >
+    このチャットセッションの履歴を遡ってください。
+    - パターンA: 過去にこのフォーマットでの「Dev Log」出力が存在する → その出力の「直後」から現在までの差分のみを出力対象とする。
+    - パターンB: 過去に「Dev Log」出力が存在しない → セッション開始から現在までの全てを出力対象とする。
+
+# --------------------------------------------------
+# 2. File Management (ファイル保存設定)
+# --------------------------------------------------
+file_output:
+  enabled: true
+  directory: "./docs/dev_logs" # 保存先フォルダ（なければ作成するよう指示）
+  # 上書き防止のため、日時(HHMM)を含める
+  filename_pattern: "Log_{YYYY-MM-DD}_{HHmm}_{Topic_SnakeCase}.md"
+  conflict_resolution: "Do not overwrite. If file exists, append '_v2', '_v3' suffix."
+
+# --------------------------------------------------
+# 3. Content Structure (Notion Markdown)
+# --------------------------------------------------
+content_config:
+  target_platform: "Notion"
+  language: "Japanese"
+  style: "Structured, Technical, TDD-focused"
+
+  structure:
+    header:
+      icon: "⏱️" 
+      # タイトル例: 2026-01-08 14:30 - Login_Implementation
+      title: "{YYYY-MM-DD} {HH:mm} - {Primary_Topic}" 
+      meta_data:
+        - "Model: {AI_Model_Name}"
+        - "Scope: {Full_Session OR Incremental_Diff}"
+        - "Tags: #AI_Dev #Log"
+
+    sections:
+      1_summary:
+        title: "⚡ ハイライト"
+        format: "Callout block"
+        content: "対象範囲（初回なら全体、続きなら差分）における成果・決定事項の要約。"
+
+      2_task_details:
+        title: "🔨 タスク詳細 (TDD/Spec)"
+        format: "Tasks separated by Heading 3"
+        content: >
+          タスクごとに以下の項目を記載:
+          - Task Name & ID
+          - Status (🔴RED / 🟢GREEN / 🔵REFACTOR / 🟡PENDING)
+          - Action & Reasoning (思考プロセス、エラー対応)
+          - Result (完了/未完了)
+
+      3_files_and_resources:
+        title: "📂 ファイル & 参照"
+        content: 
+          - 変更/作成したファイルパス一覧
+          - 参照したURL、ドキュメント、重要なUser指示
+
+      4_context_handover:
+        title: "🔌 Next Context (JSON)"
+        format: "Code block (JSON)"
+        content: >
+          次回、別のAIがこの開発を引き継ぐためのマシンリーダブルな状態定義。
+          { "tasks": [...], "pending_issues": [...], "tech_constraints": [...] }
+
+# --------------------------------------------------
+# Execution Prompt (AIへの実行指示)
+# --------------------------------------------------
+# AIはこの設定を読み込んだら、上記ルールに従い
+# 1. 出力内容を生成し
+# 2. 指定されたディレクトリ・ファイル名で保存（またはコードブロック表示）してください。
+# 
+# 
+# ai_devlog_config.yaml の設定（特にファイル名規則と差分ロジック）に従って、
+# Notion用のMarkdownを作成してください。
+# ファイル操作はできないため、ファイル名とコードブロックを表示するだけでOKです。

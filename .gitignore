@@ -30,3 +30,10 @@ yarn-error.log*
 
 # Firebase Emulator data (local development only)
 .emulator-data/
+
+# Firebase cache and credentials
+.firebase/
+**/firebase-service-account.json
+
+# Windows null device redirect artifact
+nul
