@@ -8,6 +8,14 @@
 docs/
 ├── README.md                      # このファイル（ドキュメントインデックス）
 ├── DEVELOPMENT_QUALITY_PLEDGE.md  # 開発品質誓約書
+├── notebooklm/                    # NotebookLM・スライド生成用ドキュメント
+│   ├── 00_OVERVIEW.md             # システム概要
+│   ├── 01_USER_MANUAL.md          # ユーザーマニュアル
+│   ├── 02_ADMINISTRATOR_GUIDE.md  # 管理者ガイド
+│   ├── 03_SYSTEM_SPECIFICATION.md # システム仕様書
+│   ├── 04_ANALYSIS_THEORY.md      # 分析理論
+│   ├── 05_DEVELOPMENT_ROADMAP.md  # 開発ロードマップ
+│   └── 06_API_REFERENCE.md        # APIリファレンス
 ├── auth/                          # 認証機能ドキュメント
 │   ├── AUTHENTICATION_REQUIREMENTS.md  # 認証要件定義
 │   ├── IMPLEMENTATION_PLAN.md          # 実装計画
@@ -17,11 +25,41 @@ docs/
 │   └── ANALYSIS_EXPLANATION.md    # 分析機能の説明
 ├── completed-specs/               # 完了済み仕様書アーカイブ
 │   └── README.md                  # 完了済み仕様書一覧
-└── specs/                         # 進行中・保留中の仕様書
-    └── SPEC_BULK_SELECTION.md     # 一括選択機能仕様
+├── specs/                         # 進行中・保留中の仕様書
+│   └── SPEC_BULK_SELECTION.md     # 一括選択機能仕様
+├── slides/                        # プレゼンテーション資料
+│   └── PRESENTATION.md            # Marp対応スライド（経営・管理者・人事・利用者向け）
+└── dev_logs/                      # 開発ログ
 ```
 
 ## 主要ドキュメント
+
+### NotebookLM用ドキュメント (docs/notebooklm/)
+
+NotebookLMやスライド生成ツール向けに最適化された包括的なドキュメント群です。
+システム全体の理解、ユーザー教育、管理者トレーニングに使用できます。
+
+| ファイル | 説明 |
+|---------|------|
+| [00_OVERVIEW.md](notebooklm/00_OVERVIEW.md) | システム概要・クイックリファレンス |
+| [01_USER_MANUAL.md](notebooklm/01_USER_MANUAL.md) | 全機能の操作ガイド（登録〜分析〜勤怠） |
+| [02_ADMINISTRATOR_GUIDE.md](notebooklm/02_ADMINISTRATOR_GUIDE.md) | Firebase管理、ユーザー管理、トラブルシュート |
+| [03_SYSTEM_SPECIFICATION.md](notebooklm/03_SYSTEM_SPECIFICATION.md) | 技術アーキテクチャ、データモデル、サービス層 |
+| [04_ANALYSIS_THEORY.md](notebooklm/04_ANALYSIS_THEORY.md) | 分析手法の理論的背景（MBTI×資質、Belbin） |
+| [05_DEVELOPMENT_ROADMAP.md](notebooklm/05_DEVELOPMENT_ROADMAP.md) | バージョン履歴、今後の計画、技術的負債 |
+| [06_API_REFERENCE.md](notebooklm/06_API_REFERENCE.md) | サービス/Hook/Context のAPI仕様 |
+
+### プレゼンテーション資料 (docs/slides/)
+
+Marp対応のスライド資料です。経営層・管理者・人事・利用者向けの統合説明資料として使用できます。
+
+| ファイル | 説明 |
+|---------|------|
+| [PRESENTATION.md](slides/PRESENTATION.md) | システム説明スライド（約48スライド、Marp形式） |
+
+**使用方法:**
+- Marp CLI: `marp slides/PRESENTATION.md -o presentation.pdf`
+- VS Code: Marp拡張機能でプレビュー・エクスポート
 
 ### 開発ガイド（ルートディレクトリ）
 | ファイル | 説明 |
