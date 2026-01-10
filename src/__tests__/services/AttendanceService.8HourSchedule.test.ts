@@ -29,8 +29,16 @@ describe('AttendanceService - 8時スケジュール検出', () => {
     });
   });
 
-  describe('calculateOvertimeMinutes - 8時スケジュール除外', () => {
-    const createMockRecord = (sheetName: string, actualWorkHours: string): AttendanceRecord => ({
+  describe('calculateOvertimeMinutes - Excelの残業時間カラムを使用', () => {
+    /**
+     * 残業時間はExcelの「平日法定外残業(36協定用)」カラムから取得する
+     * 楽楽勤怠が正しく計算した値を使用するため、計算ロジックは不要
+     */
+    const createMockRecord = (
+      sheetName: string,
+      actualWorkHours: string,
+      overtimeHours: string = ''
+    ): AttendanceRecord => ({
       employeeId: '1408008',
       employeeName: '松戸 胤人',
       department: '13D51210',
@@ -53,31 +61,38 @@ describe('AttendanceService - 8時スケジュール検出', () => {
       nightBreakModification: '',
       nightWorkMinutes: '',
       actualWorkHours,
-      overtimeHours: '',
+      overtimeHours,
       lateMinutes: '',
       earlyLeaveMinutes: '',
       remarks: '',
       sheetName,
     });
 
-    it('should return 0 overtime for 8時 schedule employee even with long work hours', () => {
-      const record = createMockRecord('KDDI_日勤_800-1630～930-1800_1200', '10:50');
+    it('should get overtime from Excel for 8時 schedule employee', () => {
+      // 8時カレンダー登録者も通常通りExcelの残業時間を取得
+      const record = createMockRecord('KDDI_日勤_800-1630～930-1800_1200', '10:50', '2:50');
       const overtime = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtime).toBe(0);
+      expect(overtime).toBe(170); // 2:50 = 170分
     });
 
-    it('should calculate normal overtime for 9時 schedule employee', () => {
-      const record = createMockRecord('KDDI_日勤_900-1800', '10:50');
+    it('should get overtime from Excel for 9時 schedule employee', () => {
+      const record = createMockRecord('KDDI_日勤_900-1800', '10:50', '2:50');
       const overtime = AttendanceService.calculateOvertimeMinutes(record);
-      // 10:50 = 650分、8時間 = 480分、残業 = 170分
+      // Excelの「平日法定外残業(36協定用)」カラムから取得: 2:50 = 170分
       expect(overtime).toBe(170);
     });
 
-    it('should calculate normal overtime for generic sheet name', () => {
-      const record = createMockRecord('開発チーム_2024年1月', '9:00');
+    it('should get overtime from Excel for generic sheet name', () => {
+      const record = createMockRecord('開発チーム_2024年1月', '9:00', '1:00');
       const overtime = AttendanceService.calculateOvertimeMinutes(record);
-      // 9:00 = 540分、8時間 = 480分、残業 = 60分
+      // Excelの「平日法定外残業(36協定用)」カラムから取得: 1:00 = 60分
       expect(overtime).toBe(60);
+    });
+
+    it('should return 0 when Excel overtime column is empty', () => {
+      const record = createMockRecord('開発チーム_2024年1月', '8:00', '');
+      const overtime = AttendanceService.calculateOvertimeMinutes(record);
+      expect(overtime).toBe(0);
     });
   });
 });
