@@ -12,6 +12,7 @@ import {
   CheckCircle,
   Award,
   TrendingUp,
+  Crown,
 } from 'lucide-react';
 import AttendanceService from '../../services/AttendanceService';
 import {
@@ -26,7 +27,7 @@ import {
   OvertimeAlertLevel,
 } from '../../models/AttendanceTypes';
 import { useStrengths } from '../../contexts/StrengthsContext';
-import { MemberStrengths } from '../../models/StrengthsTypes';
+import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
 
 type TabType = 'summary' | 'employees' | 'departments' | 'violations';
@@ -837,7 +838,33 @@ const EmployeesTab: React.FC<{
   );
 };
 
-// 従業員名（Strengths情報付きツールチップ）
+/**
+ * 役職に応じたバッジ情報を取得
+ * @param position メンバーの役職
+ * @returns バッジタイプと色
+ */
+const getPositionBadgeInfo = (position: Position | string | undefined): {
+  type: 'crown' | 'circle' | 'award';
+  color: string;
+  displayName: string;
+} => {
+  // 役職情報を取得
+  if (position && position !== Position.GENERAL) {
+    const positionInfo = StrengthsService.getPositionInfo(position);
+    if (positionInfo) {
+      if (positionInfo.icon === 'crown') {
+        return { type: 'crown', color: positionInfo.color, displayName: positionInfo.displayName };
+      }
+      if (positionInfo.icon === 'circle' || positionInfo.icon === 'star') {
+        return { type: 'circle', color: positionInfo.color, displayName: positionInfo.displayName };
+      }
+    }
+  }
+  // デフォルト：一般社員/未設定はAward
+  return { type: 'award', color: '#EAB308', displayName: '一般社員' };
+};
+
+// 従業員名（Strengths情報付きツールチップ + 役職別バッジ）
 const EmployeeNameWithStrengths: React.FC<{
   employeeName: string;
   strengthsMember: MemberStrengths | undefined;
@@ -857,20 +884,59 @@ const EmployeeNameWithStrengths: React.FC<{
     })
     .filter(Boolean);
 
+  // 役職に応じたバッジ情報を取得
+  const badgeInfo = getPositionBadgeInfo(strengthsMember.position);
+
+  // バッジアイコンのレンダリング
+  const renderBadgeIcon = () => {
+    if (badgeInfo.type === 'crown') {
+      return (
+        <Crown
+          className="w-4 h-4"
+          style={{ color: badgeInfo.color }}
+          fill={badgeInfo.color}
+        />
+      );
+    }
+    if (badgeInfo.type === 'circle') {
+      return (
+        <div
+          className="w-4 h-4 rounded-full"
+          style={{ backgroundColor: badgeInfo.color }}
+          title={badgeInfo.displayName}
+        />
+      );
+    }
+    // デフォルト: Award
+    return <Award className="w-4 h-4 text-yellow-500" />;
+  };
+
   return (
     <div className="relative inline-block">
       <span
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         className="cursor-pointer flex items-center space-x-1"
+        title={badgeInfo.displayName}
       >
         <span>{employeeName}</span>
-        <Award className="w-4 h-4 text-yellow-500" />
+        {renderBadgeIcon()}
       </span>
 
       {/* Strengthsツールチップ */}
       {showTooltip && (
         <div className="absolute z-50 left-0 top-full mt-1 w-64 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+          {/* 役職表示（一般以外） */}
+          {badgeInfo.type !== 'award' && (
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center space-x-1">
+              {badgeInfo.type === 'crown' ? (
+                <Crown className="w-3 h-3" style={{ color: badgeInfo.color }} fill={badgeInfo.color} />
+              ) : (
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: badgeInfo.color }} />
+              )}
+              <span>{badgeInfo.displayName}</span>
+            </div>
+          )}
           <div className="text-sm font-medium text-gray-900 dark:text-white mb-2 flex items-center space-x-2">
             <Award className="w-4 h-4 text-yellow-500" />
             <span>StrengthsFinder Top 5</span>
