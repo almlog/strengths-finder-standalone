@@ -602,28 +602,24 @@ export class AttendanceService {
   }
 
   /**
-   * 残業時間を計算（分）
-   * - 平日: 8時間（480分）を超えた時間
-   * - 休日出勤: 全時間
-   * - 8時スケジュール: 早出のみ適用（通常残業なし）
+   * 残業時間を取得（分）
+   * - 平日: Excelの「平日法定外残業(36協定用)」カラムを使用
+   * - 休日出勤: 実働時間全体
+   *
+   * 注: 8時カレンダー登録者も通常通り残業時間を取得する。
+   * 8時カレンダー特殊処理は「遅刻誤検出」の防止であり、残業時間とは無関係。
    */
   static calculateOvertimeMinutes(record: AttendanceRecord): number {
-    // 8時スケジュール（シート名から判定）の場合は残業0
-    // カレンダー登録が誤っている場合があり、8時出社は早出以外の残業はない
-    if (this.is8HourScheduleFromSheetName(record.sheetName)) {
-      return 0;
-    }
-
-    const actualWorkMinutes = this.parseTimeToMinutes(record.actualWorkHours);
-
-    // 休日出勤は全時間が残業
+    // 休日出勤は実働時間全体が残業
     if (record.calendarType !== 'weekday') {
+      const actualWorkMinutes = this.parseTimeToMinutes(record.actualWorkHours);
       return actualWorkMinutes;
     }
 
-    // 平日は8時間超が残業
-    const standardWorkMinutes = BREAK_TIME_REQUIREMENTS.THRESHOLD_8H_MINUTES;
-    return Math.max(0, actualWorkMinutes - standardWorkMinutes);
+    // 平日はExcelの「平日法定外残業(36協定用)」カラムの値を使用
+    // このカラムは楽楽勤怠が自動計算した36協定ベースの残業時間
+    const overtimeFromExcel = this.parseTimeToMinutes(record.overtimeHours);
+    return overtimeFromExcel;
   }
 
   /**
