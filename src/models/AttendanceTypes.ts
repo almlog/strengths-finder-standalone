@@ -331,6 +331,9 @@ export interface EmployeeMonthlySummary {
   missingClockDays: number;      // 出退勤時刻なし日数
   earlyStartViolationDays: number; // 早出フラグ未入力日数
   violations: AttendanceViolation[]; // 全ての違反
+  // 営業日情報（予兆計算用）
+  passedWeekdays: number;        // 経過営業日数（分析対象期間内の平日）
+  totalWeekdaysInMonth: number;  // 月間営業日数（カレンダー上の平日合計）
 }
 
 /**
