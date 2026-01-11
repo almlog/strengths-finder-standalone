@@ -1,7 +1,7 @@
 // src/components/attendance/AttendanceAnalysisPage.tsx
 // 勤怠分析メインページ
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   FileSpreadsheet,
   AlertTriangle,
@@ -13,7 +13,11 @@ import {
   Award,
   TrendingUp,
   Crown,
+  FileText,
+  X,
 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import AttendanceService from '../../services/AttendanceService';
 import {
   AttendanceRecord,
@@ -32,6 +36,30 @@ import StrengthsService from '../../services/StrengthsService';
 
 type TabType = 'summary' | 'employees' | 'departments' | 'violations';
 
+// サマリーカード詳細モーダル用の型
+type SummaryModalType = 'issues' | 'highUrgency' | 'mediumUrgency' | null;
+
+// 違反タイプから緊急度を判定するマッピング
+// - high: 法令違反（即時是正が必要）
+// - medium: 届出漏れ（申請が必要）
+// - none: 緊急度別カウントには含めない（問題ありにはカウント）
+const VIOLATION_URGENCY: Record<ViolationType, 'high' | 'medium' | 'none'> = {
+  // 法令違反（高緊急度）
+  break_violation: 'high',                    // 休憩時間違反（労働基準法違反）
+  night_break_application_missing: 'high',    // 深夜休憩申請漏れ（深夜労働規制）
+
+  // 届出漏れ（中緊急度）
+  late_application_missing: 'medium',         // 届出漏れ（遅刻）
+  early_leave_application_missing: 'medium',  // 届出漏れ（早退）
+  early_start_application_missing: 'medium',  // 届出漏れ（早出）
+  time_leave_punch_missing: 'medium',         // 時間有休の私用外出打刻漏れ
+
+  // 問題ありにはカウントするが、緊急度別には含めない
+  missing_clock: 'none',           // 打刻漏れ（月締め不可だが法令違反ではない）
+  remarks_missing: 'none',         // 備考未入力
+  remarks_format_warning: 'none',  // 備考フォーマット警告
+};
+
 const AttendanceAnalysisPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +68,11 @@ const AttendanceAnalysisPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('summary');
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
   const [includeToday, setIncludeToday] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [summaryModal, setSummaryModal] = useState<SummaryModalType>(null);
+
+  // PDF出力用のref
+  const summaryRef = useRef<HTMLDivElement>(null);
 
   // StrengthsFinder分析との連携用（閲覧のみ - 勤怠分析は独立機能）
   const { members: strengthsMembers } = useStrengths();
@@ -119,6 +152,58 @@ const AttendanceAnalysisPage: React.FC = () => {
     URL.revokeObjectURL(url);
   }, [analysisResult]);
 
+  const handleExportPdf = useCallback(async () => {
+    if (!summaryRef.current || !analysisResult) return;
+
+    setIsExportingPdf(true);
+    try {
+      // html2canvasでキャプチャ
+      const canvas = await html2canvas(summaryRef.current, {
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: summaryRef.current.scrollWidth,
+        windowHeight: summaryRef.current.scrollHeight,
+      } as Parameters<typeof html2canvas>[1]);
+
+      // A4横向きでPDF作成
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentWidth = pageWidth - margin * 2;
+      const contentHeight = pageHeight - margin * 2;
+
+      // 画像のアスペクト比を維持してフィット
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(contentWidth / imgWidth, contentHeight / imgHeight);
+      const scaledWidth = imgWidth * ratio;
+      const scaledHeight = imgHeight * ratio;
+
+      // 中央配置
+      const x = margin + (contentWidth - scaledWidth) / 2;
+      const y = margin;
+
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
+
+      // ファイル名に日付を含める
+      const dateStr = AttendanceService.formatDate(new Date());
+      pdf.save(`勤怠分析サマリー_${dateStr}.pdf`);
+    } catch (err) {
+      console.error('PDF export error:', err);
+      alert('PDF出力中にエラーが発生しました');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [analysisResult]);
+
   const handleReset = useCallback(() => {
     setRecords([]);
     setAnalysisResult(null);
@@ -130,6 +215,26 @@ const AttendanceAnalysisPage: React.FC = () => {
   const filteredEmployees = analysisResult?.employeeSummaries.filter(
     s => filterDepartment === 'all' || s.department === filterDepartment
   ) ?? [];
+
+  // サマリーカード用: 各カテゴリの該当者リスト
+  const summaryDetails = useMemo(() => {
+    if (!analysisResult) return { issues: [], highUrgency: [], mediumUrgency: [] };
+
+    // 問題あり（違反がある従業員）
+    const issues = analysisResult.employeeSummaries.filter(emp => emp.violations.length > 0);
+
+    // 高緊急度（VIOLATION_URGENCYで 'high' に分類される違反がある従業員）
+    const highUrgency = analysisResult.employeeSummaries.filter(emp =>
+      emp.violations.some(v => VIOLATION_URGENCY[v.type] === 'high')
+    );
+
+    // 中緊急度（VIOLATION_URGENCYで 'medium' に分類される違反がある従業員）
+    const mediumUrgency = analysisResult.employeeSummaries.filter(emp =>
+      emp.violations.some(v => VIOLATION_URGENCY[v.type] === 'medium')
+    );
+
+    return { issues, highUrgency, mediumUrgency };
+  }, [analysisResult]);
 
   return (
     <div className="space-y-6">
@@ -147,6 +252,15 @@ const AttendanceAnalysisPage: React.FC = () => {
             >
               <Download className="w-4 h-4" />
               <span>CSV出力</span>
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={isExportingPdf || activeTab !== 'summary'}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={activeTab !== 'summary' ? 'サマリータブでのみPDF出力可能です' : ''}
+            >
+              <FileText className="w-4 h-4" />
+              <span>{isExportingPdf ? '出力中...' : 'PDF出力'}</span>
             </button>
             <button
               onClick={handleReset}
@@ -336,18 +450,21 @@ const AttendanceAnalysisPage: React.FC = () => {
               label="問題あり"
               value={analysisResult.summary.employeesWithIssues}
               color="red"
+              onClick={() => setSummaryModal('issues')}
             />
             <SummaryCard
               icon={<span className="text-xl">{URGENCY_ICONS.high}</span>}
               label="高緊急度"
               value={analysisResult.summary.highUrgencyCount}
               color="red"
+              onClick={() => setSummaryModal('highUrgency')}
             />
             <SummaryCard
               icon={<span className="text-xl">{URGENCY_ICONS.medium}</span>}
               label="中緊急度"
               value={analysisResult.summary.mediumUrgencyCount}
               color="yellow"
+              onClick={() => setSummaryModal('mediumUrgency')}
             />
           </div>
 
@@ -413,7 +530,9 @@ const AttendanceAnalysisPage: React.FC = () => {
           {/* タブコンテンツ */}
           <div className="min-h-[400px]">
             {activeTab === 'summary' && (
-              <SummaryTab result={analysisResult} />
+              <div ref={summaryRef}>
+                <SummaryTab result={analysisResult} />
+              </div>
             )}
             {activeTab === 'employees' && (
               <EmployeesTab employees={filteredEmployees} strengthsMemberMap={strengthsMemberMap} />
@@ -427,6 +546,160 @@ const AttendanceAnalysisPage: React.FC = () => {
           </div>
         </>
       )}
+
+      {/* サマリーカード詳細モーダル */}
+      {summaryModal && analysisResult && (
+        <SummaryDetailModal
+          type={summaryModal}
+          employees={
+            summaryModal === 'issues' ? summaryDetails.issues :
+            summaryModal === 'highUrgency' ? summaryDetails.highUrgency :
+            summaryDetails.mediumUrgency
+          }
+          onClose={() => setSummaryModal(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+// サマリーカード詳細モーダル
+const SummaryDetailModal: React.FC<{
+  type: 'issues' | 'highUrgency' | 'mediumUrgency';
+  employees: EmployeeMonthlySummary[];
+  onClose: () => void;
+}> = ({ type, employees, onClose }) => {
+  const modalConfig = {
+    issues: {
+      title: '確認が必要なメンバー',
+      description: '打刻漏れ・届出漏れなど、勤怠に関する確認事項があるメンバーです',
+      icon: <AlertTriangle className="w-6 h-6 text-red-500" />,
+      bgColor: 'bg-red-50 dark:bg-red-900/20',
+      borderColor: 'border-red-200 dark:border-red-800',
+    },
+    highUrgency: {
+      title: '法令違反の可能性がある対象者',
+      description: '休憩時間違反など、労働基準法に抵触する可能性があるメンバーです',
+      icon: <span className="text-xl">{URGENCY_ICONS.high}</span>,
+      bgColor: 'bg-red-50 dark:bg-red-900/20',
+      borderColor: 'border-red-200 dark:border-red-800',
+    },
+    mediumUrgency: {
+      title: '届出漏れがある対象者',
+      description: '遅刻・早退・早出などの申請が必要なメンバーです',
+      icon: <span className="text-xl">{URGENCY_ICONS.medium}</span>,
+      bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+      borderColor: 'border-yellow-200 dark:border-yellow-800',
+    },
+  };
+
+  const config = modalConfig[type];
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden ${config.borderColor} border-2`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ヘッダー */}
+        <div className={`${config.bgColor} px-6 py-4 flex items-center justify-between`}>
+          <div className="flex items-center space-x-3">
+            {config.icon}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{config.title}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{config.description}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+            aria-label="閉じる"
+          >
+            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+          </button>
+        </div>
+
+        {/* メンバーリスト */}
+        <div className="overflow-y-auto max-h-[60vh]">
+          {employees.length === 0 ? (
+            <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+              該当するメンバーはいません
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">社員番号</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">氏名</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">部門</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">違反数</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">主な違反</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {employees.map(emp => {
+                  // 緊急度に応じた違反をフィルター
+                  const targetUrgency = type === 'highUrgency' ? 'high' : 'medium';
+                  const relevantViolations = type === 'issues'
+                    ? emp.violations
+                    : emp.violations.filter(v => VIOLATION_URGENCY[v.type] === targetUrgency);
+
+                  // 違反種類をグループ化してカウント
+                  const violationTypeCounts: Record<string, number> = {};
+                  relevantViolations.forEach(v => {
+                    const displayName = VIOLATION_DISPLAY_INFO[v.type]?.displayName || v.type;
+                    violationTypeCounts[displayName] = (violationTypeCounts[displayName] || 0) + 1;
+                  });
+
+                  return (
+                    <tr key={emp.employeeId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{emp.employeeId}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{emp.employeeName}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{emp.department}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
+                          {relevantViolations.length}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(violationTypeCounts).slice(0, 3).map(([typeName, count]) => (
+                            <span
+                              key={typeName}
+                              className="inline-flex px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                            >
+                              {typeName}{count > 1 ? ` ×${count}` : ''}
+                            </span>
+                          ))}
+                          {Object.keys(violationTypeCounts).length > 3 && (
+                            <span className="text-xs text-gray-400">+{Object.keys(violationTypeCounts).length - 3}種類</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* フッター */}
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            該当: {employees.length}名
+          </p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            閉じる
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -437,7 +710,8 @@ const SummaryCard: React.FC<{
   label: string;
   value: number;
   color: 'blue' | 'red' | 'yellow' | 'green';
-}> = ({ icon, label, value, color }) => {
+  onClick?: () => void;
+}> = ({ icon, label, value, color, onClick }) => {
   const colorClasses = {
     blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
     red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
@@ -445,13 +719,24 @@ const SummaryCard: React.FC<{
     green: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
   };
 
+  const isClickable = onClick && value > 0;
+
   return (
-    <div className={`rounded-lg p-4 ${colorClasses[color]}`}>
+    <div
+      className={`rounded-lg p-4 ${colorClasses[color]} ${isClickable ? 'cursor-pointer hover:opacity-80 hover:shadow-md transition-all' : ''}`}
+      onClick={isClickable ? onClick : undefined}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
+    >
       <div className="flex items-center space-x-3">
         {icon}
         <div>
           <p className="text-sm opacity-80">{label}</p>
           <p className="text-2xl font-bold">{value}</p>
+          {isClickable && (
+            <p className="text-xs opacity-60 mt-1">クリックで詳細表示</p>
+          )}
         </div>
       </div>
     </div>
@@ -491,6 +776,18 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) =>
     totalMissingClocks: result.employeeSummaries.reduce((sum, s) => sum + s.missingClockDays, 0),
   };
 
+  // 部署コード一覧を取得
+  const departmentCodes = result.departmentSummaries.map(d => d.department);
+
+  // 現在日時を取得
+  const exportDateTime = new Date().toLocaleString('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   // 平均計算
   const avgOvertimePerEmployee = stats.totalEmployees > 0
     ? Math.round(stats.totalOvertime / stats.totalEmployees)
@@ -515,28 +812,58 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) =>
     });
 
   // 予兆アラート（ペース超過）対象者を抽出
-  // データの最終日をdayOfMonthとして使用
-  const dayOfMonth = result.summary.analysisDateRange.end.getDate();
+  // 営業日ベースで計算
   const paceAlerts = result.employeeSummaries
     .filter(emp => {
-      // すでに45時間超過している人は36協定アラートで表示されるので除外
-      if (emp.totalOvertimeMinutes >= 45 * 60) return false;
-      // 45時間上限に対してペース超過かチェック
-      return AttendanceService.isOvertimeOnPaceToExceed(
-        emp.totalOvertimeMinutes,
-        dayOfMonth,
-        45 * 60 // 月45時間上限（36協定基本上限）
-      );
+      // すでに70時間超過している人は除外（重大レベル以上は36協定アラートで十分）
+      if (emp.totalOvertimeMinutes >= 70 * 60) return false;
+      // 経過営業日がない場合は除外
+      if (emp.passedWeekdays <= 0) return false;
+      // 営業日ベースで45時間上限に対してペース超過かチェック
+      const predictedOvertime = Math.round((emp.totalOvertimeMinutes / emp.passedWeekdays) * emp.totalWeekdaysInMonth);
+      return predictedOvertime > 45 * 60; // 45時間超過見込み
     })
     .map(emp => {
-      // 月末予測を計算（単純按分）
-      const predictedOvertime = Math.round((emp.totalOvertimeMinutes / dayOfMonth) * 30);
-      return { ...emp, predictedOvertime };
+      // 月末予測を計算（営業日ベース）
+      const predictedOvertime = Math.round((emp.totalOvertimeMinutes / emp.passedWeekdays) * emp.totalWeekdaysInMonth);
+      // 予測レベルを判定
+      const predictedLevel = AttendanceService.getOvertimeAlertLevel(predictedOvertime);
+      return { ...emp, predictedOvertime, predictedLevel };
     })
     .sort((a, b) => b.predictedOvertime - a.predictedOvertime);
 
   return (
     <div className="space-y-6">
+      {/* PDF用ヘッダー: 分析対象情報 */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-6 text-white print:bg-blue-700">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">勤怠分析サマリー</h2>
+            <div className="space-y-1 text-blue-100">
+              <p>
+                <span className="font-medium text-white">分析対象期間:</span>{' '}
+                {AttendanceService.formatDateRange(
+                  result.summary.analysisDateRange.start,
+                  result.summary.analysisDateRange.end
+                )}
+              </p>
+              <p>
+                <span className="font-medium text-white">対象部署:</span>{' '}
+                {departmentCodes.length > 0 ? departmentCodes.join(' / ') : '全部署'}
+              </p>
+              <p>
+                <span className="font-medium text-white">対象人数:</span>{' '}
+                {result.summary.totalEmployees}名
+              </p>
+            </div>
+          </div>
+          <div className="text-right text-sm text-blue-200">
+            <p>分析実行日時</p>
+            <p className="font-medium text-white">{exportDateTime}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -619,7 +946,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) =>
             </h3>
           </div>
           <p className="text-sm text-red-700 dark:text-red-300 mb-4">
-            以下の従業員は月間残業時間が基準を超過しています。労務管理上の対応が必要です。
+            以下のメンバーは月間残業時間が基準を超過しています。労務管理上の対応が必要です。
           </p>
           <div className="overflow-x-auto">
             <table className="min-w-full">
@@ -690,11 +1017,11 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) =>
               残業ペース超過 予兆アラート
             </h3>
             <span className="text-sm text-amber-700 dark:text-amber-300">
-              （{dayOfMonth}日時点）
+              （営業日ベース）
             </span>
           </div>
           <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
-            以下の従業員は、現在のペースで月末まで働くと36協定基本上限（45時間）を超過する見込みです。早期対応をご検討ください。
+            以下のメンバーは、現在のペースで月末まで働くと36協定基準を超過する見込みです。予測レベルに応じた早期対応をご検討ください。
           </p>
           <div className="overflow-x-auto">
             <table className="min-w-full">
@@ -703,13 +1030,25 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) =>
                   <th className="px-3 py-2">氏名</th>
                   <th className="px-3 py-2">部門</th>
                   <th className="px-3 py-2 text-right">現在の残業</th>
+                  <th className="px-3 py-2 text-center">経過/全営業日</th>
                   <th className="px-3 py-2 text-right">月末予測</th>
-                  <th className="px-3 py-2 text-right">超過見込</th>
+                  <th className="px-3 py-2 text-center">予測レベル</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-amber-200 dark:divide-amber-800">
                 {paceAlerts.map(emp => {
-                  const exceededMinutes = emp.predictedOvertime - 45 * 60;
+                  // 予測レベルに応じた色とラベル
+                  const levelConfig: Record<string, { bg: string; text: string; label: string }> = {
+                    illegal: { bg: 'bg-black', text: 'text-white', label: '違法(100h超)' },
+                    critical: { bg: 'bg-red-900', text: 'text-white', label: '危険(80h超)' },
+                    severe: { bg: 'bg-purple-700', text: 'text-white', label: '重大(70h超)' },
+                    serious: { bg: 'bg-red-600', text: 'text-white', label: '深刻(65h超)' },
+                    caution: { bg: 'bg-red-500', text: 'text-white', label: '警戒(55h超)' },
+                    exceeded: { bg: 'bg-orange-500', text: 'text-white', label: '超過(45h超)' },
+                    warning: { bg: 'bg-yellow-400', text: 'text-gray-900', label: '注意(35h超)' },
+                    normal: { bg: 'bg-gray-200', text: 'text-gray-700', label: '正常' },
+                  };
+                  const config = levelConfig[emp.predictedLevel] || levelConfig.normal;
                   return (
                     <tr key={emp.employeeId} className="text-sm">
                       <td className="px-3 py-2 text-amber-900 dark:text-amber-100 font-medium">{emp.employeeName}</td>
@@ -717,12 +1056,15 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) =>
                       <td className="px-3 py-2 text-right text-amber-900 dark:text-amber-100">
                         {AttendanceService.formatMinutesToTime(emp.totalOvertimeMinutes)}
                       </td>
+                      <td className="px-3 py-2 text-center text-amber-700 dark:text-amber-300">
+                        {emp.passedWeekdays}/{emp.totalWeekdaysInMonth}日
+                      </td>
                       <td className="px-3 py-2 text-right text-amber-900 dark:text-amber-100 font-medium">
                         {AttendanceService.formatMinutesToTime(emp.predictedOvertime)}
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        <span className="inline-flex px-2 py-1 rounded text-xs font-medium bg-amber-200 dark:bg-amber-800/50 text-amber-900 dark:text-amber-100">
-                          +{AttendanceService.formatMinutesToTime(exceededMinutes)}
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-flex px-2 py-1 rounded text-xs font-bold ${config.bg} ${config.text}`}>
+                          {config.label}
                         </span>
                       </td>
                     </tr>
@@ -732,10 +1074,10 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) =>
             </table>
           </div>
           <div className="mt-4 p-3 bg-amber-100 dark:bg-amber-900/30 rounded text-xs text-amber-800 dark:text-amber-200">
-            <p className="font-medium mb-1">予兆判定の計算方法:</p>
-            <p>月末予測 = (現在の残業時間 ÷ {dayOfMonth}日) × 30日</p>
+            <p className="font-medium mb-1">予兆判定の計算方法（営業日ベース）:</p>
+            <p>月末予測 = (現在の残業時間 ÷ 経過営業日数) × 月間営業日数</p>
             <p className="mt-1 text-amber-600 dark:text-amber-400">
-              ※ この予測は単純な按分計算です。実際の業務量により変動します。
+              ※ 営業日はカレンダー種別「平日」のレコードから算出しています。
             </p>
           </div>
         </div>

@@ -1050,8 +1050,19 @@ export class AttendanceService {
     let missingClockDays = 0;
     let earlyStartViolationDays = 0;
 
+    // 営業日カウント（予兆計算用）
+    let passedWeekdays = 0;        // 経過営業日数（分析対象期間内の平日）
+    let totalWeekdaysInMonth = 0;  // 月間営業日数（カレンダー上の平日合計）
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    // まず全レコードから月間営業日数をカウント
+    for (const record of records) {
+      if (record.calendarType === 'weekday') {
+        totalWeekdaysInMonth++;
+      }
+    }
 
     for (const analysis of dailyAnalyses) {
       const record = analysis.record;
@@ -1065,6 +1076,11 @@ export class AttendanceService {
       } else {
         // 今日以降はスキップ（デフォルト）
         if (record.date >= today) continue;
+      }
+
+      // 経過営業日カウント（分析対象期間内の平日）
+      if (record.calendarType === 'weekday') {
+        passedWeekdays++;
       }
 
       // 出勤日カウント
@@ -1229,6 +1245,9 @@ export class AttendanceService {
       missingClockDays,
       earlyStartViolationDays,
       violations,
+      // 営業日情報（予兆計算用）
+      passedWeekdays,
+      totalWeekdaysInMonth,
     };
   }
 

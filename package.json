@@ -18,6 +18,8 @@
     "@types/react-dom": "^19.1.9",
     "autoprefixer": "^10.4.21",
     "firebase": "^12.7.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.0.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.544.0",
     "postcss": "^8.5.6",
@@ -76,6 +78,7 @@
     }
   },
   "devDependencies": {
+    "@types/html2canvas": "^0.5.35",
     "firebase-admin": "^13.6.0"
   }
 }
