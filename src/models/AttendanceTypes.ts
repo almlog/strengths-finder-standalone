@@ -2,6 +2,14 @@
 // 勤怠分析機能の型定義
 
 /**
+ * 分析オプション
+ */
+export interface AnalysisOptions {
+  /** 今日の日付を分析対象に含めるか（デフォルト: false） */
+  includeToday?: boolean;
+}
+
+/**
  * カレンダー種別
  */
 export type CalendarType = 'weekday' | 'statutory_holiday' | 'non_statutory_holiday';

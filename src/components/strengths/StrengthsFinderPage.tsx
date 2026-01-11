@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical, BookOpen, LogOut, Clock } from 'lucide-react';
+// import { Train } from 'lucide-react'; // 交通情報タブ用（開発中）
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -17,6 +18,7 @@ import StrengthsAnalysis from './StrengthsAnalysis';
 import TeamSimulation from './TeamSimulation';
 import AboutAnalysisTab from './AboutAnalysisTab';
 import AttendanceAnalysisPage from '../attendance/AttendanceAnalysisPage';
+// import TrafficInfoPage from '../traffic/TrafficInfoPage'; // 交通情報タブ用（開発中）
 import { StageMasterSettings } from './StageMasterSettings';
 import { MemberRateSettings } from './MemberRateSettings';
 import ImportConflictDialog, { ImportConflictInfo, ImportStrategy } from './ImportConflictDialog';
@@ -24,6 +26,7 @@ import { Tabs, Tab } from '../ui/Tabs';
 import { MigrationService } from '../../services/MigrationService';
 
 type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths' | 'simulation' | 'attendance' | 'about' | 'settings';
+// 'traffic' は開発中のため一時的に削除
 
 // スクロール処理の遅延時間（ms）
 // DOMの更新を待つために必要
@@ -431,6 +434,16 @@ const StrengthsFinderPage: React.FC = () => {
             }>
               <AttendanceAnalysisPage />
             </Tab>
+            {/* 交通情報タブは開発中のため一時的に非表示
+            <Tab id="traffic" label={
+              <div className="flex items-center">
+                <Train className="w-4 h-4 mr-1" />
+                <span>交通情報</span>
+              </div>
+            }>
+              <TrafficInfoPage />
+            </Tab>
+            */}
             <Tab id="about" label={
               <div className="flex items-center">
                 <BookOpen className="w-4 h-4 mr-1" />

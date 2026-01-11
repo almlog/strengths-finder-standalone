@@ -39,6 +39,7 @@ const AttendanceAnalysisPage: React.FC = () => {
   const [analysisResult, setAnalysisResult] = useState<ExtendedAnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('summary');
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
+  const [includeToday, setIncludeToday] = useState(false);
 
   // StrengthsFinder分析との連携用（閲覧のみ - 勤怠分析は独立機能）
   const { members: strengthsMembers } = useStrengths();
@@ -72,8 +73,8 @@ const AttendanceAnalysisPage: React.FC = () => {
       const parsedRecords = await AttendanceService.parseXlsx(file);
       setRecords(parsedRecords);
 
-      // 分析実行
-      const result = AttendanceService.analyzeExtended(parsedRecords);
+      // 分析実行（includeToday オプションを渡す）
+      const result = AttendanceService.analyzeExtended(parsedRecords, { includeToday });
       setAnalysisResult(result);
 
     } catch (err) {
@@ -81,7 +82,7 @@ const AttendanceAnalysisPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [includeToday]);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -161,21 +162,78 @@ const AttendanceAnalysisPage: React.FC = () => {
       {/* ファイルアップロード */}
       {!analysisResult && (
         <>
-          {/* 使い方・注意事項 */}
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-            <div className="flex items-start space-x-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-amber-800 dark:text-amber-200 mb-2">
-                  アップロード時の注意事項
-                </p>
-                <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1 list-disc list-inside">
-                  <li>楽楽勤怠からエクスポートした<strong>XLSXファイルをそのまま</strong>アップロードしてください</li>
-                  <li><strong>シート名は変更しないでください</strong>（勤務形態の判定に使用します）</li>
-                  <li>カラム順序や構成を変更すると正しく分析できません</li>
-                  <li>ファイルサイズは10MB以下にしてください</li>
-                </ul>
+          {/* コンパクトな注意事項 + ファイルドロップエリア */}
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            {/* 薄い注意バナー */}
+            <div className="bg-amber-50 dark:bg-amber-900/30 px-4 py-2 border-b border-amber-200 dark:border-amber-800">
+              <div className="flex items-center space-x-2 text-sm text-amber-700 dark:text-amber-300">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span>楽楽勤怠エクスポートの<strong>XLSXファイルをそのまま</strong>アップロード（シート名変更不可・10MB以下）</span>
               </div>
+            </div>
+
+            {/* 分析オプション */}
+            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">分析オプション</span>
+                </div>
+                {/* 今日を含めるトグル */}
+                <label className="flex items-center space-x-3 cursor-pointer group">
+                  <div className="flex flex-col items-end">
+                    <span className={`text-sm font-medium ${includeToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                      {includeToday ? '今日を含めて分析' : '今日を除外して分析'}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {includeToday ? '退勤前でも違反判定される場合あり' : '退勤前の誤検出を防止'}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={includeToday}
+                      onChange={(e) => setIncludeToday(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-11 h-6 rounded-full transition-colors ${includeToday ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                      <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${includeToday ? 'translate-x-5' : ''}`} />
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* ファイルドロップエリア */}
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              className="p-8 text-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+            >
+              <input
+                type="file"
+                accept=".xlsx"
+                onChange={handleFileSelect}
+                className="hidden"
+                id="file-upload"
+              />
+              <label htmlFor="file-upload" className="cursor-pointer">
+                {isLoading ? (
+                  <div className="flex flex-col items-center">
+                    <RefreshCw className="w-10 h-10 text-blue-500 animate-spin mb-3" />
+                    <p className="text-gray-600 dark:text-gray-300">分析中...</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <FileSpreadsheet className="w-10 h-10 text-gray-400 mb-3" />
+                    <p className="text-base text-gray-600 dark:text-gray-300 mb-1">
+                      XLSXファイルをドロップまたはクリックして選択
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      楽楽勤怠「出勤簿_日別詳細」ファイル
+                    </p>
+                  </div>
+                )}
+              </label>
             </div>
           </div>
 
@@ -247,39 +305,6 @@ const AttendanceAnalysisPage: React.FC = () => {
                 <li>早出（客先常駐） → 早出フラグ「1」</li>
               </ul>
             </div>
-          </div>
-
-          {/* ファイルドロップエリア */}
-          <div
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-12 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer"
-          >
-            <input
-              type="file"
-              accept=".xlsx"
-              onChange={handleFileSelect}
-              className="hidden"
-              id="file-upload"
-            />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              {isLoading ? (
-                <div className="flex flex-col items-center">
-                  <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-                  <p className="text-gray-600 dark:text-gray-300">分析中...</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center">
-                  <FileSpreadsheet className="w-12 h-12 text-gray-400 mb-4" />
-                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-2">
-                    XLSXファイルをドロップまたはクリックして選択
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    楽楽勤怠からエクスポートした「出勤簿_日別詳細」ファイル
-                  </p>
-                </div>
-              )}
-            </label>
           </div>
         </>
       )}
