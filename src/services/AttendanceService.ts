@@ -18,6 +18,7 @@ import {
   EmployeeMonthlySummary,
   DepartmentSummary,
   ExtendedAnalysisResult,
+  AnalysisOptions,
   XLSX_COLUMN_INDEX,
   LEAVE_KEYWORDS,
   URGENCY_THRESHOLDS,
@@ -156,6 +157,18 @@ export class AttendanceService {
   }
 
   /**
+   * Excelシリアル値をDateに変換
+   * Excelの日付シリアル値は1900年1月1日を1とする連番
+   * （Excelの1900年うるう年バグを考慮）
+   */
+  private static excelSerialToDate(serial: number): Date {
+    // Excelのエポック: 1899年12月30日（1900年1月1日が1になるよう調整）
+    const excelEpoch = new Date(1899, 11, 30);
+    const millisecondsPerDay = 24 * 60 * 60 * 1000;
+    return new Date(excelEpoch.getTime() + serial * millisecondsPerDay);
+  }
+
+  /**
    * 日付文字列をDateにパース
    */
   private static parseDate(value: unknown): Date | null {
@@ -166,14 +179,33 @@ export class AttendanceService {
       return value;
     }
 
-    // 文字列の場合 (YYYY-MM-DD または YYYY/MM/DD)
+    // 数値の場合（Excelシリアル日付）
+    if (typeof value === 'number' && value > 0) {
+      // 日付部分のみ（小数点以下は時刻）
+      return this.excelSerialToDate(Math.floor(value));
+    }
+
+    // 文字列の場合
     const str = String(value).trim();
     if (!str) return null;
 
-    const match = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-    if (match) {
-      const [, year, month, day] = match;
+    // YYYY-MM-DD または YYYY/MM/DD 形式
+    const matchYMD = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (matchYMD) {
+      const [, year, month, day] = matchYMD;
       return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+
+    // M/D/YY または M/D/YYYY 形式（Excel raw:false出力）
+    const matchMDY = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (matchMDY) {
+      const [, month, day, yearStr] = matchMDY;
+      let year = parseInt(yearStr);
+      // 2桁年号を4桁に変換（00-99 → 2000-2099）
+      if (year < 100) {
+        year += 2000;
+      }
+      return new Date(year, parseInt(month) - 1, parseInt(day));
     }
 
     return null;
@@ -190,15 +222,40 @@ export class AttendanceService {
       return value;
     }
 
-    // 文字列の場合 (YYYY-MM-DD HH:MM または YYYY/MM/DD HH:MM)
+    // 数値の場合（Excelシリアル日時）
+    // 整数部分が日付、小数部分が時刻（1日を1として表現）
+    if (typeof value === 'number' && value > 0) {
+      return this.excelSerialToDate(value);
+    }
+
+    // 文字列の場合
     const str = String(value).trim();
     if (!str) return null;
 
-    const match = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})\s+(\d{1,2}):(\d{2})/);
-    if (match) {
-      const [, year, month, day, hour, minute] = match;
+    // YYYY-MM-DD HH:MM または YYYY/MM/DD HH:MM 形式
+    const matchYMD = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+    if (matchYMD) {
+      const [, year, month, day, hour, minute] = matchYMD;
       return new Date(
         parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        parseInt(hour),
+        parseInt(minute)
+      );
+    }
+
+    // M/D/YY H:MM または M/D/YYYY H:MM 形式（Excel raw:false出力）
+    const matchMDY = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2})/);
+    if (matchMDY) {
+      const [, month, day, yearStr, hour, minute] = matchMDY;
+      let year = parseInt(yearStr);
+      // 2桁年号を4桁に変換（00-99 → 2000-2099）
+      if (year < 100) {
+        year += 2000;
+      }
+      return new Date(
+        year,
         parseInt(month) - 1,
         parseInt(day),
         parseInt(hour),
@@ -906,10 +963,19 @@ export class AttendanceService {
     const hasBreakViolation = actualWorkMinutes > BREAK_TIME_REQUIREMENTS.THRESHOLD_6H_MINUTES &&
                              breakMinutes < requiredBreakMinutes;
 
+    // 打刻漏れ判定: 片方でも欠落していれば違反（休暇日を除く）
+    // - 出社ありで退社なし: 退社打刻漏れ
+    // - 出社なしで退社あり: 出社打刻漏れ
+    // - 両方なし（実働もなし）: 完全未入力
+    const hasClockIn = record.clockIn !== null;
+    const hasClockOut = record.clockOut !== null;
     const hasMissingClock = record.calendarType === 'weekday' &&
-      !record.clockIn && !record.clockOut &&
       leaveType === 'none' &&
-      actualWorkMinutes === 0;
+      (
+        (hasClockIn && !hasClockOut) ||  // 退社打刻のみ欠落
+        (!hasClockIn && hasClockOut) ||  // 出社打刻のみ欠落
+        (!hasClockIn && !hasClockOut && actualWorkMinutes === 0)  // 両方欠落（実働なし）
+      );
 
     const isTimelyDep = this.isTimelyDeparture(record, leaveType);
 
@@ -963,8 +1029,10 @@ export class AttendanceService {
    */
   static createEmployeeMonthlySummary(
     employeeId: string,
-    records: AttendanceRecord[]
+    records: AttendanceRecord[],
+    options: AnalysisOptions = {}
   ): EmployeeMonthlySummary {
+    const { includeToday = false } = options;
     const firstRecord = records[0];
     const dailyAnalyses = records.map(r => this.analyzeDailyRecord(r));
 
@@ -988,8 +1056,16 @@ export class AttendanceService {
     for (const analysis of dailyAnalyses) {
       const record = analysis.record;
 
-      // 未来日付はスキップ
-      if (record.date >= today) continue;
+      // 日付フィルタリング: includeToday=falseなら今日以降をスキップ、trueなら未来のみスキップ
+      if (includeToday) {
+        // 明日以降はスキップ
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        if (record.date >= tomorrow) continue;
+      } else {
+        // 今日以降はスキップ（デフォルト）
+        if (record.date >= today) continue;
+      }
 
       // 出勤日カウント
       if (record.clockIn || record.clockOut) {
@@ -1201,8 +1277,10 @@ export class AttendanceService {
 
   /**
    * 拡張分析を実行
+   * @param records 勤怠レコード
+   * @param options 分析オプション（includeToday: 今日を含めるか）
    */
-  static analyzeExtended(records: AttendanceRecord[]): ExtendedAnalysisResult {
+  static analyzeExtended(records: AttendanceRecord[], options: AnalysisOptions = {}): ExtendedAnalysisResult {
     // 従業員ごとにグループ化
     const employeeRecords = new Map<string, AttendanceRecord[]>();
     records.forEach(record => {
@@ -1216,7 +1294,7 @@ export class AttendanceService {
     // 従業員ごとの月次サマリー作成
     const employeeSummaries: EmployeeMonthlySummary[] = [];
     employeeRecords.forEach((recs, employeeId) => {
-      employeeSummaries.push(this.createEmployeeMonthlySummary(employeeId, recs));
+      employeeSummaries.push(this.createEmployeeMonthlySummary(employeeId, recs, options));
     });
 
     // 部門別集計
