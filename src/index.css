@@ -40,3 +40,39 @@ input[type='number'] {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari, Opera */
 }
+
+/* 細いスクロールバー表示ユーティリティ（タブメニューで使用） */
+.scrollbar-thin {
+  scrollbar-width: thin;  /* Firefox */
+  scrollbar-color: #94a3b8 transparent;  /* Firefox */
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;  /* 横スクロールバーの高さ */
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
+
+/* ダークモード対応 */
+.dark .scrollbar-thin {
+  scrollbar-color: #64748b transparent;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #64748b;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}

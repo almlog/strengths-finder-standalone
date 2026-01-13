@@ -50,10 +50,10 @@ export const Tabs: React.FC<TabsProps> = ({ children, activeTab, onTabChange }) 
       {/* スクロール可能なタブコンテナ */}
       <div
         ref={tabsContainerRef}
-        className="flex border-b overflow-x-auto scrollbar-hide"
+        className="flex border-b overflow-x-auto scrollbar-thin"
         style={{
-          scrollbarWidth: 'none', // Firefox
-          msOverflowStyle: 'none', // IE/Edge
+          scrollbarWidth: 'thin', // Firefox: 細いスクロールバー
+          scrollbarColor: '#94a3b8 transparent', // Firefox: スクロールバーの色
         }}
       >
         {tabs.map((tabElement, index) => {
@@ -83,6 +83,6 @@ export const Tabs: React.FC<TabsProps> = ({ children, activeTab, onTabChange }) 
   );
 };
 
-// スクロールバー非表示用のCSSクラス（Tailwindのユーティリティで対応できない場合）
-// globals.cssに以下を追加することを推奨:
-// .scrollbar-hide::-webkit-scrollbar { display: none; }
+// スクロールバー用のCSSクラスはindex.cssで定義:
+// .scrollbar-thin - 細いスクロールバーを表示（ダークモード対応済み）
+// .scrollbar-hide - スクロールバーを非表示
