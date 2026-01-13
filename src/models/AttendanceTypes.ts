@@ -312,6 +312,18 @@ export interface DailyAttendanceAnalysis {
 }
 
 /**
+ * 申請カウント（個人分析PDF用）
+ */
+export interface ApplicationCounts {
+  lateApplication: number;        // 遅刻申請回数
+  trainDelayApplication: number;  // 電車遅延申請回数
+  earlyLeaveApplication: number;  // 早退申請回数
+  earlyStartApplication: number;  // 早出申請/フラグ回数
+  flextimeApplication: number;    // 時差出勤申請回数
+  breakModification: number;      // 休憩修正申請回数
+}
+
+/**
  * 従業員の月次サマリー
  */
 export interface EmployeeMonthlySummary {
@@ -334,6 +346,9 @@ export interface EmployeeMonthlySummary {
   // 営業日情報（予兆計算用）
   passedWeekdays: number;        // 経過営業日数（分析対象期間内の平日）
   totalWeekdaysInMonth: number;  // 月間営業日数（カレンダー上の平日合計）
+  // 個人分析PDF用（新規追加）
+  applicationCounts: ApplicationCounts; // 申請カウント
+  totalWorkMinutes: number;             // 月間総就業時間（分）
 }
 
 /**
