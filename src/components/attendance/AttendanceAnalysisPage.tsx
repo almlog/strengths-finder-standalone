@@ -52,9 +52,11 @@ const AttendanceAnalysisPage: React.FC = () => {
   const [includeToday, setIncludeToday] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [summaryModal, setSummaryModal] = useState<SummaryModalType>(null);
+  const [exportingEmployeeId, setExportingEmployeeId] = useState<string | null>(null);
 
   // PDF出力用のref
   const summaryRef = useRef<HTMLDivElement>(null);
+  const individualPdfRef = useRef<HTMLDivElement>(null);
 
   // StrengthsFinder分析との連携用（閲覧のみ - 勤怠分析は独立機能）
   const { members: strengthsMembers } = useStrengths();
@@ -192,6 +194,63 @@ const AttendanceAnalysisPage: React.FC = () => {
     setError(null);
     setFilterDepartment('all');
   }, []);
+
+  // 個人PDF出力
+  const handleExportIndividualPdf = useCallback(async (employee: EmployeeMonthlySummary) => {
+    if (!individualPdfRef.current || !analysisResult) return;
+
+    setExportingEmployeeId(employee.employeeId);
+    try {
+      // 少し待ってDOMを更新
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // html2canvasでキャプチャ
+      const canvas = await html2canvas(individualPdfRef.current, {
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        scale: 2, // 高解像度
+      } as Parameters<typeof html2canvas>[1]);
+
+      // A4縦向きでPDF作成
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const contentWidth = pageWidth - margin * 2;
+      const contentHeight = pageHeight - margin * 2;
+
+      // 画像のアスペクト比を維持してフィット
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(contentWidth / imgWidth, (contentHeight - 10) / imgHeight);
+
+      const scaledWidth = imgWidth * ratio;
+      const scaledHeight = imgHeight * ratio;
+
+      // 上部に配置
+      const x = margin + (contentWidth - scaledWidth) / 2;
+      const y = margin;
+
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
+
+      // ファイル名: 勤怠分析_社員番号_氏名_期間.pdf
+      const period = analysisResult.summary.analysisDateRange;
+      const startMonth = `${period.start.getFullYear()}年${period.start.getMonth() + 1}月`;
+      pdf.save(`勤怠分析_${employee.employeeId}_${employee.employeeName}_${startMonth}.pdf`);
+    } catch (err) {
+      console.error('Individual PDF export error:', err);
+      alert('PDF出力中にエラーが発生しました');
+    } finally {
+      setExportingEmployeeId(null);
+    }
+  }, [analysisResult]);
 
   // 部門でフィルターされた従業員サマリー
   const filteredEmployees = analysisResult?.employeeSummaries.filter(
@@ -517,7 +576,12 @@ const AttendanceAnalysisPage: React.FC = () => {
               </div>
             )}
             {activeTab === 'employees' && (
-              <EmployeesTab employees={filteredEmployees} strengthsMemberMap={strengthsMemberMap} />
+              <EmployeesTab
+                employees={filteredEmployees}
+                strengthsMemberMap={strengthsMemberMap}
+                onExportPdf={handleExportIndividualPdf}
+                exportingEmployeeId={exportingEmployeeId}
+              />
             )}
             {activeTab === 'departments' && (
               <DepartmentsTab departments={analysisResult.departmentSummaries} />
@@ -540,6 +604,20 @@ const AttendanceAnalysisPage: React.FC = () => {
           }
           onClose={() => setSummaryModal(null)}
         />
+      )}
+
+      {/* 個人PDF出力用の非表示コンテンツ */}
+      {exportingEmployeeId && analysisResult && (
+        <div
+          ref={individualPdfRef}
+          className="fixed left-[-9999px] top-0 bg-white p-6"
+          style={{ width: '595px' }} // A4縦幅（72dpi相当）
+        >
+          <IndividualPdfContent
+            employee={analysisResult.employeeSummaries.find(e => e.employeeId === exportingEmployeeId)!}
+            analysisResult={analysisResult}
+          />
+        </div>
       )}
     </div>
   );
@@ -1124,11 +1202,13 @@ const OvertimeCell: React.FC<{ overtimeMinutes: number }> = ({ overtimeMinutes }
   );
 };
 
-// 従業員タブ（Strengths連携対応）
+// 従業員タブ（Strengths連携対応 + 個人PDF出力）
 const EmployeesTab: React.FC<{
   employees: EmployeeMonthlySummary[];
   strengthsMemberMap: Map<string, MemberStrengths>;
-}> = ({ employees, strengthsMemberMap }) => {
+  onExportPdf: (employee: EmployeeMonthlySummary) => void;
+  exportingEmployeeId: string | null;
+}> = ({ employees, strengthsMemberMap, onExportPdf, exportingEmployeeId }) => {
   if (employees.length === 0) {
     return <p className="text-gray-500 dark:text-gray-400">従業員データがありません</p>;
   }
@@ -1147,11 +1227,13 @@ const EmployeesTab: React.FC<{
             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">遅刻</th>
             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">早退</th>
             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">違反</th>
+            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">PDF</th>
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
           {employees.map(emp => {
             const strengthsMember = strengthsMemberMap.get(emp.employeeName);
+            const isExporting = exportingEmployeeId === emp.employeeId;
             return (
               <tr key={emp.employeeId} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{emp.employeeId}</td>
@@ -1177,6 +1259,20 @@ const EmployeesTab: React.FC<{
                   ) : (
                     <CheckCircle className="w-5 h-5 text-green-500 mx-auto" />
                   )}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <button
+                    onClick={() => onExportPdf(emp)}
+                    disabled={isExporting}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="個人分析PDFを出力"
+                  >
+                    {isExporting ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <FileText className="w-4 h-4" />
+                    )}
+                  </button>
                 </td>
               </tr>
             );
@@ -1439,6 +1535,279 @@ const ViolationsTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result })
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+};
+
+// 個人PDF出力用コンテンツ
+const IndividualPdfContent: React.FC<{
+  employee: EmployeeMonthlySummary;
+  analysisResult: ExtendedAnalysisResult;
+}> = ({ employee, analysisResult }) => {
+  const alertLevel = AttendanceService.getOvertimeAlertLevel(employee.totalOvertimeMinutes);
+  const alertInfo = OVERTIME_ALERT_INFO[alertLevel];
+
+  // 出勤率
+  const attendanceRate = employee.totalWeekdaysInMonth > 0
+    ? Math.round((employee.totalWorkDays / employee.totalWeekdaysInMonth) * 100)
+    : 0;
+
+  // 定時退社率
+  const timelyDepartureRate = employee.totalWorkDays > 0
+    ? Math.round((employee.timelyDepartureDays / employee.totalWorkDays) * 100)
+    : 0;
+
+  // 日平均残業時間（分）
+  const avgOvertimePerDay = employee.totalWorkDays > 0
+    ? Math.round(employee.totalOvertimeMinutes / employee.totalWorkDays)
+    : 0;
+
+  // 月末予測残業時間（分）
+  const predictedOvertime = employee.passedWeekdays > 0
+    ? Math.round((employee.totalOvertimeMinutes / employee.passedWeekdays) * employee.totalWeekdaysInMonth)
+    : 0;
+  const predictedLevel = AttendanceService.getOvertimeAlertLevel(predictedOvertime);
+  const predictedInfo = OVERTIME_ALERT_INFO[predictedLevel];
+
+  // 分析期間
+  const period = analysisResult.summary.analysisDateRange;
+  const periodStr = `${period.start.getFullYear()}年${period.start.getMonth() + 1}月${period.start.getDate()}日 〜 ${period.end.getFullYear()}年${period.end.getMonth() + 1}月${period.end.getDate()}日`;
+
+  // 出力日時
+  const exportDateTime = new Date().toLocaleString('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  // 違反種別ごとの件数
+  const violationCounts: Record<string, number> = {};
+  employee.violations.forEach(v => {
+    const displayName = VIOLATION_DISPLAY_INFO[v.type]?.displayName || v.type;
+    violationCounts[displayName] = (violationCounts[displayName] || 0) + 1;
+  });
+
+  // 高緊急度・中緊急度の違反カウント
+  const highUrgencyCount = countHighUrgencyViolations(employee.violations);
+  const mediumUrgencyCount = countMediumUrgencyViolations(employee.violations);
+
+  return (
+    <div className="font-sans text-gray-900" style={{ width: '100%', fontSize: '11px' }}>
+      {/* ヘッダー */}
+      <div className="bg-blue-600 text-white p-4 rounded-t-lg">
+        <h1 className="text-xl font-bold mb-1">勤怠分析レポート</h1>
+        <div className="flex justify-between items-start">
+          <div>
+            <p className="text-lg font-semibold">{employee.employeeName}</p>
+            <p className="text-blue-200">
+              {employee.employeeId} / {employee.department}
+            </p>
+          </div>
+          <div className="text-right text-blue-200">
+            <p className="text-white font-medium">{periodStr}</p>
+            <p>出力: {exportDateTime}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 勤務サマリー */}
+      <div className="border-x border-gray-300 p-4">
+        <h2 className="text-sm font-bold text-gray-800 border-b border-gray-300 pb-1 mb-3">
+          勤務サマリー
+        </h2>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <p className="text-gray-500 text-xs">出勤日数</p>
+            <p className="text-lg font-bold">{employee.totalWorkDays}日</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <p className="text-gray-500 text-xs">営業日数</p>
+            <p className="text-lg font-bold">{employee.totalWeekdaysInMonth}日</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <p className="text-gray-500 text-xs">出勤率</p>
+            <p className="text-lg font-bold">{attendanceRate}%</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <p className="text-gray-500 text-xs">休日出勤</p>
+            <p className="text-lg font-bold">{employee.holidayWorkDays}日</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <p className="text-gray-500 text-xs">定時退社日数</p>
+            <p className="text-lg font-bold">{employee.timelyDepartureDays}日</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded">
+            <p className="text-gray-500 text-xs">定時退社率</p>
+            <p className="text-lg font-bold">{timelyDepartureRate}%</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 残業・36協定 */}
+      <div className="border-x border-gray-300 p-4 bg-red-50">
+        <h2 className="text-sm font-bold text-gray-800 border-b border-red-200 pb-1 mb-3">
+          残業・36協定
+        </h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600">月間残業時間</span>
+              <span className="text-xl font-bold">
+                {AttendanceService.formatMinutesToTime(employee.totalOvertimeMinutes)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600">日平均残業</span>
+              <span className="font-medium">
+                {AttendanceService.formatMinutesToTime(avgOvertimePerDay)}
+              </span>
+            </div>
+          </div>
+          <div>
+            <div className="mb-2">
+              <span className="text-gray-600 mr-2">アラート:</span>
+              <span className={`inline-flex px-2 py-1 rounded text-xs font-bold ${
+                alertLevel === 'normal' ? 'bg-green-100 text-green-800' :
+                alertLevel === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                alertLevel === 'exceeded' ? 'bg-orange-100 text-orange-800' :
+                alertLevel === 'caution' ? 'bg-orange-200 text-orange-900' :
+                'bg-red-200 text-red-900'
+              }`}>
+                {alertInfo.label}
+              </span>
+            </div>
+            <div className="mb-2">
+              <span className="text-gray-600 mr-2">月末予測:</span>
+              <span className="font-medium">
+                {AttendanceService.formatMinutesToTime(predictedOvertime)}
+              </span>
+              {predictedLevel !== 'normal' && (
+                <span className={`ml-1 text-xs px-1 py-0.5 rounded ${
+                  predictedLevel === 'warning' ? 'bg-yellow-200 text-yellow-800' :
+                  'bg-red-200 text-red-800'
+                }`}>
+                  {predictedInfo.label}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 申請サマリー */}
+      <div className="border-x border-gray-300 p-4">
+        <h2 className="text-sm font-bold text-gray-800 border-b border-gray-300 pb-1 mb-3">
+          申請サマリー
+        </h2>
+        <div className="grid grid-cols-4 gap-3">
+          <div className="text-center p-2 bg-blue-50 rounded">
+            <p className="text-gray-500 text-xs">全休</p>
+            <p className="text-base font-bold">{employee.fullDayLeaveDays}日</p>
+          </div>
+          <div className="text-center p-2 bg-blue-50 rounded">
+            <p className="text-gray-500 text-xs">半休</p>
+            <p className="text-base font-bold">{employee.halfDayLeaveDays}日</p>
+          </div>
+          <div className="text-center p-2 bg-yellow-50 rounded">
+            <p className="text-gray-500 text-xs">遅刻申請</p>
+            <p className="text-base font-bold">{employee.applicationCounts.lateApplication}回</p>
+          </div>
+          <div className="text-center p-2 bg-yellow-50 rounded">
+            <p className="text-gray-500 text-xs">早退申請</p>
+            <p className="text-base font-bold">{employee.applicationCounts.earlyLeaveApplication}回</p>
+          </div>
+          <div className="text-center p-2 bg-purple-50 rounded">
+            <p className="text-gray-500 text-xs">電車遅延</p>
+            <p className="text-base font-bold">{employee.applicationCounts.trainDelayApplication}回</p>
+          </div>
+          <div className="text-center p-2 bg-green-50 rounded">
+            <p className="text-gray-500 text-xs">早出</p>
+            <p className="text-base font-bold">{employee.applicationCounts.earlyStartApplication}回</p>
+          </div>
+          <div className="text-center p-2 bg-green-50 rounded">
+            <p className="text-gray-500 text-xs">時差出勤</p>
+            <p className="text-base font-bold">{employee.applicationCounts.flextimeApplication}回</p>
+          </div>
+          <div className="text-center p-2 bg-indigo-50 rounded">
+            <p className="text-gray-500 text-xs">休憩修正</p>
+            <p className="text-base font-bold">{employee.applicationCounts.breakModification}回</p>
+          </div>
+        </div>
+        {/* 総就業時間 */}
+        <div className="mt-3 pt-2 border-t border-gray-200">
+          <span className="text-gray-600 mr-2">総就業時間:</span>
+          <span className="font-bold">
+            {AttendanceService.formatMinutesToTime(employee.totalWorkMinutes)}
+          </span>
+        </div>
+      </div>
+
+      {/* 違反・注意事項 */}
+      <div className="border border-gray-300 p-4 rounded-b-lg">
+        <h2 className="text-sm font-bold text-gray-800 border-b border-gray-300 pb-1 mb-3">
+          注意事項
+        </h2>
+
+        {employee.violations.length === 0 ? (
+          <div className="text-center py-4 text-green-600">
+            <CheckCircle className="w-8 h-8 mx-auto mb-2" />
+            <p className="font-medium">違反はありません</p>
+          </div>
+        ) : (
+          <>
+            {/* 違反サマリー */}
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              <div className={`text-center p-1 rounded ${highUrgencyCount > 0 ? 'bg-red-100' : 'bg-gray-50'}`}>
+                <p className="text-xs text-gray-500">高緊急度</p>
+                <p className={`font-bold ${highUrgencyCount > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                  {highUrgencyCount}件
+                </p>
+              </div>
+              <div className={`text-center p-1 rounded ${mediumUrgencyCount > 0 ? 'bg-yellow-100' : 'bg-gray-50'}`}>
+                <p className="text-xs text-gray-500">中緊急度</p>
+                <p className={`font-bold ${mediumUrgencyCount > 0 ? 'text-yellow-600' : 'text-gray-600'}`}>
+                  {mediumUrgencyCount}件
+                </p>
+              </div>
+              <div className={`text-center p-1 rounded ${employee.missingClockDays > 0 ? 'bg-red-100' : 'bg-gray-50'}`}>
+                <p className="text-xs text-gray-500">打刻漏れ</p>
+                <p className={`font-bold ${employee.missingClockDays > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                  {employee.missingClockDays}日
+                </p>
+              </div>
+              <div className={`text-center p-1 rounded ${employee.breakViolationDays > 0 ? 'bg-purple-100' : 'bg-gray-50'}`}>
+                <p className="text-xs text-gray-500">休憩違反</p>
+                <p className={`font-bold ${employee.breakViolationDays > 0 ? 'text-purple-600' : 'text-gray-600'}`}>
+                  {employee.breakViolationDays}日
+                </p>
+              </div>
+            </div>
+
+            {/* 違反詳細リスト（最大10件） */}
+            <div className="text-xs">
+              <p className="font-medium text-gray-600 mb-1">違反詳細:</p>
+              <ul className="space-y-1">
+                {employee.violations.slice(0, 10).map((v, idx) => (
+                  <li key={idx} className="flex items-start text-gray-700">
+                    <span className="text-gray-400 mr-2">
+                      {AttendanceService.formatDate(v.date)}
+                    </span>
+                    <span className="font-medium mr-1">
+                      {VIOLATION_DISPLAY_INFO[v.type]?.displayName || v.type}:
+                    </span>
+                    <span className="text-gray-500 truncate">{v.details}</span>
+                  </li>
+                ))}
+                {employee.violations.length > 10 && (
+                  <li className="text-gray-400">...他{employee.violations.length - 10}件</li>
+                )}
+              </ul>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
