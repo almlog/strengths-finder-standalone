@@ -780,7 +780,7 @@ const AboutAnalysisTab: React.FC = () => {
       {/* フッター */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          最終更新: 2025-11-05 | バージョン: 1.3.1
+          最終更新: 2026-01-13 | バージョン: 3.4.2
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
           MBTI® は Myers-Briggs Type Indicator の商標です。<br />
