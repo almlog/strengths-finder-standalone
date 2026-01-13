@@ -50,10 +50,11 @@ export const Tabs: React.FC<TabsProps> = ({ children, activeTab, onTabChange }) 
       {/* スクロール可能なタブコンテナ */}
       <div
         ref={tabsContainerRef}
-        className="flex border-b overflow-x-auto scrollbar-thin"
+        className="flex border-b overflow-x-scroll scrollbar-thin"
         style={{
           scrollbarWidth: 'thin', // Firefox: 細いスクロールバー
           scrollbarColor: '#94a3b8 transparent', // Firefox: スクロールバーの色
+          WebkitOverflowScrolling: 'touch', // iOS: スムーズスクロール
         }}
       >
         {tabs.map((tabElement, index) => {

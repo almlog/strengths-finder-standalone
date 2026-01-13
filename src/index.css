@@ -44,20 +44,23 @@ input[type='number'] {
 /* 細いスクロールバー表示ユーティリティ（タブメニューで使用） */
 .scrollbar-thin {
   scrollbar-width: thin;  /* Firefox */
-  scrollbar-color: #94a3b8 transparent;  /* Firefox */
+  scrollbar-color: #94a3b8 #e2e8f0;  /* Firefox: thumb track */
 }
 
 .scrollbar-thin::-webkit-scrollbar {
-  height: 6px;  /* 横スクロールバーの高さ */
+  height: 8px;  /* 横スクロールバーの高さ（視認性向上） */
+  display: block;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
+  background: #e2e8f0;  /* トラック背景を表示 */
+  border-radius: 4px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background-color: #94a3b8;
-  border-radius: 3px;
+  border-radius: 4px;
+  min-width: 40px;  /* 最小幅を確保 */
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
@@ -66,7 +69,11 @@ input[type='number'] {
 
 /* ダークモード対応 */
 .dark .scrollbar-thin {
-  scrollbar-color: #64748b transparent;
+  scrollbar-color: #64748b #374151;  /* Firefox: thumb track */
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-track {
+  background: #374151;  /* ダークモードのトラック背景 */
 }
 
 .dark .scrollbar-thin::-webkit-scrollbar-thumb {
