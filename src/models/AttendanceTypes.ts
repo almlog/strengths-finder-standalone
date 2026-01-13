@@ -315,12 +315,31 @@ export interface DailyAttendanceAnalysis {
  * 申請カウント（個人分析PDF用）
  */
 export interface ApplicationCounts {
+  // 勤務関連
   lateApplication: number;        // 遅刻申請回数
   trainDelayApplication: number;  // 電車遅延申請回数
   earlyLeaveApplication: number;  // 早退申請回数
   earlyStartApplication: number;  // 早出申請/フラグ回数
   flextimeApplication: number;    // 時差出勤申請回数
   breakModification: number;      // 休憩修正申請回数
+  directGo: number;               // 直行回数
+  directReturn: number;           // 直帰回数
+  clockModification: number;      // 打刻修正回数
+  // 休暇・休日関連
+  hourlyLeave: number;            // 時間有休回数
+  amLeave: number;                // 午前休回数
+  pmLeave: number;                // 午後休回数
+  substituteWork: number;         // 振替出勤回数
+  substituteHoliday: number;      // 振替休日回数
+  holidayWork: number;            // 休日出勤回数
+  compensatoryLeave: number;      // 代休回数
+  absence: number;                // 欠勤回数
+  specialLeave: number;           // 特休回数
+  condolenceLeave: number;        // 慶弔休暇回数
+  menstrualLeave: number;         // 生理休暇回数
+  childCareLeave: number;         // 子の看護休暇回数
+  nursingCareLeave: number;       // 介護休暇回数
+  postNightLeave: number;         // 明け休回数
 }
 
 /**
@@ -493,6 +512,130 @@ export const BREAK_MODIFICATION_APPLICATION_KEYWORDS = [
   '休憩時間修正申請',
   '休憩修正申請',
   '深夜休憩修正',
+] as const;
+
+/**
+ * 直行関連の申請キーワード
+ */
+export const DIRECT_GO_APPLICATION_KEYWORDS = [
+  '直行',
+  '直行申請',
+  '直行届',
+] as const;
+
+/**
+ * 直帰関連の申請キーワード
+ */
+export const DIRECT_RETURN_APPLICATION_KEYWORDS = [
+  '直帰',
+  '直帰申請',
+  '直帰届',
+] as const;
+
+/**
+ * 打刻修正関連の申請キーワード
+ */
+export const CLOCK_MODIFICATION_APPLICATION_KEYWORDS = [
+  '打刻修正',
+  '打刻修正申請',
+  '出退勤修正',
+  '勤怠修正',
+] as const;
+
+/**
+ * 時間有休関連のキーワード
+ */
+export const HOURLY_LEAVE_KEYWORDS = [
+  '時間有休',
+  '有休時間',
+  '時間休',
+] as const;
+
+/**
+ * 振替出勤関連のキーワード
+ */
+export const SUBSTITUTE_WORK_KEYWORDS = [
+  '振替出勤',
+  '振出',
+] as const;
+
+/**
+ * 振替休日関連のキーワード
+ */
+export const SUBSTITUTE_HOLIDAY_KEYWORDS = [
+  '振替休日',
+  '振休',
+] as const;
+
+/**
+ * 休日出勤関連のキーワード
+ */
+export const HOLIDAY_WORK_KEYWORDS = [
+  '休日出勤',
+  '休出',
+] as const;
+
+/**
+ * 代休関連のキーワード
+ */
+export const COMPENSATORY_LEAVE_KEYWORDS = [
+  '代休',
+] as const;
+
+/**
+ * 欠勤関連のキーワード
+ */
+export const ABSENCE_KEYWORDS = [
+  '欠勤',
+] as const;
+
+/**
+ * 特別休暇関連のキーワード
+ */
+export const SPECIAL_LEAVE_KEYWORDS = [
+  '特休',
+  '特別休暇',
+] as const;
+
+/**
+ * 慶弔休暇関連のキーワード
+ */
+export const CONDOLENCE_LEAVE_KEYWORDS = [
+  '慶弔',
+  '慶弔休暇',
+] as const;
+
+/**
+ * 生理休暇関連のキーワード
+ */
+export const MENSTRUAL_LEAVE_KEYWORDS = [
+  '生理休暇',
+  '生理休',
+] as const;
+
+/**
+ * 子の看護休暇関連のキーワード
+ */
+export const CHILD_CARE_LEAVE_KEYWORDS = [
+  '子の看護休暇',
+  '看護休暇',
+  '子看護',
+] as const;
+
+/**
+ * 介護休暇関連のキーワード
+ */
+export const NURSING_CARE_LEAVE_KEYWORDS = [
+  '介護休暇',
+  '介護休',
+] as const;
+
+/**
+ * 明け休関連のキーワード
+ */
+export const POST_NIGHT_LEAVE_KEYWORDS = [
+  '明け休',
+  '明休',
 ] as const;
 
 /**

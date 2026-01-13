@@ -1655,6 +1655,19 @@ const IndividualPdfContent: React.FC<{
         </div>
       </div>
 
+      {/* 就業実績時間 */}
+      <div className="border-x border-gray-300 p-4 bg-blue-50">
+        <h2 className="text-sm font-bold text-gray-800 border-b border-blue-200 pb-1 mb-3">
+          就業実績時間
+        </h2>
+        <div className="flex justify-center items-center">
+          <span className="text-gray-600 mr-4">総就業時間</span>
+          <span className="text-2xl font-bold text-blue-700">
+            {AttendanceService.formatMinutesToTime(employee.totalWorkMinutes)}
+          </span>
+        </div>
+      </div>
+
       {/* 残業・36協定 */}
       <div className="border-x border-gray-300 p-4 bg-red-50">
         <h2 className="text-sm font-bold text-gray-800 border-b border-red-200 pb-1 mb-3">
@@ -1707,50 +1720,112 @@ const IndividualPdfContent: React.FC<{
       </div>
 
       {/* 申請サマリー */}
-      <div className="border-x border-gray-300 p-4">
-        <h2 className="text-sm font-bold text-gray-800 border-b border-gray-300 pb-1 mb-3">
+      <div className="border-x border-gray-300 p-2">
+        <h2 className="text-xs font-bold text-gray-800 border-b border-gray-300 pb-1 mb-2">
           申請サマリー
         </h2>
-        <div className="grid grid-cols-4 gap-3">
-          <div className="text-center p-2 bg-blue-50 rounded">
-            <p className="text-gray-500 text-xs">全休</p>
-            <p className="text-base font-bold">{employee.fullDayLeaveDays}日</p>
+        {/* 勤務関連 */}
+        <p className="text-xs text-gray-600 mb-1">勤務関連</p>
+        <div className="grid grid-cols-9 gap-1 mb-2">
+          <div className="text-center p-1 bg-yellow-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>遅刻</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.lateApplication}</p>
           </div>
-          <div className="text-center p-2 bg-blue-50 rounded">
-            <p className="text-gray-500 text-xs">半休</p>
-            <p className="text-base font-bold">{employee.halfDayLeaveDays}日</p>
+          <div className="text-center p-1 bg-yellow-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>早退</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.earlyLeaveApplication}</p>
           </div>
-          <div className="text-center p-2 bg-yellow-50 rounded">
-            <p className="text-gray-500 text-xs">遅刻申請</p>
-            <p className="text-base font-bold">{employee.applicationCounts.lateApplication}回</p>
+          <div className="text-center p-1 bg-purple-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>遅延</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.trainDelayApplication}</p>
           </div>
-          <div className="text-center p-2 bg-yellow-50 rounded">
-            <p className="text-gray-500 text-xs">早退申請</p>
-            <p className="text-base font-bold">{employee.applicationCounts.earlyLeaveApplication}回</p>
+          <div className="text-center p-1 bg-green-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>早出</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.earlyStartApplication}</p>
           </div>
-          <div className="text-center p-2 bg-purple-50 rounded">
-            <p className="text-gray-500 text-xs">電車遅延</p>
-            <p className="text-base font-bold">{employee.applicationCounts.trainDelayApplication}回</p>
+          <div className="text-center p-1 bg-green-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>時差</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.flextimeApplication}</p>
           </div>
-          <div className="text-center p-2 bg-green-50 rounded">
-            <p className="text-gray-500 text-xs">早出</p>
-            <p className="text-base font-bold">{employee.applicationCounts.earlyStartApplication}回</p>
+          <div className="text-center p-1 bg-orange-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>直行</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.directGo}</p>
           </div>
-          <div className="text-center p-2 bg-green-50 rounded">
-            <p className="text-gray-500 text-xs">時差出勤</p>
-            <p className="text-base font-bold">{employee.applicationCounts.flextimeApplication}回</p>
+          <div className="text-center p-1 bg-orange-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>直帰</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.directReturn}</p>
           </div>
-          <div className="text-center p-2 bg-indigo-50 rounded">
-            <p className="text-gray-500 text-xs">休憩修正</p>
-            <p className="text-base font-bold">{employee.applicationCounts.breakModification}回</p>
+          <div className="text-center p-1 bg-indigo-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>休憩修正</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.breakModification}</p>
+          </div>
+          <div className="text-center p-1 bg-red-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>打刻修正</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.clockModification}</p>
           </div>
         </div>
-        {/* 総就業時間 */}
-        <div className="mt-3 pt-2 border-t border-gray-200">
-          <span className="text-gray-600 mr-2">総就業時間:</span>
-          <span className="font-bold">
-            {AttendanceService.formatMinutesToTime(employee.totalWorkMinutes)}
-          </span>
+        {/* 休暇・休日関連 */}
+        <p className="text-xs text-gray-600 mb-1">休暇・休日</p>
+        <div className="grid grid-cols-9 gap-1 mb-2">
+          <div className="text-center p-1 bg-blue-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>時間有休</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.hourlyLeave}</p>
+          </div>
+          <div className="text-center p-1 bg-blue-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>午前休</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.amLeave}</p>
+          </div>
+          <div className="text-center p-1 bg-blue-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>午後休</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.pmLeave}</p>
+          </div>
+          <div className="text-center p-1 bg-cyan-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>振替出勤</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.substituteWork}</p>
+          </div>
+          <div className="text-center p-1 bg-cyan-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>振休</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.substituteHoliday}</p>
+          </div>
+          <div className="text-center p-1 bg-amber-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>休出</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.holidayWork}</p>
+          </div>
+          <div className="text-center p-1 bg-amber-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>代休</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.compensatoryLeave}</p>
+          </div>
+          <div className="text-center p-1 bg-gray-100 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>欠勤</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.absence}</p>
+          </div>
+          <div className="text-center p-1 bg-pink-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>特休</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.specialLeave}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-9 gap-1">
+          <div className="text-center p-1 bg-pink-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>慶弔</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.condolenceLeave}</p>
+          </div>
+          <div className="text-center p-1 bg-pink-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>生理休</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.menstrualLeave}</p>
+          </div>
+          <div className="text-center p-1 bg-teal-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>看護休</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.childCareLeave}</p>
+          </div>
+          <div className="text-center p-1 bg-teal-50 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>介護休</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.nursingCareLeave}</p>
+          </div>
+          <div className="text-center p-1 bg-slate-100 rounded">
+            <p className="text-gray-500" style={{ fontSize: '8px' }}>明け休</p>
+            <p style={{ fontSize: '11px' }} className="font-bold">{employee.applicationCounts.postNightLeave}</p>
+          </div>
+          <div className="col-span-3"></div>
         </div>
       </div>
 
@@ -1801,13 +1876,13 @@ const IndividualPdfContent: React.FC<{
               <ul className="space-y-1">
                 {employee.violations.slice(0, 10).map((v, idx) => (
                   <li key={idx} className="flex items-start text-gray-700">
-                    <span className="text-gray-400 mr-2">
+                    <span className="text-gray-400 mr-2 flex-shrink-0">
                       {AttendanceService.formatDate(v.date)}
                     </span>
-                    <span className="font-medium mr-1">
+                    <span className="font-medium mr-1 flex-shrink-0">
                       {VIOLATION_DISPLAY_INFO[v.type]?.displayName || v.type}:
                     </span>
-                    <span className="text-gray-500 truncate">{v.details}</span>
+                    <span className="text-gray-500">{v.details}</span>
                   </li>
                 ))}
                 {employee.violations.length > 10 && (
