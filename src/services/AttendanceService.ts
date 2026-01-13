@@ -19,6 +19,7 @@ import {
   DepartmentSummary,
   ExtendedAnalysisResult,
   AnalysisOptions,
+  ApplicationCounts,
   XLSX_COLUMN_INDEX,
   LEAVE_KEYWORDS,
   URGENCY_THRESHOLDS,
@@ -34,6 +35,7 @@ import {
   EARLY_LEAVE_APPLICATION_KEYWORDS,
   HALF_DAY_APPLICATION_KEYWORDS,
   EARLY_START_APPLICATION_KEYWORDS,
+  BREAK_MODIFICATION_APPLICATION_KEYWORDS,
   hasApplicationKeyword,
   // 36協定・残業時間管理
   OVERTIME_THRESHOLDS,
@@ -1025,6 +1027,81 @@ export class AttendanceService {
   }
 
   /**
+   * 申請種別ごとのカウントを取得（個人分析PDF用）
+   */
+  static countApplications(records: AttendanceRecord[]): ApplicationCounts {
+    let lateApplication = 0;
+    let trainDelayApplication = 0;
+    let earlyLeaveApplication = 0;
+    let earlyStartApplication = 0;
+    let flextimeApplication = 0;
+    let breakModification = 0;
+
+    for (const record of records) {
+      const app = record.applicationContent || '';
+
+      // 遅刻申請（遅刻・早退申請も含む）
+      if (hasApplicationKeyword(app, LATE_APPLICATION_KEYWORDS)) {
+        lateApplication++;
+      }
+
+      // 電車遅延申請
+      if (hasApplicationKeyword(app, TRAIN_DELAY_APPLICATION_KEYWORDS)) {
+        trainDelayApplication++;
+      }
+
+      // 早退申請（遅刻・早退申請も含む）
+      if (hasApplicationKeyword(app, EARLY_LEAVE_APPLICATION_KEYWORDS)) {
+        earlyLeaveApplication++;
+      }
+
+      // 早出申請またはフラグ
+      if (hasApplicationKeyword(app, EARLY_START_APPLICATION_KEYWORDS) || record.earlyStartFlag) {
+        earlyStartApplication++;
+      }
+
+      // 時差出勤申請
+      if (hasApplicationKeyword(app, FLEXTIME_APPLICATION_KEYWORDS)) {
+        flextimeApplication++;
+      }
+
+      // 休憩修正申請
+      if (hasApplicationKeyword(app, BREAK_MODIFICATION_APPLICATION_KEYWORDS)) {
+        breakModification++;
+      }
+    }
+
+    return {
+      lateApplication,
+      trainDelayApplication,
+      earlyLeaveApplication,
+      earlyStartApplication,
+      flextimeApplication,
+      breakModification,
+    };
+  }
+
+  /**
+   * 総就業時間を計算（個人分析PDF用）
+   * @param records 勤怠レコード
+   * @returns 総就業時間（分）
+   */
+  static calculateTotalWorkMinutes(records: AttendanceRecord[]): number {
+    let totalMinutes = 0;
+
+    for (const record of records) {
+      const workHours = record.actualWorkHours || '';
+      if (workHours) {
+        // "H:MM" 形式をパース
+        const [hours, minutes] = workHours.split(':').map(s => parseInt(s, 10) || 0);
+        totalMinutes += hours * 60 + minutes;
+      }
+    }
+
+    return totalMinutes;
+  }
+
+  /**
    * 従業員ごとの月次サマリーを作成
    */
   static createEmployeeMonthlySummary(
@@ -1228,6 +1305,10 @@ export class AttendanceService {
       }
     }
 
+    // 申請カウントと総就業時間を計算
+    const applicationCounts = this.countApplications(records);
+    const totalWorkMinutes = this.calculateTotalWorkMinutes(records);
+
     return {
       employeeId,
       employeeName: firstRecord.employeeName,
@@ -1248,6 +1329,9 @@ export class AttendanceService {
       // 営業日情報（予兆計算用）
       passedWeekdays,
       totalWeekdaysInMonth,
+      // 個人分析PDF用
+      applicationCounts,
+      totalWorkMinutes,
     };
   }
 
