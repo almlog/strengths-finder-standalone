@@ -36,6 +36,22 @@ import {
   HALF_DAY_APPLICATION_KEYWORDS,
   EARLY_START_APPLICATION_KEYWORDS,
   BREAK_MODIFICATION_APPLICATION_KEYWORDS,
+  DIRECT_GO_APPLICATION_KEYWORDS,
+  DIRECT_RETURN_APPLICATION_KEYWORDS,
+  CLOCK_MODIFICATION_APPLICATION_KEYWORDS,
+  // 休暇・休日関連キーワード
+  HOURLY_LEAVE_KEYWORDS,
+  SUBSTITUTE_WORK_KEYWORDS,
+  SUBSTITUTE_HOLIDAY_KEYWORDS,
+  HOLIDAY_WORK_KEYWORDS,
+  COMPENSATORY_LEAVE_KEYWORDS,
+  ABSENCE_KEYWORDS,
+  SPECIAL_LEAVE_KEYWORDS,
+  CONDOLENCE_LEAVE_KEYWORDS,
+  MENSTRUAL_LEAVE_KEYWORDS,
+  CHILD_CARE_LEAVE_KEYWORDS,
+  NURSING_CARE_LEAVE_KEYWORDS,
+  POST_NIGHT_LEAVE_KEYWORDS,
   hasApplicationKeyword,
   // 36協定・残業時間管理
   OVERTIME_THRESHOLDS,
@@ -1030,16 +1046,36 @@ export class AttendanceService {
    * 申請種別ごとのカウントを取得（個人分析PDF用）
    */
   static countApplications(records: AttendanceRecord[]): ApplicationCounts {
+    // 勤務関連
     let lateApplication = 0;
     let trainDelayApplication = 0;
     let earlyLeaveApplication = 0;
     let earlyStartApplication = 0;
     let flextimeApplication = 0;
     let breakModification = 0;
+    let directGo = 0;
+    let directReturn = 0;
+    let clockModification = 0;
+    // 休暇・休日関連
+    let hourlyLeave = 0;
+    let amLeave = 0;
+    let pmLeave = 0;
+    let substituteWork = 0;
+    let substituteHoliday = 0;
+    let holidayWork = 0;
+    let compensatoryLeave = 0;
+    let absence = 0;
+    let specialLeave = 0;
+    let condolenceLeave = 0;
+    let menstrualLeave = 0;
+    let childCareLeave = 0;
+    let nursingCareLeave = 0;
+    let postNightLeave = 0;
 
     for (const record of records) {
       const app = record.applicationContent || '';
 
+      // === 勤務関連 ===
       // 遅刻申請（遅刻・早退申請も含む）
       if (hasApplicationKeyword(app, LATE_APPLICATION_KEYWORDS)) {
         lateApplication++;
@@ -1069,15 +1105,120 @@ export class AttendanceService {
       if (hasApplicationKeyword(app, BREAK_MODIFICATION_APPLICATION_KEYWORDS)) {
         breakModification++;
       }
+
+      // 直行
+      if (hasApplicationKeyword(app, DIRECT_GO_APPLICATION_KEYWORDS)) {
+        directGo++;
+      }
+
+      // 直帰
+      if (hasApplicationKeyword(app, DIRECT_RETURN_APPLICATION_KEYWORDS)) {
+        directReturn++;
+      }
+
+      // 打刻修正
+      if (hasApplicationKeyword(app, CLOCK_MODIFICATION_APPLICATION_KEYWORDS)) {
+        clockModification++;
+      }
+
+      // === 休暇・休日関連 ===
+      // 時間有休
+      if (hasApplicationKeyword(app, HOURLY_LEAVE_KEYWORDS)) {
+        hourlyLeave++;
+      }
+
+      // 午前休
+      if (app.includes('午前休') || app.includes('AM半休') || app.includes('午前半休')) {
+        amLeave++;
+      }
+
+      // 午後休
+      if (app.includes('午後休') || app.includes('PM半休') || app.includes('午後半休')) {
+        pmLeave++;
+      }
+
+      // 振替出勤
+      if (hasApplicationKeyword(app, SUBSTITUTE_WORK_KEYWORDS)) {
+        substituteWork++;
+      }
+
+      // 振替休日
+      if (hasApplicationKeyword(app, SUBSTITUTE_HOLIDAY_KEYWORDS)) {
+        substituteHoliday++;
+      }
+
+      // 休日出勤
+      if (hasApplicationKeyword(app, HOLIDAY_WORK_KEYWORDS)) {
+        holidayWork++;
+      }
+
+      // 代休
+      if (hasApplicationKeyword(app, COMPENSATORY_LEAVE_KEYWORDS)) {
+        compensatoryLeave++;
+      }
+
+      // 欠勤
+      if (hasApplicationKeyword(app, ABSENCE_KEYWORDS)) {
+        absence++;
+      }
+
+      // 特休
+      if (hasApplicationKeyword(app, SPECIAL_LEAVE_KEYWORDS)) {
+        specialLeave++;
+      }
+
+      // 慶弔休暇
+      if (hasApplicationKeyword(app, CONDOLENCE_LEAVE_KEYWORDS)) {
+        condolenceLeave++;
+      }
+
+      // 生理休暇
+      if (hasApplicationKeyword(app, MENSTRUAL_LEAVE_KEYWORDS)) {
+        menstrualLeave++;
+      }
+
+      // 子の看護休暇
+      if (hasApplicationKeyword(app, CHILD_CARE_LEAVE_KEYWORDS)) {
+        childCareLeave++;
+      }
+
+      // 介護休暇
+      if (hasApplicationKeyword(app, NURSING_CARE_LEAVE_KEYWORDS)) {
+        nursingCareLeave++;
+      }
+
+      // 明け休
+      if (hasApplicationKeyword(app, POST_NIGHT_LEAVE_KEYWORDS)) {
+        postNightLeave++;
+      }
     }
 
     return {
+      // 勤務関連
       lateApplication,
       trainDelayApplication,
       earlyLeaveApplication,
       earlyStartApplication,
       flextimeApplication,
       breakModification,
+      directGo,
+      directReturn,
+      clockModification,
+      // 休暇・休日関連
+      hourlyLeave,
+      amLeave,
+      pmLeave,
+      substituteWork,
+      substituteHoliday,
+      holidayWork,
+      compensatoryLeave,
+      absence,
+      specialLeave,
+      condolenceLeave,
+      menstrualLeave,
+      childCareLeave,
+      nursingCareLeave,
+      postNightLeave,
     };
   }
 

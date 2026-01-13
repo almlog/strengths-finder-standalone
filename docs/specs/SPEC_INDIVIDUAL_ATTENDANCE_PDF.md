@@ -49,16 +49,43 @@
 | 月末予測残業時間 | 予兆アラート用 | 計算値 |
 | 日平均残業時間 | 残業時間/出勤日数 | 計算値 |
 
-#### 申請サマリーセクション（新規追加が必要）
+#### 就業実績時間セクション
 | 項目 | 説明 | データソース |
 |------|------|-------------|
-| 全休取得日数 | 有休等の全休 | `fullDayLeaveDays` |
-| 半休取得日数 | 半休 | `halfDayLeaveDays` |
-| 遅刻申請回数 | 遅刻関連の申請 | 新規カウント |
-| 早退申請回数 | 早退関連の申請 | 新規カウント |
-| 電車遅延申請回数 | 電車遅延申請 | 新規カウント |
-| 早出回数 | 早出フラグ「1」の日数 | 新規カウント |
-| 時差出勤回数 | 時差出勤申請 | 新規カウント |
+| 総就業時間 | 月間の総労働時間 | `totalWorkMinutes` |
+
+#### 申請サマリーセクション
+
+**勤務関連（9項目）**
+| 項目 | 説明 | データソース |
+|------|------|-------------|
+| 遅刻申請 | 遅刻関連の申請 | `applicationCounts.lateApplication` |
+| 早退申請 | 早退関連の申請 | `applicationCounts.earlyLeaveApplication` |
+| 電車遅延 | 電車遅延申請 | `applicationCounts.trainDelayApplication` |
+| 早出申請 | 早出申請/フラグ | `applicationCounts.earlyStartApplication` |
+| 時差出勤 | 時差出勤申請 | `applicationCounts.flextimeApplication` |
+| 直行 | 直行申請 | `applicationCounts.directGo` |
+| 直帰 | 直帰申請 | `applicationCounts.directReturn` |
+| 休憩修正 | 休憩時間修正申請 | `applicationCounts.breakModification` |
+| 打刻修正 | 打刻修正申請 | `applicationCounts.clockModification` |
+
+**休暇・休日関連（14項目）**
+| 項目 | 説明 | データソース |
+|------|------|-------------|
+| 時間有休 | 時間単位の有休取得 | `applicationCounts.hourlyLeave` |
+| 午前休 | 午前半休取得 | `applicationCounts.amLeave` |
+| 午後休 | 午後半休取得 | `applicationCounts.pmLeave` |
+| 振替出勤 | 振替出勤申請 | `applicationCounts.substituteWork` |
+| 振替休日 | 振替休日取得 | `applicationCounts.substituteHoliday` |
+| 休日出勤 | 休日出勤申請 | `applicationCounts.holidayWork` |
+| 代休 | 代休取得 | `applicationCounts.compensatoryLeave` |
+| 欠勤 | 欠勤 | `applicationCounts.absence` |
+| 特休 | 特別休暇取得 | `applicationCounts.specialLeave` |
+| 慶弔 | 慶弔休暇取得 | `applicationCounts.condolenceLeave` |
+| 生理休暇 | 生理休暇取得 | `applicationCounts.menstrualLeave` |
+| 子の看護休暇 | 子の看護休暇取得 | `applicationCounts.childCareLeave` |
+| 介護休暇 | 介護休暇取得 | `applicationCounts.nursingCareLeave` |
+| 明け休 | 夜勤明け休暇 | `applicationCounts.postNightLeave` |
 
 #### 違反・注意事項セクション
 | 項目 | 説明 | データソース |
@@ -75,20 +102,42 @@
 `EmployeeMonthlySummary` に以下のフィールドを追加:
 
 ```typescript
+interface ApplicationCounts {
+  // 勤務関連（9項目）
+  lateApplication: number;        // 遅刻申請
+  earlyLeaveApplication: number;  // 早退申請
+  trainDelayApplication: number;  // 電車遅延申請
+  earlyStartApplication: number;  // 早出申請/フラグ
+  flextimeApplication: number;    // 時差出勤申請
+  directGo: number;               // 直行
+  directReturn: number;           // 直帰
+  breakModification: number;      // 休憩修正申請
+  clockModification: number;      // 打刻修正申請
+
+  // 休暇・休日関連（14項目）
+  hourlyLeave: number;            // 時間有休
+  amLeave: number;                // 午前休
+  pmLeave: number;                // 午後休
+  substituteWork: number;         // 振替出勤
+  substituteHoliday: number;      // 振替休日
+  holidayWork: number;            // 休日出勤
+  compensatoryLeave: number;      // 代休
+  absence: number;                // 欠勤
+  specialLeave: number;           // 特休
+  condolenceLeave: number;        // 慶弔休暇
+  menstrualLeave: number;         // 生理休暇
+  childCareLeave: number;         // 子の看護休暇
+  nursingCareLeave: number;       // 介護休暇
+  postNightLeave: number;         // 明け休
+}
+
 interface EmployeeMonthlySummary {
   // 既存フィールド...
 
-  // 申請カウント（新規追加）
-  applicationCounts: {
-    lateApplication: number;        // 遅刻申請
-    trainDelayApplication: number;  // 電車遅延申請
-    earlyLeaveApplication: number;  // 早退申請
-    earlyStartApplication: number;  // 早出申請/フラグ
-    flextimeApplication: number;    // 時差出勤申請
-    breakModification: number;      // 休憩修正申請
-  };
+  // 申請カウント
+  applicationCounts: ApplicationCounts;
 
-  // 就業時間（新規追加）
+  // 就業時間
   totalWorkMinutes: number;         // 月間総就業時間（分）
 }
 ```
@@ -188,7 +237,13 @@ async function exportIndividualPdf(
 │ ┌─────────┬─────────┬─────────┐     │
 │ │出勤日数 │営業日数 │出勤率   │     │
 │ │  18日   │  20日   │  90%    │     │
+│ ├─────────┼─────────┼─────────┤     │
+│ │休日出勤 │定時退社 │定時退社率│    │
+│ │   2日   │  10日   │  55%    │     │
 │ └─────────┴─────────┴─────────┘     │
+├─────────────────────────────────────┤
+│ ■ 就業実績時間                      │
+│ 総就業時間: 152:30                  │
 ├─────────────────────────────────────┤
 │ ■ 残業・36協定                      │
 │ 月間残業: 35.5時間                  │
@@ -196,9 +251,14 @@ async function exportIndividualPdf(
 │ 月末予測: 42.0時間                  │
 ├─────────────────────────────────────┤
 │ ■ 申請サマリー                      │
-│ 全休: 1日 / 半休: 2日               │
-│ 遅刻申請: 1回 / 早退申請: 0回       │
-│ 電車遅延: 2回 / 早出: 3回           │
+│ 【勤務関連】                        │
+│ 遅刻│早退│遅延│早出│時差│直行│直帰│休憩│打刻│
+│  1 │ 0 │ 2 │ 3 │ 0 │ 1 │ 2 │ 0 │ 1 │
+│ 【休暇・休日】                      │
+│ 時有│午前│午後│振出│振休│休出│代休│欠勤│特休│
+│  2 │ 1 │ 1 │ 0 │ 1 │ 0 │ 1 │ 0 │ 0 │
+│ 慶弔│生理│看護│介護│明休│              │
+│  0 │ 0 │ 0 │ 0 │ 0 │              │
 ├─────────────────────────────────────┤
 │ ■ 注意事項                          │
 │ • 01/15: 打刻漏れ（退勤）           │
@@ -246,4 +306,5 @@ async function exportIndividualPdf(
 ---
 
 *作成日: 2026-01-13*
+*更新日: 2026-01-14*
 *作成者: Claude Opus 4.5*
