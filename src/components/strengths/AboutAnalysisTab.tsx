@@ -20,7 +20,8 @@ import {
   Clock,
   FileSpreadsheet,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  History
 } from 'lucide-react';
 
 // アコーディオンセクションのProps
@@ -774,6 +775,86 @@ const AboutAnalysisTab: React.FC = () => {
               />
             </ul>
           </div>
+        </div>
+      </AccordionSection>
+
+      {/* リリースノート */}
+      <AccordionSection
+        title="リリースノート"
+        icon={<History className="w-5 h-5" />}
+        defaultOpen={false}
+      >
+        <div className="space-y-6">
+          {/* v3.4.2 */}
+          <div className="border-l-4 border-blue-500 pl-4">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+              v3.4.2: 勤怠分析 PDF出力 & サマリー詳細表示
+              <span className="ml-2 text-sm font-normal text-gray-500">(2026-01-11)</span>
+            </h4>
+            <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+              <li>• 勤怠分析サマリーをPDFでエクスポート可能に</li>
+              <li>• サマリーカードをクリックで該当者一覧をモーダル表示</li>
+              <li>• 緊急度の分類を明確化（法令違反/届出漏れ/その他）</li>
+              <li>• 表現の改善（「従業員」→「メンバー」でニュアンスを柔らかく）</li>
+            </ul>
+          </div>
+
+          {/* v3.4.1 */}
+          <div className="border-l-4 border-green-500 pl-4">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+              v3.4.1: 勤怠分析 UX改善
+              <span className="ml-2 text-sm font-normal text-gray-500">(2026-01-11)</span>
+            </h4>
+            <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+              <li>• 「今日を含める」トグルスイッチを追加</li>
+              <li>• 従業員別タブに役職バッジを表示</li>
+              <li>• 残業時間の取得元を36協定カラムに修正</li>
+            </ul>
+          </div>
+
+          {/* v3.4 */}
+          <div className="border-l-4 border-purple-500 pl-4">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+              v3.4: 勤怠分析機能
+              <span className="ml-2 text-sm font-normal text-gray-500">(2026-01-09)</span>
+            </h4>
+            <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+              <li>• 楽楽勤怠連携による勤怠分析機能を追加</li>
+              <li>• 勤怠入力漏れ、申請漏れ、36協定違反などを自動検出</li>
+              <li>• 36協定残業時間チェック（7段階アラート）</li>
+              <li>• 予兆アラート機能（月末残業時間を予測）</li>
+            </ul>
+          </div>
+
+          {/* v3.3 */}
+          <div className="border-l-4 border-orange-500 pl-4">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+              v3.3: 分析手法の説明タブ
+              <span className="ml-2 text-sm font-normal text-gray-500">(2025-11-05)</span>
+            </h4>
+            <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+              <li>• 「分析について」タブを新設（このページ）</li>
+              <li>• 分析手法、スコアの見方、使い方のヒントを追加</li>
+              <li>• StrengthsFinderを主軸、MBTIを補足に再定義</li>
+            </ul>
+          </div>
+
+          {/* v3.2 */}
+          <div className="border-l-4 border-cyan-500 pl-4">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+              v3.2: チームシミュレーション機能
+              <span className="ml-2 text-sm font-normal text-gray-500">(2025-10-31)</span>
+            </h4>
+            <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+              <li>• ドラッグ&ドロップによるチーム編成シミュレーション</li>
+              <li>• グループごとの強み分布と利益率をリアルタイム可視化</li>
+              <li>• シミュレーション結果の保存・読み込み・本番反映</li>
+            </ul>
+          </div>
+
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
+            ※ 過去のリリース履歴は CHANGELOG.md を参照してください
+          </p>
         </div>
       </AccordionSection>
 
