@@ -531,6 +531,48 @@ export type OvertimeAlertLevel =
   | 'illegal';  // 違法（100時間以上）- 即時是正
 
 /**
+ * 違反タイプの緊急度レベル
+ * - high: 法令違反（即時是正が必要）
+ * - medium: 届出漏れ（申請が必要）
+ * - none: 緊急度別カウントには含めない（問題ありにはカウント）
+ */
+export type ViolationUrgencyLevel = 'high' | 'medium' | 'none';
+
+/**
+ * 違反タイプから緊急度を判定するマッピング
+ */
+export const VIOLATION_URGENCY: Record<ViolationType, ViolationUrgencyLevel> = {
+  // 法令違反（高緊急度）
+  break_violation: 'high',                    // 休憩時間違反（労働基準法違反）
+  night_break_application_missing: 'high',    // 深夜休憩申請漏れ（深夜労働規制）
+
+  // 届出漏れ（中緊急度）
+  late_application_missing: 'medium',         // 届出漏れ（遅刻）
+  early_leave_application_missing: 'medium',  // 届出漏れ（早退）
+  early_start_application_missing: 'medium',  // 届出漏れ（早出）
+  time_leave_punch_missing: 'medium',         // 時間有休の私用外出打刻漏れ
+
+  // 問題ありにはカウントするが、緊急度別には含めない
+  missing_clock: 'none',           // 打刻漏れ（月締め不可だが法令違反ではない）
+  remarks_missing: 'none',         // 備考未入力
+  remarks_format_warning: 'none',  // 備考フォーマット警告
+};
+
+/**
+ * 従業員の違反から高緊急度の違反数をカウント
+ */
+export function countHighUrgencyViolations(violations: AttendanceViolation[]): number {
+  return violations.filter(v => VIOLATION_URGENCY[v.type] === 'high').length;
+}
+
+/**
+ * 従業員の違反から中緊急度の違反数をカウント
+ */
+export function countMediumUrgencyViolations(violations: AttendanceViolation[]): number {
+  return violations.filter(v => VIOLATION_URGENCY[v.type] === 'medium').length;
+}
+
+/**
  * 残業アラートの表示情報
  */
 export const OVERTIME_ALERT_INFO: Record<OvertimeAlertLevel, { label: string; color: string; description: string; action: string }> = {
