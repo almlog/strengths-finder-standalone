@@ -197,12 +197,21 @@ const AttendanceAnalysisPage: React.FC = () => {
 
   // 個人PDF出力
   const handleExportIndividualPdf = useCallback(async (employee: EmployeeMonthlySummary) => {
-    if (!individualPdfRef.current || !analysisResult) return;
+    if (!analysisResult) return;
 
+    // 先にstateを設定してDOMをレンダリング
     setExportingEmployeeId(employee.employeeId);
+
     try {
-      // 少し待ってDOMを更新
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // DOMがレンダリングされるまで待機
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // refが設定されているか確認
+      if (!individualPdfRef.current) {
+        console.error('PDF content ref is not available');
+        alert('PDF出力の準備ができませんでした。再度お試しください。');
+        return;
+      }
 
       // html2canvasでキャプチャ
       const canvas = await html2canvas(individualPdfRef.current, {
