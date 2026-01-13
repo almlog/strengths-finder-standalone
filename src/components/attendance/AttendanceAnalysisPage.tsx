@@ -29,6 +29,9 @@ import {
   ViolationType,
   OVERTIME_ALERT_INFO,
   OvertimeAlertLevel,
+  VIOLATION_URGENCY,
+  countHighUrgencyViolations,
+  countMediumUrgencyViolations,
 } from '../../models/AttendanceTypes';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
@@ -38,27 +41,6 @@ type TabType = 'summary' | 'employees' | 'departments' | 'violations';
 
 // サマリーカード詳細モーダル用の型
 type SummaryModalType = 'issues' | 'highUrgency' | 'mediumUrgency' | null;
-
-// 違反タイプから緊急度を判定するマッピング
-// - high: 法令違反（即時是正が必要）
-// - medium: 届出漏れ（申請が必要）
-// - none: 緊急度別カウントには含めない（問題ありにはカウント）
-const VIOLATION_URGENCY: Record<ViolationType, 'high' | 'medium' | 'none'> = {
-  // 法令違反（高緊急度）
-  break_violation: 'high',                    // 休憩時間違反（労働基準法違反）
-  night_break_application_missing: 'high',    // 深夜休憩申請漏れ（深夜労働規制）
-
-  // 届出漏れ（中緊急度）
-  late_application_missing: 'medium',         // 届出漏れ（遅刻）
-  early_leave_application_missing: 'medium',  // 届出漏れ（早退）
-  early_start_application_missing: 'medium',  // 届出漏れ（早出）
-  time_leave_punch_missing: 'medium',         // 時間有休の私用外出打刻漏れ
-
-  // 問題ありにはカウントするが、緊急度別には含めない
-  missing_clock: 'none',           // 打刻漏れ（月締め不可だが法令違反ではない）
-  remarks_missing: 'none',         // 備考未入力
-  remarks_format_warning: 'none',  // 備考フォーマット警告
-};
 
 const AttendanceAnalysisPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
