@@ -18,6 +18,17 @@ import {
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
 import AttendanceService from '../../services/AttendanceService';
 import {
   AttendanceRecord,
@@ -41,6 +52,31 @@ type TabType = 'summary' | 'employees' | 'departments' | 'violations';
 
 // サマリーカード詳細モーダル用の型
 type SummaryModalType = 'issues' | 'highUrgency' | 'mediumUrgency' | null;
+
+// チャート用カラー定数
+const ALERT_CHART_COLORS: Record<OvertimeAlertLevel, string> = {
+  normal: '#10B981',     // Green
+  warning: '#F59E0B',    // Yellow
+  exceeded: '#F97316',   // Orange
+  caution: '#EA580C',    // Dark Orange
+  serious: '#EF4444',    // Red
+  severe: '#DC2626',     // Dark Red
+  critical: '#B91C1C',   // Darker Red
+  illegal: '#991B1B',    // Darkest Red
+};
+
+// 違反種別カラー
+const VIOLATION_CHART_COLORS: Record<ViolationType, string> = {
+  missing_clock: '#EF4444',              // Red
+  break_violation: '#8B5CF6',            // Purple
+  late_application_missing: '#F59E0B',   // Yellow
+  early_leave_application_missing: '#F97316', // Orange
+  early_start_application_missing: '#3B82F6', // Blue
+  time_leave_punch_missing: '#06B6D4',   // Cyan
+  night_break_application_missing: '#6366F1', // Indigo
+  remarks_missing: '#64748B',            // Slate
+  remarks_format_warning: '#94A3B8',     // Light Slate
+};
 
 const AttendanceAnalysisPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -831,7 +867,93 @@ const TabButton: React.FC<{
 );
 
 // サマリータブ
+// 部門別残業時間の色を決定するヘルパー関数
+const getOvertimeBarColor = (minutes: number): string => {
+  const level = AttendanceService.getOvertimeAlertLevel(minutes);
+  return ALERT_CHART_COLORS[level];
+};
+
+// カスタムツールチップコンポーネント
+const ChartTooltip: React.FC<{
+  active?: boolean;
+  payload?: Array<{ payload: { name: string; value: number; displayValue?: string }; }>;
+  label?: string;
+  formatter?: (value: number) => string;
+}> = ({ active, payload, formatter }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
+        <p className="font-medium text-gray-900 dark:text-white">{data.name}</p>
+        <p className="text-gray-600 dark:text-gray-300">
+          {data.displayValue || (formatter ? formatter(data.value) : data.value)}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) => {
+  // 部門別残業データ（横棒グラフ用）
+  const departmentOvertimeData = useMemo(() => {
+    return result.departmentSummaries
+      .map(dept => ({
+        name: dept.department,
+        value: dept.averageOvertimeMinutes,
+        displayValue: AttendanceService.formatMinutesToTime(dept.averageOvertimeMinutes),
+        fill: getOvertimeBarColor(dept.averageOvertimeMinutes),
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [result.departmentSummaries]);
+
+  // 違反種別分布データ（円グラフ用）
+  const violationDistributionData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    result.allViolations.forEach(v => {
+      counts[v.type] = (counts[v.type] || 0) + 1;
+    });
+    return Object.entries(counts).map(([type, count]) => ({
+      name: VIOLATION_DISPLAY_INFO[type as ViolationType]?.displayName || type,
+      value: count,
+      fill: VIOLATION_CHART_COLORS[type as ViolationType] || '#64748B',
+    }));
+  }, [result.allViolations]);
+
+  // 36協定アラートレベル分布データ（横棒グラフ用）- 正常を除外
+  const alertDistributionData = useMemo(() => {
+    const counts: Record<OvertimeAlertLevel, number> = {
+      normal: 0, warning: 0, exceeded: 0, caution: 0,
+      serious: 0, severe: 0, critical: 0, illegal: 0,
+    };
+    result.employeeSummaries.forEach(emp => {
+      const level = AttendanceService.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+      counts[level]++;
+    });
+    // レベル順にソート（注意 → 警告 → ... → 法令違反）- 正常は除外
+    const orderedLevels: OvertimeAlertLevel[] = [
+      'warning', 'exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'
+    ];
+    return orderedLevels
+      .filter(level => counts[level] > 0)
+      .map(level => ({
+        name: OVERTIME_ALERT_INFO[level].label,
+        value: counts[level],
+        fill: ALERT_CHART_COLORS[level],
+      }));
+  }, [result.employeeSummaries]);
+
+  // アラート対象者の割合を計算
+  const alertStats = useMemo(() => {
+    const total = result.employeeSummaries.length;
+    const alertCount = result.employeeSummaries.filter(emp => {
+      const level = AttendanceService.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+      return level !== 'normal';
+    }).length;
+    const percentage = total > 0 ? (alertCount / total) * 100 : 0;
+    return { total, alertCount, percentage };
+  }, [result.employeeSummaries]);
+
   const stats = {
     // 基本情報
     totalEmployees: result.summary.totalEmployees,
@@ -1005,17 +1127,121 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) =>
         </div>
       </div>
 
-      {/* 36協定アラート */}
-      {overtimeAlerts.length > 0 && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
-            <h3 className="text-lg font-semibold text-red-900 dark:text-red-200">
-              36協定 残業時間アラート
+      {/* グラフセクション: 部門別残業 + 違反種別（2カラム） */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* 部門別残業時間チャート */}
+        {departmentOvertimeData.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              部門別 平均残業時間
             </h3>
+            <div style={{ height: Math.max(250, departmentOvertimeData.length * 40) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={departmentOvertimeData}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+                >
+                  <XAxis
+                    type="number"
+                    tickFormatter={(value) => `${Math.floor(value / 60)}h`}
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    width={75}
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {departmentOvertimeData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* 違反種別分布チャート */}
+        {violationDistributionData.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              違反種別の分布
+            </h3>
+            <div style={{ height: 280 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={violationDistributionData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    innerRadius={40}
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={(props: { name?: string; percent?: number }) => {
+                      const { name, percent } = props;
+                      return `${name || ''}: ${((percent || 0) * 100).toFixed(0)}%`;
+                    }}
+                    labelLine={{ stroke: '#9CA3AF', strokeWidth: 1 }}
+                  >
+                    {violationDistributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<ChartTooltip formatter={(v) => `${v}件`} />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 36協定 残業状況（統合版） */}
+      {alertStats.alertCount === 0 ? (
+        /* 全員正常 */
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6">
+          <div className="flex items-center justify-center py-4">
+            <CheckCircle className="w-8 h-8 text-green-500 dark:text-green-400 mr-3" />
+            <div>
+              <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
+                36協定 残業状況: 全員正常
+              </h3>
+              <p className="text-sm text-green-600 dark:text-green-400">
+                {alertStats.total}名全員が月間残業時間の基準内です
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* 要注意者あり - 詳細テーブル付き */
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              <h3 className="text-lg font-semibold text-red-900 dark:text-red-200">
+                36協定 残業状況: {alertStats.alertCount}名が要注意
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              {alertDistributionData.map((item) => (
+                <span
+                  key={item.name}
+                  className="px-2 py-1 rounded-full text-white text-xs font-medium"
+                  style={{ backgroundColor: item.fill }}
+                >
+                  {item.name}: {item.value}名
+                </span>
+              ))}
+            </div>
           </div>
           <p className="text-sm text-red-700 dark:text-red-300 mb-4">
-            以下のメンバーは月間残業時間が基準を超過しています。労務管理上の対応が必要です。
+            以下の{alertStats.alertCount}名（{alertStats.total}名中 {alertStats.percentage.toFixed(1)}%）は月間残業時間が基準を超過しています。
           </p>
           <div className="overflow-x-auto">
             <table className="min-w-full">
