@@ -16,83 +16,83 @@ const hasRequiredTokens = (): boolean => {
 
 // APIトークン設定ガイドコンポーネント
 const TokenSetupGuide: React.FC = () => (
-  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
-    <div className="flex items-start space-x-3">
-      <AlertCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-      <div>
-        <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
-          APIトークンの設定が必要です
+  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 sm:p-4 overflow-hidden">
+    <div className="flex items-start space-x-2 sm:space-x-3">
+      <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm sm:text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+          APIトークン設定が必要
         </h3>
-        <p className="text-yellow-700 dark:text-yellow-300 mb-4">
-          Mini Tokyo 3D を利用するには、以下のAPIトークンが必要です。
+        <p className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+          Mini Tokyo 3D利用には以下のトークンが必要です。
         </p>
 
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-gray-800 rounded p-4 border border-yellow-200 dark:border-yellow-800">
-            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+        <div className="space-y-3">
+          <div className="bg-white dark:bg-gray-800 rounded p-3 border border-yellow-200 dark:border-yellow-800">
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1 text-sm">
               1. Mapbox
             </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              地図タイルの表示に必要です（月50,000接続まで無料）。
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+              地図タイル表示用（月5万接続無料）
             </p>
             <a
               href="https://www.mapbox.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-sm"
+              className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-xs"
             >
-              Mapboxで無料登録
+              Mapbox登録
               <ExternalLink className="w-3 h-3 ml-1" />
             </a>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded p-4 border border-yellow-200 dark:border-yellow-800">
-            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
-              2. 公共交通オープンデータセンター（ODPTセンター用）
+          <div className="bg-white dark:bg-gray-800 rounded p-3 border border-yellow-200 dark:border-yellow-800">
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1 text-sm">
+              2. ODPT（必須）
             </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              列車・旅客機のリアルタイムデータを取得するために必要です。登録完了まで数日かかる場合があります。
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+              列車リアルタイムデータ用
             </p>
             <a
               href="https://developer.odpt.org/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-sm"
+              className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-xs"
             >
-              開発者サイトで無料登録
+              開発者登録
               <ExternalLink className="w-3 h-3 ml-1" />
             </a>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded p-4 border border-yellow-200 dark:border-yellow-800">
-            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
-              3. 公共交通オープンデータチャレンジ2025（任意）
+          <div className="bg-white dark:bg-gray-800 rounded p-3 border border-yellow-200 dark:border-yellow-800">
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1 text-sm">
+              3. Challenge2025（任意）
             </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              追加の列車・旅客機データを取得できます。チャレンジへのエントリーが必要です。
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+              追加データ取得用
             </p>
             <a
               href="https://developer.odpt.org/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-sm"
+              className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline text-xs"
             >
-              チャレンジにエントリー
+              チャレンジ参加
               <ExternalLink className="w-3 h-3 ml-1" />
             </a>
           </div>
 
-          <div className="bg-gray-100 dark:bg-gray-700 rounded p-4">
-            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+          <div className="bg-gray-100 dark:bg-gray-700 rounded p-3">
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1 text-sm">
               設定方法
             </h4>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              取得したトークンを <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">.env</code> ファイルに設定してください：
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+              .envファイルに設定:
             </p>
-            <pre className="text-xs bg-gray-200 dark:bg-gray-600 p-2 rounded overflow-x-auto">
-{`REACT_APP_MAPBOX_TOKEN=your_mapbox_token
-REACT_APP_ODPT_TOKEN=your_odpt_token
-REACT_APP_CHALLENGE_TOKEN=your_challenge_token（任意）`}
+            <pre className="text-xs bg-gray-200 dark:bg-gray-600 p-2 rounded overflow-x-auto whitespace-pre-wrap break-all">
+{`REACT_APP_MAPBOX_TOKEN=...
+REACT_APP_ODPT_TOKEN=...
+REACT_APP_CHALLENGE_TOKEN=...`}
             </pre>
           </div>
         </div>
@@ -271,11 +271,11 @@ const TrafficInfoPage: React.FC = () => {
   // トークン未設定の場合は設定ガイドを表示
   if (!hasRequiredTokens()) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-3 mb-4">
-          <Train className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            交通情報 - リアルタイム路線マップ
+      <div className="w-full max-w-full overflow-x-hidden space-y-3 sm:space-y-4">
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <Train className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+          <h2 className="text-sm sm:text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
+            交通情報
           </h2>
         </div>
         <TokenSetupGuide />
