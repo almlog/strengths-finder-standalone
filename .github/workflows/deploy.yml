@@ -37,6 +37,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 環境変数の確認（デバッグ用）
+      - name: Check secrets
+        run: |
+          echo "MAPBOX_TOKEN length: ${#REACT_APP_MAPBOX_TOKEN}"
+          echo "ODPT_TOKEN length: ${#REACT_APP_ODPT_TOKEN}"
+          if [ -z "$REACT_APP_MAPBOX_TOKEN" ]; then echo "WARNING: MAPBOX_TOKEN is empty!"; fi
+          if [ -z "$REACT_APP_ODPT_TOKEN" ]; then echo "WARNING: ODPT_TOKEN is empty!"; fi
+        env:
+          REACT_APP_MAPBOX_TOKEN: ${{ secrets.REACT_APP_MAPBOX_TOKEN }}
+          REACT_APP_ODPT_TOKEN: ${{ secrets.REACT_APP_ODPT_TOKEN }}
+
       # 本番ビルドの実行
       - name: Build
         run: npm run build
