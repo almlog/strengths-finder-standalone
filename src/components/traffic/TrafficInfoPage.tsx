@@ -280,8 +280,8 @@ const TrafficInfoPage: React.FC = () => {
     );
   }
 
-  // マップの高さを計算
-  const mapHeight = '600px';
+  // マップの高さを計算（モバイルでは小さく）
+  const mapHeight = 'min(600px, 70vh)';
 
   // フルスクリーンモード
   if (isFullscreen) {
@@ -302,16 +302,17 @@ const TrafficInfoPage: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Train className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            交通情報 - リアルタイム路線マップ
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          <Train className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+          <h2 className="text-base sm:text-xl font-bold text-gray-900 dark:text-gray-100">
+            <span className="sm:hidden">交通情報</span>
+            <span className="hidden sm:inline">交通情報 - リアルタイム路線マップ</span>
           </h2>
         </div>
         <button
           onClick={toggleFullscreen}
-          className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          className="flex items-center justify-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm self-end sm:self-auto"
           title="全画面表示"
         >
           <Maximize2 className="w-4 h-4" />
@@ -323,25 +324,25 @@ const TrafficInfoPage: React.FC = () => {
       <MiniTokyo3DMap isFullscreen={false} containerHeight={mapHeight} />
 
       {/* 使い方ガイド */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-          <div className="space-y-3">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
+        <div className="flex items-start space-x-2 sm:space-x-3">
+          <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+          <div className="space-y-3 min-w-0">
             <div>
-              <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">マップ操作</h3>
-              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                <li>• マウスドラッグで視点を移動、スクロールでズーム</li>
-                <li>• 電車アイコンをクリックすると詳細情報を表示</li>
-                <li>• 遅延情報は各路線の色で確認できます</li>
+              <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-1 sm:mb-2 text-sm sm:text-base">マップ操作</h3>
+              <ul className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                <li>• ドラッグで視点移動、ピンチ/スクロールでズーム</li>
+                <li>• 電車アイコンタップで詳細情報を表示</li>
+                <li>• 遅延情報は各路線の色で確認</li>
               </ul>
             </div>
             <div>
-              <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">ハイブリッド勤務での活用</h3>
-              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                <li>• 自分の通勤路線・目的地周辺の電車の動きをリアルタイムで確認できます</li>
-                <li>• 明らかに電車が運行停止している場合、リモート勤務切り替えを検討しチームに相談しましょう</li>
-                <li>• 他の路線が停止しているときなどに自分の利用路線が稼働している場合は出社切り替えなど積極的に提案してください</li>
-                <li>• 帰宅時も同様に運行状況を確認し、臨機応変に判断しましょう</li>
+              <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-1 sm:mb-2 text-sm sm:text-base">ハイブリッド勤務での活用</h3>
+              <ul className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                <li>• 通勤路線の電車の動きをリアルタイムで確認</li>
+                <li>• 運行停止時はリモート勤務切り替えを検討しチームに相談</li>
+                <li>• 自路線が稼働中なら出社切り替えを積極的に提案</li>
+                <li>• 帰宅時も運行状況を確認し臨機応変に判断</li>
               </ul>
             </div>
           </div>
@@ -349,84 +350,45 @@ const TrafficInfoPage: React.FC = () => {
       </div>
 
       {/* 重要な注意事項 */}
-      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-medium text-amber-800 dark:text-amber-200 mb-2">重要：リモート切り替えの判断について</h3>
-            <p className="text-sm text-amber-700 dark:text-amber-300">
-              運行状況に基づくリモート勤務への切り替えは、<strong>個人の判断では行わないでください</strong>。
-              必ず<strong>リーダーまたは課長に確認</strong>の上、指示を仰いでください。
+      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 sm:p-4">
+        <div className="flex items-start space-x-2 sm:space-x-3">
+          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <h3 className="font-medium text-amber-800 dark:text-amber-200 mb-1 sm:mb-2 text-sm sm:text-base">重要：リモート切り替えの判断</h3>
+            <p className="text-xs sm:text-sm text-amber-700 dark:text-amber-300">
+              リモート勤務への切り替えは<strong>個人判断NG</strong>。
+              必ず<strong>リーダー・課長に確認</strong>してください。
             </p>
           </div>
         </div>
       </div>
 
       {/* 勤怠連携ヒント */}
-      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          💡 電車遅延による遅刻の場合は、「勤怠分析」タブの電車遅延申請ガイドを参照してください。
-          遅延証明書のスクリーンショットが必要です。
+      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4">
+        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+          💡 電車遅延による遅刻は「勤怠分析」タブの申請ガイドを参照。遅延証明書のスクショが必要です。
         </p>
       </div>
 
       {/* 著作権・クレジット表示 */}
-      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 text-xs text-gray-600 dark:text-gray-400 space-y-2">
-        <div className="font-medium text-gray-700 dark:text-gray-300">クレジット・ライセンス</div>
-        <div className="space-y-1">
-          <div>
-            マップエンジン:{' '}
-            <a
-              href="https://minitokyo3d.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Mini Tokyo 3D
-            </a>
-            {' '}© Akihiko Kusanagi（
-            <a
-              href="https://github.com/nagix/mini-tokyo-3d/blob/master/LICENSE"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              MIT License
-            </a>
-            ）
+      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 sm:p-4 text-xs text-gray-600 dark:text-gray-400 space-y-2">
+        <div className="font-medium text-gray-700 dark:text-gray-300 text-xs sm:text-sm">クレジット</div>
+        <div className="space-y-1 text-xs">
+          <div className="flex flex-wrap gap-x-1">
+            <span>マップ:</span>
+            <a href="https://minitokyo3d.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Mini Tokyo 3D</a>
+            <span>© Akihiko Kusanagi</span>
+            <a href="https://github.com/nagix/mini-tokyo-3d/blob/master/LICENSE" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">(MIT)</a>
           </div>
-          <div>
-            公共交通データ:{' '}
-            <a
-              href="https://www.odpt.org/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              公共交通オープンデータセンター
-            </a>
-            （
-            <a
-              href="https://creativecommons.org/licenses/by/4.0/deed.ja"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              CC BY 4.0
-            </a>
-            ）
+          <div className="flex flex-wrap gap-x-1">
+            <span>データ:</span>
+            <a href="https://www.odpt.org/" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">公共交通オープンデータセンター</a>
+            <a href="https://creativecommons.org/licenses/by/4.0/deed.ja" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">(CC BY 4.0)</a>
           </div>
-          <div>
-            地図タイル:{' '}
-            <a
-              href="https://www.mapbox.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Mapbox
-            </a>
-            {' '}© Mapbox © OpenStreetMap
+          <div className="flex flex-wrap gap-x-1">
+            <span>地図:</span>
+            <a href="https://www.mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Mapbox</a>
+            <span>© OpenStreetMap</span>
           </div>
         </div>
       </div>
