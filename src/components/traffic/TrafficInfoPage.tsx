@@ -170,7 +170,8 @@ const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) =
 
           mapRef.current.on('error', (e: any) => {
             console.error('Mini Tokyo 3D error:', e);
-            setError('マップの読み込み中にエラーが発生しました');
+            const errorMsg = e?.error?.message || e?.message || JSON.stringify(e);
+            setError(`マップエラー: ${errorMsg}`);
             setIsLoading(false);
           });
         }
