@@ -432,7 +432,7 @@ const StrengthsFinderPage: React.FC = () => {
             }>
               <AttendanceAnalysisPage />
             </Tab>
-            <Tab id="traffic" keepMounted={true} label={
+            <Tab id="traffic" label={
               <div className="flex items-center">
                 <Train className="w-4 h-4 mr-1" />
                 <span>交通情報</span>
