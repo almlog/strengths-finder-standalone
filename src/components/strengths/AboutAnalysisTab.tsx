@@ -21,7 +21,8 @@ import {
   FileSpreadsheet,
   Calendar,
   AlertCircle,
-  History
+  History,
+  Train
 } from 'lucide-react';
 
 // アコーディオンセクションのProps
@@ -644,6 +645,172 @@ const AboutAnalysisTab: React.FC = () => {
         </AccordionSection>
 
       </div>{/* セクション2終了 */}
+
+      {/* セクション3: 交通情報 */}
+      <div className="mb-12">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 pb-3 border-b-2 border-indigo-500 flex items-center gap-2">
+          <Train className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+          交通情報（リアルタイム路線マップ）
+        </h2>
+
+        {/* 概要 */}
+        <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-gray-800 dark:to-gray-850 rounded-lg p-6 mb-8 border border-indigo-200 dark:border-gray-700">
+          <div className="flex items-start gap-4">
+            <Train className="w-6 h-6 text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-1" />
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                リアルタイム交通情報の活用
+              </h3>
+              <p className="text-gray-700 dark:text-gray-300">
+                Mini Tokyo 3D を利用して、首都圏の鉄道・旅客機のリアルタイム運行状況を3Dマップで確認できます。
+                ハイブリッド勤務における出社・リモート切り替えの判断材料として活用してください。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* クレジット・ライセンス情報 */}
+        <AccordionSection
+          title="クレジット・ライセンス情報"
+          icon={<BookOpen className="w-5 h-5" />}
+          defaultOpen={true}
+        >
+          <div className="space-y-4">
+            <p className="text-gray-700 dark:text-gray-300">
+              交通情報機能は、以下のオープンソースプロジェクトおよびオープンデータを利用しています。
+            </p>
+
+            <div className="space-y-4">
+              {/* Mini Tokyo 3D */}
+              <div className="bg-indigo-50 dark:bg-gray-850 rounded-lg p-4 border border-indigo-200 dark:border-gray-700">
+                <h4 className="font-semibold text-indigo-900 dark:text-indigo-300 mb-2">
+                  Mini Tokyo 3D
+                </h4>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                  首都圏の公共交通機関をリアルタイムで3D表示するオープンソースプロジェクトです。
+                </p>
+                <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside mb-2">
+                  <li><strong>作者:</strong> Akihiko Kusanagi</li>
+                  <li><strong>ライセンス:</strong> MIT License</li>
+                </ul>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href="https://minitokyo3d.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    公式サイト <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a
+                    href="https://github.com/nagix/mini-tokyo-3d"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    GitHub <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a
+                    href="https://github.com/nagix/mini-tokyo-3d/blob/master/LICENSE"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    ライセンス <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+
+              {/* 公共交通オープンデータセンター */}
+              <div className="bg-green-50 dark:bg-gray-850 rounded-lg p-4 border border-green-200 dark:border-gray-700">
+                <h4 className="font-semibold text-green-900 dark:text-green-300 mb-2">
+                  公共交通オープンデータセンター
+                </h4>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                  鉄道・バス・旅客機等のリアルタイム運行データを提供するオープンデータプラットフォームです。
+                </p>
+                <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside mb-2">
+                  <li><strong>提供元:</strong> 公共交通オープンデータ協議会</li>
+                  <li><strong>ライセンス:</strong> CC BY 4.0（クリエイティブ・コモンズ 表示 4.0）</li>
+                </ul>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href="https://www.odpt.org/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    公式サイト <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a
+                    href="https://developer.odpt.org/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    開発者サイト <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a
+                    href="https://creativecommons.org/licenses/by/4.0/deed.ja"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    CC BY 4.0 <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Mapbox */}
+              <div className="bg-blue-50 dark:bg-gray-850 rounded-lg p-4 border border-blue-200 dark:border-gray-700">
+                <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
+                  Mapbox
+                </h4>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                  地図タイル・3D地形データを提供するマッピングプラットフォームです。
+                </p>
+                <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside mb-2">
+                  <li><strong>提供元:</strong> Mapbox, Inc.</li>
+                  <li><strong>地図データ:</strong> © Mapbox © OpenStreetMap</li>
+                </ul>
+                <a
+                  href="https://www.mapbox.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  公式サイト <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </AccordionSection>
+
+        {/* 利用上の注意 */}
+        <AccordionSection
+          title="利用上の注意"
+          icon={<AlertCircle className="w-5 h-5" />}
+        >
+          <div className="space-y-4">
+            <div className="bg-amber-50 dark:bg-gray-850 rounded-lg p-4 border-l-4 border-amber-500">
+              <h4 className="font-semibold text-amber-800 dark:text-amber-300 mb-2">データの正確性について</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li>表示されるデータはリアルタイム情報ですが、実際の運行状況とは若干の遅延がある場合があります</li>
+                <li>運行情報の正確性は各鉄道事業者のデータ提供に依存します</li>
+                <li>重要な判断には、各鉄道会社の公式情報も併せて確認してください</li>
+              </ul>
+            </div>
+            <div className="bg-red-50 dark:bg-gray-850 rounded-lg p-4 border-l-4 border-red-500">
+              <h4 className="font-semibold text-red-800 dark:text-red-300 mb-2">勤務形態変更について</h4>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                運行状況に基づく出社・リモート勤務の切り替えは、<strong>必ずリーダーまたは課長に確認</strong>の上、
+                指示を仰いでください。個人の判断での勤務形態変更は認められていません。
+              </p>
+            </div>
+          </div>
+        </AccordionSection>
+
+      </div>{/* セクション3終了 */}
 
       {/* 注意事項（両セクション共通） */}
       <div className="bg-red-50 dark:bg-gray-850 rounded-lg p-6 border-l-4 border-red-500 mb-8">

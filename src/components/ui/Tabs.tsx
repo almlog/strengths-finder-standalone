@@ -6,6 +6,8 @@ interface TabProps {
   children: React.ReactNode;
   id: string;
   label: React.ReactNode;
+  /** trueの場合、非アクティブ時もマウントを維持（バックグラウンド読み込み用） */
+  keepMounted?: boolean;
 }
 
 // TabコンポーネントをReact.ForwardRefで型定義
@@ -75,10 +77,34 @@ export const Tabs: React.FC<TabsProps> = ({ children, activeTab, onTabChange }) 
           );
         })}
       </div>
-      <div className="mt-4">
-        {tabs.map((tabElement) => (
-          activeTab === tabElement.props.id ? tabElement : null
-        ))}
+      <div className="mt-4 relative">
+        {tabs.map((tabElement) => {
+          const isActive = activeTab === tabElement.props.id;
+          const keepMounted = tabElement.props.keepMounted;
+
+          // keepMounted=true のタブは常にレンダリング
+          // visibility: hidden + position: absolute でサイズを維持しつつ非表示
+          if (keepMounted) {
+            return (
+              <div
+                key={tabElement.props.id}
+                style={{
+                  visibility: isActive ? 'visible' : 'hidden',
+                  position: isActive ? 'relative' : 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  pointerEvents: isActive ? 'auto' : 'none',
+                }}
+              >
+                {tabElement}
+              </div>
+            );
+          }
+
+          // 通常のタブはアクティブ時のみレンダリング
+          return isActive ? tabElement : null;
+        })}
       </div>
     </div>
   );
