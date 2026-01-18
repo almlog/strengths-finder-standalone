@@ -49,6 +49,10 @@ jobs:
           REACT_APP_FIREBASE_STORAGE_BUCKET: ${{ secrets.REACT_APP_FIREBASE_STORAGE_BUCKET }}
           REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}
           REACT_APP_FIREBASE_APP_ID: ${{ secrets.REACT_APP_FIREBASE_APP_ID }}
+          # 交通情報タブ用（Mini Tokyo 3D）
+          REACT_APP_MAPBOX_TOKEN: ${{ secrets.REACT_APP_MAPBOX_TOKEN }}
+          REACT_APP_ODPT_TOKEN: ${{ secrets.REACT_APP_ODPT_TOKEN }}
+          REACT_APP_CHALLENGE_TOKEN: ${{ secrets.REACT_APP_CHALLENGE_TOKEN }}
 
       # GitHub Pagesの設定
       - name: Setup Pages
