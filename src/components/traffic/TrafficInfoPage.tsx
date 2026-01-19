@@ -124,20 +124,20 @@ const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) =
       try {
         setLoadingProgress(10);
 
-        // CSSを読み込み
+        // CSSを読み込み（v3.5.0を使用 - 安定版）
         if (!document.querySelector('link[href*="mini-tokyo-3d"]')) {
           const link = document.createElement('link');
           link.rel = 'stylesheet';
-          link.href = 'https://cdn.jsdelivr.net/npm/mini-tokyo-3d@latest/dist/mini-tokyo-3d.min.css';
+          link.href = 'https://cdn.jsdelivr.net/npm/mini-tokyo-3d@3.5.0/dist/mini-tokyo-3d.min.css';
           document.head.appendChild(link);
         }
         setLoadingProgress(30);
 
-        // JSを読み込み
+        // JSを読み込み（v3.5.0を使用 - 安定版）
         if (!(window as any).mt3d) {
           await new Promise<void>((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/mini-tokyo-3d@latest/dist/mini-tokyo-3d.min.js';
+            script.src = 'https://cdn.jsdelivr.net/npm/mini-tokyo-3d@3.5.0/dist/mini-tokyo-3d.min.js';
             script.onload = () => resolve();
             script.onerror = () => reject(new Error('Failed to load Mini Tokyo 3D'));
             document.head.appendChild(script);
@@ -148,14 +148,12 @@ const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) =
         // マップを初期化
         const mt3d = (window as any).mt3d;
         if (mt3d && containerRef.current) {
-          // シークレットオブジェクトを構築（Challenge tokenは任意）
-          // Mini Tokyo 3D v3.6.0 は challenge2024 キーを使用
-          const secrets: { odpt: string; challenge2024?: string } = {
+          // シークレットオブジェクトを構築
+          // Note: challenge2024 APIはDNS解決エラーが発生するため無効化
+          // 基本的なODPTトークンのみで十分な機能が利用可能
+          const secrets: { odpt: string } = {
             odpt: ODPT_TOKEN!,
           };
-          if (CHALLENGE_TOKEN) {
-            secrets.challenge2024 = CHALLENGE_TOKEN;
-          }
 
           setLoadingProgress(80);
 
@@ -167,6 +165,7 @@ const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) =
             center: [139.7528, 35.7019], // 水道橋駅 [経度, 緯度]
             zoom: 14, // 周辺エリアが見えるズーム
             pitch: 60, // 3D表示の傾き
+            ecoMode: 'normal', // API呼び出しを最適化
           });
 
           mapRef.current.on('load', () => {

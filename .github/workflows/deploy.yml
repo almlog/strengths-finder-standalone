@@ -37,22 +37,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # デバッグ: トークン設定状態の確認（値は出力しない）
+      - name: Debug - Check token status
+        run: |
+          echo "=== Token Status Check ==="
+          echo "MAPBOX_TOKEN is set: ${{ secrets.REACT_APP_MAPBOX_TOKEN != '' }}"
+          echo "ODPT_TOKEN is set: ${{ secrets.REACT_APP_ODPT_TOKEN != '' }}"
+          echo "CHALLENGE_TOKEN is set: ${{ secrets.REACT_APP_CHALLENGE_TOKEN != '' }}"
+          echo "=========================="
+
+      # .env.production ファイルを生成（より確実なトークン注入）
+      - name: Create .env.production
+        run: |
+          echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.REACT_APP_FIREBASE_API_KEY }}" >> .env.production
+          echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> .env.production
+          echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.REACT_APP_FIREBASE_PROJECT_ID }}" >> .env.production
+          echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> .env.production
+          echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> .env.production
+          echo "REACT_APP_FIREBASE_APP_ID=${{ secrets.REACT_APP_FIREBASE_APP_ID }}" >> .env.production
+          echo "REACT_APP_MAPBOX_TOKEN=${{ secrets.REACT_APP_MAPBOX_TOKEN }}" >> .env.production
+          echo "REACT_APP_ODPT_TOKEN=${{ secrets.REACT_APP_ODPT_TOKEN }}" >> .env.production
+          echo "REACT_APP_CHALLENGE_TOKEN=${{ secrets.REACT_APP_CHALLENGE_TOKEN }}" >> .env.production
+          echo ".env.production created with $(wc -l < .env.production) lines"
+
       # 本番ビルドの実行
       - name: Build
         run: npm run build
         env:
           CI: true
-          # Firebase設定（GitHub Secretsから取得）
-          REACT_APP_FIREBASE_API_KEY: ${{ secrets.REACT_APP_FIREBASE_API_KEY }}
-          REACT_APP_FIREBASE_AUTH_DOMAIN: ${{ secrets.REACT_APP_FIREBASE_AUTH_DOMAIN }}
-          REACT_APP_FIREBASE_PROJECT_ID: ${{ secrets.REACT_APP_FIREBASE_PROJECT_ID }}
-          REACT_APP_FIREBASE_STORAGE_BUCKET: ${{ secrets.REACT_APP_FIREBASE_STORAGE_BUCKET }}
-          REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}
-          REACT_APP_FIREBASE_APP_ID: ${{ secrets.REACT_APP_FIREBASE_APP_ID }}
-          # 交通情報タブ用（Mini Tokyo 3D）
-          REACT_APP_MAPBOX_TOKEN: ${{ secrets.REACT_APP_MAPBOX_TOKEN }}
-          REACT_APP_ODPT_TOKEN: ${{ secrets.REACT_APP_ODPT_TOKEN }}
-          REACT_APP_CHALLENGE_TOKEN: ${{ secrets.REACT_APP_CHALLENGE_TOKEN }}
 
       # GitHub Pagesの設定
       - name: Setup Pages
