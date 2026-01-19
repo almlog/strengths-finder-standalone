@@ -1,7 +1,7 @@
 // src/components/strengths/StrengthsFinderPage.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical, BookOpen, LogOut, Clock } from 'lucide-react';
+import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical, BookOpen, LogOut, Clock, Train } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -17,8 +17,7 @@ import StrengthsAnalysis from './StrengthsAnalysis';
 import TeamSimulation from './TeamSimulation';
 import AboutAnalysisTab from './AboutAnalysisTab';
 import AttendanceAnalysisPage from '../attendance/AttendanceAnalysisPage';
-// TrafficInfoPage は一時的に非表示（本番環境のMapbox認証問題を調査中）
-// import TrafficInfoPage from '../traffic/TrafficInfoPage';
+import TrafficInfoPage from '../traffic/TrafficInfoPage';
 import { StageMasterSettings } from './StageMasterSettings';
 import { MemberRateSettings } from './MemberRateSettings';
 import ImportConflictDialog, { ImportConflictInfo, ImportStrategy } from './ImportConflictDialog';
@@ -433,7 +432,6 @@ const StrengthsFinderPage: React.FC = () => {
             }>
               <AttendanceAnalysisPage />
             </Tab>
-            {/* 交通情報タブは一時的に非表示（本番環境のMapbox認証問題を調査中）
             <Tab id="traffic" label={
               <div className="flex items-center">
                 <Train className="w-4 h-4 mr-1" />
@@ -442,7 +440,6 @@ const StrengthsFinderPage: React.FC = () => {
             }>
               <TrafficInfoPage />
             </Tab>
-            */}
             <Tab id="about" label={
               <div className="flex items-center">
                 <BookOpen className="w-4 h-4 mr-1" />
