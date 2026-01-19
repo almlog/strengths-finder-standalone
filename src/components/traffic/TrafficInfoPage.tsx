@@ -9,6 +9,13 @@ const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
 const ODPT_TOKEN = process.env.REACT_APP_ODPT_TOKEN;
 const CHALLENGE_TOKEN = process.env.REACT_APP_CHALLENGE_TOKEN;
 
+// 起動時にトークン状態をコンソールに出力（デバッグ用）
+console.log('[TrafficInfo] Token status:', {
+  mapbox: MAPBOX_TOKEN ? `set (${MAPBOX_TOKEN.substring(0, 8)}...)` : 'NOT SET',
+  odpt: ODPT_TOKEN ? `set (${ODPT_TOKEN.substring(0, 8)}...)` : 'NOT SET',
+  challenge: CHALLENGE_TOKEN ? `set (${CHALLENGE_TOKEN.substring(0, 8)}...)` : 'NOT SET',
+});
+
 // トークンが設定されているかチェック（Mapbox + ODPTは必須、Challengeは任意）
 const hasRequiredTokens = (): boolean => {
   return !!(MAPBOX_TOKEN && ODPT_TOKEN);
@@ -169,16 +176,39 @@ const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) =
           });
 
           mapRef.current.on('error', (e: any) => {
-            console.error('Mini Tokyo 3D error:', e);
+            console.error('[TrafficInfo] Map error event:', e);
+            console.error('[TrafficInfo] Error keys:', e ? Object.keys(e) : 'null');
+
             // エラーメッセージを安全に取得
             let errorMsg = 'Unknown error';
-            if (e?.error?.message) {
-              errorMsg = e.error.message;
-            } else if (e?.message) {
-              errorMsg = e.message;
-            } else if (typeof e === 'string') {
-              errorMsg = e;
+            try {
+              if (e?.error?.message) {
+                errorMsg = e.error.message;
+              } else if (e?.message) {
+                errorMsg = e.message;
+              } else if (e?.originalEvent?.message) {
+                errorMsg = e.originalEvent.message;
+              } else if (e?.sourceDataType) {
+                // Mapbox source data error
+                errorMsg = `Data load error: ${e.sourceDataType}`;
+              } else if (typeof e === 'string') {
+                errorMsg = e;
+              } else if (e && typeof e === 'object') {
+                // 利用可能なプロパティを探索
+                const keys = Object.keys(e);
+                console.error('[TrafficInfo] Available error properties:', keys);
+                for (const key of keys) {
+                  if (key !== 'target' && e[key] && typeof e[key] === 'string') {
+                    errorMsg = e[key];
+                    break;
+                  }
+                }
+              }
+            } catch (parseError) {
+              console.error('[TrafficInfo] Error parsing error:', parseError);
             }
+
+            console.error('[TrafficInfo] Final error message:', errorMsg);
             setError(`マップエラー: ${errorMsg}`);
             setIsLoading(false);
           });
