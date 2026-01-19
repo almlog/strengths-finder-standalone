@@ -432,6 +432,7 @@ const StrengthsFinderPage: React.FC = () => {
             }>
               <AttendanceAnalysisPage />
             </Tab>
+            {/* 交通情報タブは一時的に非表示（本番環境のMapbox認証問題を調査中）
             <Tab id="traffic" label={
               <div className="flex items-center">
                 <Train className="w-4 h-4 mr-1" />
@@ -440,6 +441,7 @@ const StrengthsFinderPage: React.FC = () => {
             }>
               <TrafficInfoPage />
             </Tab>
+            */}
             <Tab id="about" label={
               <div className="flex items-center">
                 <BookOpen className="w-4 h-4 mr-1" />

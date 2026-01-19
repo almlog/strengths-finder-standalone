@@ -422,6 +422,18 @@ REACT_APP_FIREBASE_APP_ID=your-app-id
 
 ### Firebase Emulator（オプション）
 
+**重要**: `.env.local` の `REACT_APP_USE_EMULATOR` 設定を確認してください。
+
+```bash
+# 本番Firebase認証を使用（通常はこちら）
+REACT_APP_USE_EMULATOR=false
+
+# Firebase Emulatorを使用する場合のみ true に設定
+REACT_APP_USE_EMULATOR=true
+```
+
+> **注意**: `REACT_APP_USE_EMULATOR=true` の場合、Firebase Emulatorが起動していないとログインに失敗します。
+
 ```bash
 # Firebase CLIのインストール
 npm install -g firebase-tools

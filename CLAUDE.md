@@ -137,7 +137,21 @@ npm install
 npm start
 ```
 
-**開発サーバーURL**: http://localhost:3005
+**開発サーバーURL**: http://localhost:3006
+
+### ⚠️ 開発サーバー起動前の必須確認
+
+**`.env.local` の設定を必ず確認してください：**
+
+```bash
+# 本番Firebase認証を使用する場合（通常はこちら）
+REACT_APP_USE_EMULATOR=false
+
+# Firebase Emulatorを使用する場合のみ true
+# REACT_APP_USE_EMULATOR=true
+```
+
+> **重要**: `REACT_APP_USE_EMULATOR=true` のままだと、Firebase Emulatorが起動していない場合ログインに失敗します。本番Firebase認証を使う場合は必ず `false` に設定してください。
 
 ### 💡 セットアップスクリプトの活用
 
@@ -355,10 +369,10 @@ npm run admin:list
 1. **開発サーバーが起動しない**
    ```bash
    # ポートを確認
-   netstat -an | findstr :3005
-   
-   # ポートを変更
-   echo "PORT=3006" > .env
+   netstat -an | findstr :3006
+
+   # ポートが使用中の場合、プロセスを終了
+   # PIDを確認して taskkill /F /PID <PID>
    npm start
    ```
 
@@ -385,6 +399,19 @@ npm run admin:list
    ```bash
    # 詳細なエラー情報を表示
    npm run build -- --verbose
+   ```
+
+5. **ログインに失敗する**
+   ```bash
+   # .env.local の REACT_APP_USE_EMULATOR を確認
+   # true = Firebase Emulator使用（ローカルEmulatorが必要）
+   # false = 本番Firebase使用（通常はこちら）
+
+   # .env.local を編集
+   REACT_APP_USE_EMULATOR=false
+
+   # 開発サーバーを再起動（環境変数変更後は必須）
+   # 既存プロセスを終了してから npm start
    ```
 
 ### 📝 コーディング規約

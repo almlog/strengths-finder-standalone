@@ -646,7 +646,8 @@ const AboutAnalysisTab: React.FC = () => {
 
       </div>{/* セクション2終了 */}
 
-      {/* セクション3: 交通情報 */}
+      {/* セクション3: 交通情報 - 一時的に非表示（本番環境のMapbox認証問題を調査中） */}
+      {false && (
       <div className="mb-12">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 pb-3 border-b-2 border-indigo-500 flex items-center gap-2">
           <Train className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
@@ -810,7 +811,7 @@ const AboutAnalysisTab: React.FC = () => {
           </div>
         </AccordionSection>
 
-      </div>{/* セクション3終了 */}
+      </div>)}{/* セクション3終了 */}
 
       {/* 注意事項（両セクション共通） */}
       <div className="bg-red-50 dark:bg-gray-850 rounded-lg p-6 border-l-4 border-red-500 mb-8">
