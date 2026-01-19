@@ -149,11 +149,12 @@ const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) =
         const mt3d = (window as any).mt3d;
         if (mt3d && containerRef.current) {
           // シークレットオブジェクトを構築（Challenge tokenは任意）
-          const secrets: { odpt: string; challenge2025?: string } = {
+          // Mini Tokyo 3D v3.6.0 は challenge2024 キーを使用
+          const secrets: { odpt: string; challenge2024?: string } = {
             odpt: ODPT_TOKEN!,
           };
           if (CHALLENGE_TOKEN) {
-            secrets.challenge2025 = CHALLENGE_TOKEN;
+            secrets.challenge2024 = CHALLENGE_TOKEN;
           }
 
           setLoadingProgress(80);
