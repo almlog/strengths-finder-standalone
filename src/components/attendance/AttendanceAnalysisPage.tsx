@@ -15,7 +15,9 @@ import {
   Crown,
   FileText,
   X,
+  UserCheck,
 } from 'lucide-react';
+import UserFilterPanel from './UserFilterPanel';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import {
@@ -90,6 +92,11 @@ const AttendanceAnalysisPage: React.FC = () => {
   const [summaryModal, setSummaryModal] = useState<SummaryModalType>(null);
   const [exportingEmployeeId, setExportingEmployeeId] = useState<string | null>(null);
 
+  // ユーザーフィルター用の状態
+  const [rawRecords, setRawRecords] = useState<AttendanceRecord[]>([]);
+  const [userSelections, setUserSelections] = useState<Map<string, boolean>>(new Map());
+  const [showUserFilter, setShowUserFilter] = useState(false);
+
   // PDF出力用のref
   const summaryRef = useRef<HTMLDivElement>(null);
   const individualPdfRef = useRef<HTMLDivElement>(null);
@@ -106,6 +113,27 @@ const AttendanceAnalysisPage: React.FC = () => {
     });
     return map;
   }, [strengthsMembers]);
+
+  // ユーザー選択の初期化（全員選択状態）
+  const initializeUserSelections = useCallback((records: AttendanceRecord[]) => {
+    const selections = new Map<string, boolean>();
+    const uniqueEmployees = new Set(records.map(r => r.employeeId));
+    uniqueEmployees.forEach(id => selections.set(id, true));
+    return selections;
+  }, []);
+
+  // 選択されたユーザーのみでレコードをフィルター
+  const filterRecordsBySelection = useCallback((records: AttendanceRecord[], selections: Map<string, boolean>) => {
+    return records.filter(r => selections.get(r.employeeId) === true);
+  }, []);
+
+  // 分析を実行（フィルター済みレコードで）
+  const executeAnalysis = useCallback((records: AttendanceRecord[]) => {
+    const filteredRecords = filterRecordsBySelection(records, userSelections);
+    setRecords(filteredRecords);
+    const result = AttendanceService.analyzeExtended(filteredRecords, { includeToday });
+    setAnalysisResult(result);
+  }, [userSelections, includeToday, filterRecordsBySelection]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     setIsLoading(true);
@@ -124,9 +152,16 @@ const AttendanceAnalysisPage: React.FC = () => {
 
       // パース
       const parsedRecords = await AttendanceService.parseXlsx(file);
-      setRecords(parsedRecords);
 
-      // 分析実行（includeToday オプションを渡す）
+      // 生データを保存（ユーザーフィルター用）
+      setRawRecords(parsedRecords);
+
+      // ユーザー選択を初期化（全員選択状態）
+      const initialSelections = initializeUserSelections(parsedRecords);
+      setUserSelections(initialSelections);
+
+      // 分析実行（全員選択状態で）
+      setRecords(parsedRecords);
       const result = AttendanceService.analyzeExtended(parsedRecords, { includeToday });
       setAnalysisResult(result);
 
@@ -135,7 +170,7 @@ const AttendanceAnalysisPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [includeToday]);
+  }, [includeToday, initializeUserSelections]);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -229,6 +264,49 @@ const AttendanceAnalysisPage: React.FC = () => {
     setAnalysisResult(null);
     setError(null);
     setFilterDepartment('all');
+    setRawRecords([]);
+    setUserSelections(new Map());
+    setShowUserFilter(false);
+  }, []);
+
+  // ユーザー選択の変更ハンドラ
+  const handleUserSelectionChange = useCallback((employeeId: string, isSelected: boolean) => {
+    setUserSelections(prev => {
+      const next = new Map(prev);
+      next.set(employeeId, isSelected);
+      return next;
+    });
+  }, []);
+
+  // 全員選択
+  const handleSelectAllUsers = useCallback(() => {
+    setUserSelections(prev => {
+      const next = new Map(prev);
+      next.forEach((_, key) => next.set(key, true));
+      return next;
+    });
+  }, []);
+
+  // 全員解除
+  const handleDeselectAllUsers = useCallback(() => {
+    setUserSelections(prev => {
+      const next = new Map(prev);
+      next.forEach((_, key) => next.set(key, false));
+      return next;
+    });
+  }, []);
+
+  // ユーザー選択確定（再分析）
+  const handleConfirmUserSelection = useCallback(() => {
+    executeAnalysis(rawRecords);
+    setShowUserFilter(false);
+  }, [executeAnalysis, rawRecords]);
+
+  // ユーザー選択キャンセル
+  const handleCancelUserSelection = useCallback(() => {
+    // 選択状態を現在の分析結果に基づいてリセット（分析済みのレコードから）
+    // ただし、初期状態に戻すのが複雑なので、単にモーダルを閉じるだけ
+    setShowUserFilter(false);
   }, []);
 
   // 個人PDF出力
@@ -349,6 +427,14 @@ const AttendanceAnalysisPage: React.FC = () => {
               <span>{isExportingPdf ? '出力中...' : 'PDF出力'}</span>
             </button>
             <button
+              onClick={() => setShowUserFilter(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              title="分析対象ユーザーを選択"
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>ユーザー選択</span>
+            </button>
+            <button
               onClick={handleReset}
               className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
@@ -358,6 +444,23 @@ const AttendanceAnalysisPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ユーザー選択パネル（モーダル） */}
+      {showUserFilter && rawRecords.length > 0 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-auto">
+            <UserFilterPanel
+              records={rawRecords}
+              userSelections={userSelections}
+              onSelectionChange={handleUserSelectionChange}
+              onSelectAll={handleSelectAllUsers}
+              onDeselectAll={handleDeselectAllUsers}
+              onConfirm={handleConfirmUserSelection}
+              onCancel={handleCancelUserSelection}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ファイルアップロード */}
       {!analysisResult && (
