@@ -3,6 +3,8 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Train, ExternalLink, AlertCircle, Maximize2, Minimize2, Info } from 'lucide-react';
+import DelayTicker from './DelayTicker';
+import DelayHistoryModal from './DelayHistoryModal';
 
 // 環境変数からAPIトークンを取得
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
@@ -302,9 +304,18 @@ const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) =
 // メインコンポーネント
 const TrafficInfoPage: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDelayModalOpen, setIsDelayModalOpen] = useState(false);
 
   const toggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => !prev);
+  }, []);
+
+  const openDelayModal = useCallback(() => {
+    setIsDelayModalOpen(true);
+  }, []);
+
+  const closeDelayModal = useCallback(() => {
+    setIsDelayModalOpen(false);
   }, []);
 
   // トークン未設定の場合は設定ガイドを表示
@@ -342,13 +353,20 @@ const TrafficInfoPage: React.FC = () => {
     <div className="w-full max-w-full overflow-x-hidden">
       <div className="space-y-3 sm:space-y-4 px-0">
         {/* ヘッダー */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center space-x-2 min-w-0">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center space-x-2 flex-shrink-0">
             <Train className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-            <h2 className="text-sm sm:text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
+            <h2 className="text-sm sm:text-xl font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap">
               交通情報
             </h2>
           </div>
+          {/* 遅延情報ティッカー */}
+          {ODPT_TOKEN && (
+            <DelayTicker
+              token={ODPT_TOKEN}
+              onClick={openDelayModal}
+            />
+          )}
           <button
             onClick={toggleFullscreen}
             className="flex items-center justify-center space-x-1 px-2 sm:px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm flex-shrink-0"
@@ -429,6 +447,15 @@ const TrafficInfoPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 遅延情報履歴モーダル */}
+      {ODPT_TOKEN && (
+        <DelayHistoryModal
+          isOpen={isDelayModalOpen}
+          onClose={closeDelayModal}
+          token={ODPT_TOKEN}
+        />
+      )}
     </div>
   );
 };
