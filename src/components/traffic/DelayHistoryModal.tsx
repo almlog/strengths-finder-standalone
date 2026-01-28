@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { TrainDelayService } from '../../services/TrainDelayService';
 import { DelayHistoryEntry, OperatorGroup, TrainDelayInfo } from '../../types/trainDelay';
+import DelayReportComposer from './DelayReportComposer';
 
 interface DelayHistoryModalProps {
   /** モーダルが開いているか */
@@ -23,6 +24,10 @@ interface DelayHistoryModalProps {
   onClose: () => void;
   /** ODPTトークン */
   token: string;
+  /** 外部から選択された路線名（電車クリック時など） */
+  externalRailwayName?: string | null;
+  /** 外部路線名のクリアコールバック */
+  onClearExternalRailway?: () => void;
 }
 
 /**
@@ -42,6 +47,8 @@ const DelayHistoryModal: React.FC<DelayHistoryModalProps> = ({
   isOpen,
   onClose,
   token,
+  externalRailwayName,
+  onClearExternalRailway,
 }) => {
   const [service] = useState(() => new TrainDelayService(token));
   const [history, setHistory] = useState<DelayHistoryEntry[]>([]);
@@ -50,6 +57,8 @@ const DelayHistoryModal: React.FC<DelayHistoryModalProps> = ({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [filterGroup, setFilterGroup] = useState<OperatorGroup>('all');
   const [showDelayedOnly, setShowDelayedOnly] = useState(false);
+  // 履歴から選択された遅延情報
+  const [selectedHistoryEntry, setSelectedHistoryEntry] = useState<DelayHistoryEntry | null>(null);
 
   // データ取得
   const fetchData = useCallback(async () => {
@@ -175,6 +184,18 @@ const DelayHistoryModal: React.FC<DelayHistoryModalProps> = ({
           </div>
         )}
 
+        {/* 遅延報告メッセージ作成（遅延有無に関わらず常に表示） */}
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <DelayReportComposer
+            currentDelays={currentDelays}
+            token={token}
+            externalDelay={selectedHistoryEntry}
+            onClearExternalDelay={() => setSelectedHistoryEntry(null)}
+            externalRailwayName={externalRailwayName}
+            onClearExternalRailway={onClearExternalRailway}
+          />
+        </div>
+
         {/* 履歴リスト */}
         <div className="flex-1 overflow-y-auto px-4 py-2">
           {isLoading && history.length === 0 ? (
@@ -188,11 +209,21 @@ const DelayHistoryModal: React.FC<DelayHistoryModalProps> = ({
               <p className="text-xs mt-1">直近6時間の履歴を表示します</p>
             </div>
           ) : (
+            <>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                ※クリックしてメッセージ作成に使用できます
+              </p>
             <div className="space-y-2">
               {filteredHistory.map((entry, index) => (
-                <HistoryItem key={`${entry.id}-${entry.recordedAt}-${index}`} entry={entry} />
+                <HistoryItem
+                  key={`${entry.id}-${entry.recordedAt}-${index}`}
+                  entry={entry}
+                  onSelect={(e) => setSelectedHistoryEntry(e)}
+                  isSelected={selectedHistoryEntry?.id === entry.id && selectedHistoryEntry?.recordedAt === entry.recordedAt}
+                />
               ))}
             </div>
+            </>
           )}
         </div>
 
@@ -210,7 +241,13 @@ const DelayHistoryModal: React.FC<DelayHistoryModalProps> = ({
 /**
  * 履歴アイテムコンポーネント
  */
-const HistoryItem: React.FC<{ entry: DelayHistoryEntry }> = ({ entry }) => {
+interface HistoryItemProps {
+  entry: DelayHistoryEntry;
+  onSelect: (entry: DelayHistoryEntry) => void;
+  isSelected: boolean;
+}
+
+const HistoryItem: React.FC<HistoryItemProps> = ({ entry, onSelect, isSelected }) => {
   const isDelayed = entry.status === 'delayed' || entry.status === 'suspended';
   const StatusIcon = isDelayed ? AlertTriangle : CheckCircle;
   const statusColor = entry.status === 'suspended'
@@ -219,11 +256,13 @@ const HistoryItem: React.FC<{ entry: DelayHistoryEntry }> = ({ entry }) => {
     ? 'text-amber-500'
     : 'text-green-500';
 
-  const bgColor = entry.status === 'suspended'
-    ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'
+  const bgColor = isSelected
+    ? 'bg-green-100 dark:bg-green-900/30 border-green-400 dark:border-green-600 ring-2 ring-green-400 dark:ring-green-600'
+    : entry.status === 'suspended'
+    ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600'
     : isDelayed
-    ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'
-    : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700';
+    ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600'
+    : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500';
 
   const recordedTime = new Date(entry.recordedAt).toLocaleTimeString('ja-JP', {
     hour: '2-digit',
@@ -231,7 +270,18 @@ const HistoryItem: React.FC<{ entry: DelayHistoryEntry }> = ({ entry }) => {
   });
 
   return (
-    <div className={`p-3 rounded-lg border ${bgColor}`}>
+    <div
+      className={`p-3 rounded-lg border cursor-pointer transition-all ${bgColor}`}
+      onClick={() => onSelect(entry)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect(entry);
+        }
+      }}
+    >
       <div className="flex items-start gap-2">
         <StatusIcon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${statusColor}`} />
         <div className="flex-1 min-w-0">

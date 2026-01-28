@@ -111,12 +111,23 @@ REACT_APP_CHALLENGE_TOKEN=...`}
 );
 
 // Mini Tokyo 3D マップコンポーネント
-const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) => {
+interface MiniTokyo3DMapProps {
+  isFullscreen: boolean;
+  onTrainClick?: (railwayName: string) => void;
+}
+
+const MiniTokyo3DMap: React.FC<MiniTokyo3DMapProps> = ({ isFullscreen, onTrainClick }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const onTrainClickRef = useRef(onTrainClick);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // コールバックのrefを更新
+  useEffect(() => {
+    onTrainClickRef.current = onTrainClick;
+  }, [onTrainClick]);
 
   useEffect(() => {
     if (!containerRef.current || !hasRequiredTokens()) return;
@@ -175,6 +186,76 @@ const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) =
             setTimeout(() => {
               setIsLoading(false);
             }, 200);
+
+            // Mini Tokyo 3D のselectionイベントを監視
+            const mt3dMap = mapRef.current;
+
+            // 路線IDから日本語名へのマッピング
+            const RAILWAY_NAME_MAP: Record<string, string> = {
+              // JR東日本
+              'JR-East.ChuoRapid': '中央線快速',
+              'JR-East.ChuoSobuLocal': '中央・総武線各停',
+              'JR-East.Yamanote': '山手線',
+              'JR-East.SobuRapid': '総武線快速',
+              'JR-East.Tokaido': '東海道線',
+              'JR-East.KeihinTohoku': '京浜東北線',
+              'JR-East.Saikyo': '埼京線',
+              'JR-East.Takasaki': '高崎線',
+              'JR-East.Utsunomiya': '宇都宮線',
+              'JR-East.Yokohama': '横浜線',
+              'JR-East.Nambu': '南武線',
+              'JR-East.Musashino': '武蔵野線',
+              // 東京メトロ
+              'TokyoMetro.Ginza': '銀座線',
+              'TokyoMetro.Marunouchi': '丸ノ内線',
+              'TokyoMetro.Hibiya': '日比谷線',
+              'TokyoMetro.Tozai': '東西線',
+              'TokyoMetro.Chiyoda': '千代田線',
+              'TokyoMetro.Yurakucho': '有楽町線',
+              'TokyoMetro.Hanzomon': '半蔵門線',
+              'TokyoMetro.Namboku': '南北線',
+              'TokyoMetro.Fukutoshin': '副都心線',
+              // 都営地下鉄
+              'Toei.Asakusa': '都営浅草線',
+              'Toei.Mita': '都営三田線',
+              'Toei.Shinjuku': '都営新宿線',
+              'Toei.Oedo': '都営大江戸線',
+              // 私鉄
+              'Tokyu.Toyoko': '東急東横線',
+              'Tokyu.DenEnToshi': '東急田園都市線',
+              'Odakyu.Odawara': '小田急小田原線',
+              'Keio.Keio': '京王線',
+              'Keio.Inokashira': '京王井の頭線',
+              'Seibu.Ikebukuro': '西武池袋線',
+              'Seibu.Shinjuku': '西武新宿線',
+              'Tobu.Tojo': '東武東上線',
+              'Tobu.Skytree': '東武スカイツリーライン',
+            };
+
+            // selectionイベントから路線名を取得
+            mt3dMap.on('selection', (e: any) => {
+              console.log('[TrafficInfo] Selection event:', e);
+              const selection = e.selection; // 例: 'JR-East.ChuoSobuLocal.2359B'
+
+              if (selection && typeof selection === 'string') {
+                // 電車IDから路線IDを抽出（最後の.以降を除去）
+                // 'JR-East.ChuoSobuLocal.2359B' -> 'JR-East.ChuoSobuLocal'
+                const parts = selection.split('.');
+                if (parts.length >= 2) {
+                  const railwayId = parts.slice(0, 2).join('.');
+                  console.log('[TrafficInfo] Railway ID:', railwayId);
+
+                  // 路線名を取得
+                  const railwayName = RAILWAY_NAME_MAP[railwayId] || railwayId;
+                  console.log('[TrafficInfo] Railway name:', railwayName);
+
+                  if (onTrainClickRef.current) {
+                    onTrainClickRef.current(railwayName);
+                  }
+                }
+              }
+            });
+
           });
 
           mapRef.current.on('error', (e: any) => {
@@ -226,7 +307,11 @@ const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) =
 
     return () => {
       if (mapRef.current) {
-        mapRef.current.remove();
+        // Mini Tokyo 3D の Map オブジェクトのクリーンアップ
+        // remove メソッドがない場合は何もしない
+        if (typeof mapRef.current.remove === 'function') {
+          mapRef.current.remove();
+        }
         mapRef.current = null;
       }
     };
@@ -305,6 +390,10 @@ const MiniTokyo3DMap: React.FC<{ isFullscreen: boolean }> = ({ isFullscreen }) =
 const TrafficInfoPage: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDelayModalOpen, setIsDelayModalOpen] = useState(false);
+  // 電車クリックで選択された路線名（通知表示用）
+  const [pendingRailwayName, setPendingRailwayName] = useState<string | null>(null);
+  // モーダルに渡す路線名
+  const [selectedRailwayName, setSelectedRailwayName] = useState<string | null>(null);
 
   const toggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => !prev);
@@ -316,6 +405,36 @@ const TrafficInfoPage: React.FC = () => {
 
   const closeDelayModal = useCallback(() => {
     setIsDelayModalOpen(false);
+    setSelectedRailwayName(null);
+  }, []);
+
+  // 電車クリック時のハンドラ（通知を表示するだけ）
+  const handleTrainClick = useCallback((railwayName: string) => {
+    console.log('[TrafficInfo] Train selected:', railwayName);
+    setPendingRailwayName(railwayName);
+    // 5秒後に通知を消す
+    setTimeout(() => {
+      setPendingRailwayName(prev => prev === railwayName ? null : prev);
+    }, 5000);
+  }, []);
+
+  // 遅延報告を作成（通知ボタンから）
+  const createDelayReport = useCallback(() => {
+    if (pendingRailwayName) {
+      setSelectedRailwayName(pendingRailwayName);
+      setPendingRailwayName(null);
+      setIsDelayModalOpen(true);
+    }
+  }, [pendingRailwayName]);
+
+  // 通知を閉じる
+  const dismissNotification = useCallback(() => {
+    setPendingRailwayName(null);
+  }, []);
+
+  // 路線選択のクリア
+  const clearSelectedRailway = useCallback(() => {
+    setSelectedRailwayName(null);
   }, []);
 
   // トークン未設定の場合は設定ガイドを表示
@@ -344,7 +463,35 @@ const TrafficInfoPage: React.FC = () => {
         >
           <Minimize2 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
         </button>
-        <MiniTokyo3DMap isFullscreen={true} />
+        <MiniTokyo3DMap isFullscreen={true} onTrainClick={handleTrainClick} />
+        {/* 電車選択時の通知（フルスクリーン用） */}
+        {pendingRailwayName && (
+          <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 z-50 bg-purple-100 dark:bg-purple-900/90 border border-purple-300 dark:border-purple-700 rounded-lg p-3 shadow-lg animate-pulse">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
+                <Train className="w-5 h-5" />
+                <span className="text-sm font-medium">
+                  {pendingRailwayName}を選択中
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={createDelayReport}
+                  className="px-3 py-1.5 text-xs font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  遅延報告を作成
+                </button>
+                <button
+                  onClick={dismissNotification}
+                  className="p-1 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-800 rounded transition-colors"
+                  title="閉じる"
+                >
+                  <span className="text-lg leading-none">×</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -378,7 +525,36 @@ const TrafficInfoPage: React.FC = () => {
         </div>
 
         {/* マップエリア */}
-        <MiniTokyo3DMap isFullscreen={false} />
+        <MiniTokyo3DMap isFullscreen={false} onTrainClick={handleTrainClick} />
+
+        {/* 電車選択時の通知 */}
+        {pendingRailwayName && (
+          <div className="bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded-lg p-3 animate-pulse">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300">
+                <Train className="w-5 h-5" />
+                <span className="text-sm font-medium">
+                  {pendingRailwayName}を選択中
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={createDelayReport}
+                  className="px-3 py-1.5 text-xs font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  遅延報告を作成
+                </button>
+                <button
+                  onClick={dismissNotification}
+                  className="p-1 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-800 rounded transition-colors"
+                  title="閉じる"
+                >
+                  <span className="text-lg leading-none">×</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 使い方ガイド */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
@@ -454,6 +630,8 @@ const TrafficInfoPage: React.FC = () => {
           isOpen={isDelayModalOpen}
           onClose={closeDelayModal}
           token={ODPT_TOKEN}
+          externalRailwayName={selectedRailwayName}
+          onClearExternalRailway={clearSelectedRailway}
         />
       )}
     </div>

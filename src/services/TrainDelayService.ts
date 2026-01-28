@@ -19,8 +19,9 @@ import {
 /**
  * 運行情報テキストからステータスを判定
  */
-export function parseDelayStatus(text: string): TrainStatus {
-  if (!text) return 'unknown';
+export function parseDelayStatus(text: string | unknown): TrainStatus {
+  // textが文字列でない場合はunknownを返す
+  if (!text || typeof text !== 'string') return 'unknown';
 
   // 平常運転のキーワード
   if (
@@ -55,7 +56,10 @@ export function parseDelayStatus(text: string): TrainStatus {
 /**
  * テキストから遅延時間（分）を抽出
  */
-export function extractDelayMinutes(text: string): number | undefined {
+export function extractDelayMinutes(text: string | unknown): number | undefined {
+  // textが文字列でない場合はundefinedを返す
+  if (!text || typeof text !== 'string') return undefined;
+
   // 「約15分」「10分程度」「最大30分」などのパターンをマッチ
   const match = text.match(/(?:約|最大|)(\d+)分/);
   if (match) {
