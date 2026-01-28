@@ -562,16 +562,25 @@ const TrafficInfoPage: React.FC = () => {
             <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="space-y-3 min-w-0 flex-1">
               <div>
-                <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-1 text-sm sm:text-base">マップ操作</h3>
+                <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-1 text-sm sm:text-base">🗺️ マップ操作</h3>
                 <ul className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 space-y-0.5">
                   <li>• ドラッグで移動、ピンチでズーム</li>
-                  <li>• 電車タップで詳細表示</li>
+                  <li>• 電車タップで路線選択 → 遅延報告作成へ</li>
                 </ul>
               </div>
               <div>
-                <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-1 text-sm sm:text-base">ハイブリッド勤務での活用</h3>
+                <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-1 text-sm sm:text-base">📝 遅延報告メッセージ作成</h3>
+                <ul className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 space-y-0.5">
+                  <li>• 遅延ティッカーをタップ → 履歴モーダルを開く</li>
+                  <li>• 路線名・遅延時間・現在地を入力してコピー</li>
+                  <li>• LINEWORKSに貼り付けて即報告</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-1 text-sm sm:text-base">💼 ハイブリッド勤務での活用</h3>
                 <ul className="text-xs sm:text-sm text-blue-700 dark:text-blue-300 space-y-0.5">
                   <li>• 通勤路線の運行をリアルタイム確認</li>
+                  <li>• 遅延発生時 → メッセージ作成で迅速報告</li>
                   <li>• 運行停止時はリモート切替を検討</li>
                 </ul>
               </div>
