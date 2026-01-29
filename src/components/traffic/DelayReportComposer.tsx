@@ -427,10 +427,41 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
       if (selectedDelay.cause) {
         delayText += ` ${selectedDelay.cause}`;
       } else if (selectedDelay.informationText) {
-        // informationTextから遅延理由を抽出
-        const reasonMatch = selectedDelay.informationText.match(/(人身事故|車両点検|信号トラブル|車両故障|線路内点検|急病人|お客様対応|混雑|強風|大雨|地震|踏切|ダイヤ乱れ|運転見合わせ|直通運転中止|振替輸送)/);
-        if (reasonMatch) {
-          delayText += ` ${reasonMatch[1]}`;
+        // informationTextから遅延理由を抽出（複数パターン対応）
+        let reason: string | null = null;
+
+        // パターン1: 「Xの影響で」から理由を抽出
+        const pattern1 = selectedDelay.informationText.match(/(.{2,10}?)の影響で/);
+        if (pattern1) {
+          reason = pattern1[1];
+        }
+
+        // パターン2: 「Xにより」から理由を抽出
+        if (!reason) {
+          const pattern2 = selectedDelay.informationText.match(/(.{2,10}?)により/);
+          if (pattern2) {
+            reason = pattern2[1];
+          }
+        }
+
+        // パターン3: 「Xのため」から理由を抽出
+        if (!reason) {
+          const pattern3 = selectedDelay.informationText.match(/(.{2,10}?)のため/);
+          if (pattern3) {
+            reason = pattern3[1];
+          }
+        }
+
+        // パターン4: 既知のキーワードマッチ
+        if (!reason) {
+          const knownReasons = selectedDelay.informationText.match(/(人身事故|車両点検|信号トラブル|車両故障|線路内点検|急病人|お客様対応|混雑|強風|大雨|地震|踏切|架線断線|架線支障|停電|車内トラブル|線路内立入|動物衝突|異音確認|安全確認|濃霧|積雪|倒木|土砂崩れ)/);
+          if (knownReasons) {
+            reason = knownReasons[1];
+          }
+        }
+
+        if (reason) {
+          delayText += ` ${reason}`;
         } else if (selectedDelay.status === 'suspended') {
           delayText += ' 運転見合わせ';
         } else if (selectedDelay.status === 'delayed') {
