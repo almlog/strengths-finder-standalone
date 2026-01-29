@@ -187,6 +187,8 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
   // 駅名の手動入力
   const [isManualStationInput, setIsManualStationInput] = useState(false);
   const [manualStationName, setManualStationName] = useState('');
+  // 自動モードの遅延理由（選択した遅延情報から自動取得 or 手動入力）
+  const [autoReason, setAutoReason] = useState('');
 
   // 位置情報フック
   const { coordinate, status: geoStatus, error: geoError, requestLocation } = useGeolocation();
@@ -389,6 +391,41 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
     }
   }, [externalRailwayName]);
 
+  // 遅延情報が選択されたら遅延理由を自動抽出
+  useEffect(() => {
+    if (selectedDelay && !isManualMode) {
+      let reason = '';
+
+      // cause があればそれを使用
+      if (selectedDelay.cause) {
+        reason = selectedDelay.cause;
+      } else if (selectedDelay.informationText) {
+        // informationTextから遅延理由を抽出
+        const pattern1 = selectedDelay.informationText.match(/(.{2,10}?)の影響で/);
+        if (pattern1) {
+          reason = pattern1[1];
+        } else {
+          const pattern2 = selectedDelay.informationText.match(/(.{2,10}?)により/);
+          if (pattern2) {
+            reason = pattern2[1];
+          } else {
+            const pattern3 = selectedDelay.informationText.match(/(.{2,10}?)のため/);
+            if (pattern3) {
+              reason = pattern3[1];
+            } else {
+              const knownReasons = selectedDelay.informationText.match(/(人身事故|車両点検|信号トラブル|車両故障|線路内点検|急病人|お客様対応|混雑|強風|大雨|地震|踏切|架線断線|架線支障|停電|車内トラブル|線路内立入|動物衝突|異音確認|安全確認|濃霧|積雪|倒木|土砂崩れ|遅延|運転見合わせ)/);
+              if (knownReasons) {
+                reason = knownReasons[1];
+              }
+            }
+          }
+        }
+      }
+
+      setAutoReason(reason);
+    }
+  }, [selectedDelay, isManualMode]);
+
   // 手動入力の路線名を取得
   const getManualRailwayName = (): string => {
     if (manualRailway === 'custom') {
@@ -419,60 +456,11 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
       // 自動モード
       if (!selectedDelay) return '';
 
-      // 路線名 + 遅延理由で自然な日本語にする
-      // 例: "中央線快速 人身事故"
-      let delayText = selectedDelay.railwayName;
+      // 路線名 + 遅延理由
+      const railwayName = selectedDelay.railwayName;
+      const reasonText = autoReason || '遅延';
 
-      // 遅延理由を追加（cause または informationText から抽出）
-      if (selectedDelay.cause) {
-        delayText += ` ${selectedDelay.cause}`;
-      } else if (selectedDelay.informationText) {
-        // informationTextから遅延理由を抽出（複数パターン対応）
-        let reason: string | null = null;
-
-        // パターン1: 「Xの影響で」から理由を抽出
-        const pattern1 = selectedDelay.informationText.match(/(.{2,10}?)の影響で/);
-        if (pattern1) {
-          reason = pattern1[1];
-        }
-
-        // パターン2: 「Xにより」から理由を抽出
-        if (!reason) {
-          const pattern2 = selectedDelay.informationText.match(/(.{2,10}?)により/);
-          if (pattern2) {
-            reason = pattern2[1];
-          }
-        }
-
-        // パターン3: 「Xのため」から理由を抽出
-        if (!reason) {
-          const pattern3 = selectedDelay.informationText.match(/(.{2,10}?)のため/);
-          if (pattern3) {
-            reason = pattern3[1];
-          }
-        }
-
-        // パターン4: 既知のキーワードマッチ
-        if (!reason) {
-          const knownReasons = selectedDelay.informationText.match(/(人身事故|車両点検|信号トラブル|車両故障|線路内点検|急病人|お客様対応|混雑|強風|大雨|地震|踏切|架線断線|架線支障|停電|車内トラブル|線路内立入|動物衝突|異音確認|安全確認|濃霧|積雪|倒木|土砂崩れ)/);
-          if (knownReasons) {
-            reason = knownReasons[1];
-          }
-        }
-
-        if (reason) {
-          delayText += ` ${reason}`;
-        } else if (selectedDelay.status === 'suspended') {
-          delayText += ' 運転見合わせ';
-        } else if (selectedDelay.status === 'delayed') {
-          delayText += ' 遅延';
-        }
-      } else if (selectedDelay.status === 'suspended') {
-        delayText += ' 運転見合わせ';
-      } else {
-        delayText += ' 遅延';
-      }
-
+      let delayText = `${railwayName} ${reasonText}`;
       if (selectedDelay.delayMinutes) {
         delayText += `（約${selectedDelay.delayMinutes}分遅れ）`;
       }
@@ -500,7 +488,7 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
   const hasStation = isManualStationInput ? !!manualStationName : !!selectedStation;
   const isComplete = isManualMode
     ? (manualRailway && (manualRailway !== 'custom' || manualRailwayCustom) && manualReason && delayMinutes && hasStation)
-    : (selectedDelay && delayMinutes && hasStation);
+    : (selectedDelay && autoReason && delayMinutes && hasStation);
 
   // 遅延情報の表示テキスト
   const getDelayDisplayText = (delay: TrainDelayInfo): string => {
@@ -700,6 +688,25 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* 遅延理由入力（自動モード用） */}
+          {!isManualMode && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                遅延理由<span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={autoReason}
+                onChange={(e) => setAutoReason(e.target.value)}
+                placeholder="例：架線断線、人身事故、信号トラブル"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                💡 遅延情報から自動取得、または手動で入力してください
+              </p>
             </div>
           )}
 
