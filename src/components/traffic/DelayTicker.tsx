@@ -97,12 +97,12 @@ const DelayTicker: React.FC<DelayTickerProps> = ({
       />
 
       {/* ティッカーテキスト */}
-      <div className="flex-1 min-w-0 overflow-hidden">
+      <div className="flex-1 min-w-0 overflow-hidden h-5">
         <div
           className={`
-            whitespace-nowrap text-xs sm:text-sm font-medium
+            whitespace-nowrap text-xs sm:text-sm font-medium leading-5
             ${textColor}
-            ${hasDelays && !isPaused ? 'animate-marquee' : ''}
+            ${hasDelays ? 'animate-marquee' : ''}
           `}
           style={{
             animationPlayState: isPaused ? 'paused' : 'running',
