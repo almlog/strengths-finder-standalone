@@ -99,6 +99,11 @@ mainへのpush = 本番環境への自動デプロイ = ユーザーへの即時
 - [ ] **関連する既存テストが全てPASS**
   - `npm test` で全テストがパスする
 
+- [ ] **GitHub Actionsの前回ビルドが成功している**
+  - https://github.com/almlog/strengths-finder-standalone/actions でビルド履歴を確認
+  - 直近1回（前回）のビルドが ✅ 成功していることを確認
+  - 失敗している場合は、先にそのエラーを修正してから新しいcommitを行う
+
 **全てチェックできた？ → それでようやくcommit/push可能です**
 
 ---
