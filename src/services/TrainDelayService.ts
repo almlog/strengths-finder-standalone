@@ -108,7 +108,7 @@ export class TrainDelayService {
   }
 
   /**
-   * ODPT APIから遅延情報を取得
+   * ODPT API + 外部ソースから遅延情報を取得
    */
   async fetchDelayInfo(): Promise<TrainDelayInfo[]> {
     const operators = [
@@ -125,36 +125,87 @@ export class TrainDelayService {
     const url = `https://api.odpt.org/api/v4/odpt:TrainInformation?odpt:operator=${operators.join(',')}&acl:consumerKey=${this.token}`;
 
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+      // ODPT APIと外部ソースを並列で取得
+      const [odptResponse, externalEntries] = await Promise.all([
+        fetch(url).catch((e) => {
+          console.error('[TrainDelayService] ODPT fetch error:', e);
+          return null;
+        }),
+        fetchExternalDelayHistory().catch((e) => {
+          console.error('[TrainDelayService] External fetch error:', e);
+          return [] as DelayHistoryEntry[];
+        }),
+      ]);
+
+      const now = new Date().toISOString();
+      let delayInfos: TrainDelayInfo[] = [];
+
+      // ODPT APIの結果を処理
+      if (odptResponse && odptResponse.ok) {
+        const data: ODPTTrainInformationResponse[] = await odptResponse.json();
+        console.log('[TrainDelayService] ODPT data count:', data.length);
+
+        delayInfos = data.map((item) => {
+          const status = parseDelayStatus(item['odpt:trainInformationText']);
+          return {
+            id: item['@id'],
+            railway: item['odpt:railway'] || '',
+            railwayName: item['odpt:railway']
+              ? getRailwayName(item['odpt:railway'])
+              : getOperatorName(item['odpt:operator']),
+            operator: item['odpt:operator'],
+            operatorName: getOperatorName(item['odpt:operator']),
+            status,
+            delayMinutes: extractDelayMinutes(item['odpt:trainInformationText']),
+            cause: item['odpt:trainInformationCause'],
+            informationText: item['odpt:trainInformationText'],
+            fetchedAt: now,
+          };
+        });
       }
 
-      const data: ODPTTrainInformationResponse[] = await response.json();
-      const now = new Date().toISOString();
+      // 外部ソースの遅延情報をTrainDelayInfo形式に変換して追加
+      console.log('[TrainDelayService] External entries count:', externalEntries.length);
+      const externalDelays: TrainDelayInfo[] = externalEntries.map((entry) => ({
+        id: entry.id,
+        railway: entry.railway,
+        railwayName: entry.railwayName,
+        operator: entry.operator,
+        operatorName: entry.operatorName,
+        status: entry.status,
+        delayMinutes: entry.delayMinutes,
+        cause: undefined,
+        informationText: entry.informationText,
+        fetchedAt: now,
+      }));
 
-      const delayInfos: TrainDelayInfo[] = data.map((item) => {
-        const status = parseDelayStatus(item['odpt:trainInformationText']);
-        return {
-          id: item['@id'],
-          railway: item['odpt:railway'] || '',
-          railwayName: item['odpt:railway']
-            ? getRailwayName(item['odpt:railway'])
-            : getOperatorName(item['odpt:operator']),
-          operator: item['odpt:operator'],
-          operatorName: getOperatorName(item['odpt:operator']),
-          status,
-          delayMinutes: extractDelayMinutes(item['odpt:trainInformationText']),
-          cause: item['odpt:trainInformationCause'],
-          informationText: item['odpt:trainInformationText'],
-          fetchedAt: now,
-        };
-      });
+      // 外部ソースの遅延情報をマージ（ODPTで検出されていない路線のみ）
+      const odptRailways = new Set(delayInfos.map((d) => d.railwayName));
+      const newExternalDelays = externalDelays.filter(
+        (d) => !odptRailways.has(d.railwayName)
+      );
+
+      if (newExternalDelays.length > 0) {
+        console.log('[TrainDelayService] Adding external delays:', newExternalDelays.map(d => d.railwayName));
+        delayInfos = [...delayInfos, ...newExternalDelays];
+      }
 
       this.cache = delayInfos;
       this.lastFetched = new Date();
       this.updateHistory(delayInfos);
 
+      // 外部ソースの履歴も更新
+      externalEntries.forEach((entry) => {
+        const existingIndex = this.history.findIndex(
+          (h) => h.railwayName === entry.railwayName && h.recordedAt === entry.recordedAt
+        );
+        if (existingIndex === -1) {
+          this.history.unshift(entry);
+        }
+      });
+      this.saveHistory();
+
+      console.log('[TrainDelayService] Total delays:', this.getCurrentDelays().length);
       return delayInfos;
     } catch (error) {
       console.error('[TrainDelayService] Fetch error:', error);
