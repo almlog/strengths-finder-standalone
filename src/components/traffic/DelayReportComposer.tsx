@@ -422,11 +422,26 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
       // 路線名 + 遅延理由で自然な日本語にする
       // 例: "中央線快速 人身事故"
       let delayText = selectedDelay.railwayName;
+
+      // 遅延理由を追加（cause または informationText から抽出）
       if (selectedDelay.cause) {
         delayText += ` ${selectedDelay.cause}`;
+      } else if (selectedDelay.informationText) {
+        // informationTextから遅延理由を抽出
+        const reasonMatch = selectedDelay.informationText.match(/(人身事故|車両点検|信号トラブル|車両故障|線路内点検|急病人|お客様対応|混雑|強風|大雨|地震|踏切|ダイヤ乱れ|運転見合わせ|直通運転中止|振替輸送)/);
+        if (reasonMatch) {
+          delayText += ` ${reasonMatch[1]}`;
+        } else if (selectedDelay.status === 'suspended') {
+          delayText += ' 運転見合わせ';
+        } else if (selectedDelay.status === 'delayed') {
+          delayText += ' 遅延';
+        }
       } else if (selectedDelay.status === 'suspended') {
         delayText += ' 運転見合わせ';
+      } else {
+        delayText += ' 遅延';
       }
+
       if (selectedDelay.delayMinutes) {
         delayText += `（約${selectedDelay.delayMinutes}分遅れ）`;
       }
@@ -740,17 +755,32 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
                     </p>
                   </div>
                 ) : (
-                  /* 駅データがマッチしない場合 → 手動入力を促す */
+                  /* 駅データがマッチしない場合 → 直接手動入力UIを表示 */
                   <div>
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
-                      ⚠️ {selectedDelay.railwayName}の駅データが見つかりません
+                    <input
+                      type="text"
+                      value={manualStationName}
+                      onChange={(e) => {
+                        setManualStationName(e.target.value);
+                        setIsManualStationInput(true);
+                      }}
+                      placeholder="駅名を入力（例：新宿）"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      💡 現在地ボタンで最寄り駅を検索、または直接入力してください
                     </p>
                     <button
-                      onClick={() => setIsManualStationInput(true)}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                      onClick={() => requestLocation()}
+                      disabled={geoStatus === 'requesting'}
+                      className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                     >
-                      <Edit3 className="w-4 h-4" />
-                      駅名を入力する
+                      {geoStatus === 'requesting' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <MapPin className="w-4 h-4" />
+                      )}
+                      現在地から最寄り駅を検索
                     </button>
                   </div>
                 )}
@@ -840,33 +870,33 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
                     </div>
                   </div>
                 ) : isManualMode && currentRailwayName && filteredStationsByRailway.length === 0 ? (
-                  /* 手動モードで路線選択済みだが駅データがない場合 */
+                  /* 手動モードで路線選択済みだが駅データがない場合 → 直接入力UI */
                   <div>
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
-                      ⚠️ {currentRailwayName}の駅データが見つかりません
+                    <input
+                      type="text"
+                      value={manualStationName}
+                      onChange={(e) => {
+                        setManualStationName(e.target.value);
+                        setIsManualStationInput(true);
+                      }}
+                      placeholder="駅名を入力（例：新宿）"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      💡 現在地ボタンで最寄り駅を検索、または直接入力してください
                     </p>
-                    {isManualStationInput ? (
-                      <div>
-                        <input
-                          type="text"
-                          value={manualStationName}
-                          onChange={(e) => setManualStationName(e.target.value)}
-                          placeholder="駅名を入力（例：新宿）"
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
-                        />
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          💡 コピー後にLINEWORKS等で修正も可能です
-                        </p>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setIsManualStationInput(true)}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                        駅名を入力する
-                      </button>
-                    )}
+                    <button
+                      onClick={() => requestLocation()}
+                      disabled={geoStatus === 'requesting'}
+                      className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                      {geoStatus === 'requesting' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <MapPin className="w-4 h-4" />
+                      )}
+                      現在地から最寄り駅を検索
+                    </button>
                   </div>
                 ) : (
                   /* 路線未選択の場合 → 従来のUI */
