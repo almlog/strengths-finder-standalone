@@ -12,8 +12,11 @@ import {
   Clock,
   Filter,
   Train,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
 } from 'lucide-react';
-import { TrainDelayService } from '../../services/TrainDelayService';
+import { getTrainDelayService } from '../../services/TrainDelayService';
 import { DelayHistoryEntry, OperatorGroup, TrainDelayInfo } from '../../types/trainDelay';
 import DelayReportComposer from './DelayReportComposer';
 
@@ -50,7 +53,8 @@ const DelayHistoryModal: React.FC<DelayHistoryModalProps> = ({
   externalRailwayName,
   onClearExternalRailway,
 }) => {
-  const [service] = useState(() => new TrainDelayService(token));
+  // シングルトンを使用して履歴を共有（DelayTickerと同じインスタンス）
+  const [service] = useState(() => getTrainDelayService(token));
   const [history, setHistory] = useState<DelayHistoryEntry[]>([]);
   const [currentDelays, setCurrentDelays] = useState<TrainDelayInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,15 +63,34 @@ const DelayHistoryModal: React.FC<DelayHistoryModalProps> = ({
   const [showDelayedOnly, setShowDelayedOnly] = useState(false);
   // 履歴から選択された遅延情報
   const [selectedHistoryEntry, setSelectedHistoryEntry] = useState<DelayHistoryEntry | null>(null);
+  // 診断モード
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [allOperatorInfo, setAllOperatorInfo] = useState<TrainDelayInfo[]>([]);
+  // 遅延報告セクションの展開状態
+  const [isReportExpanded, setIsReportExpanded] = useState(false);
 
-  // データ取得
+  // データ取得（ODPT API + 外部ソース）
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
+      // 1. ODPT APIからリアルタイム情報を取得
       await service.fetchDelayInfo();
+
+      // 2. 外部ソース（Yahoo!路線情報、JR RSS）から履歴を取得
+      console.log('[DelayHistoryModal] Fetching external sources...');
+      await service.fetchExternalHistory();
+
       setHistory(service.getHistory());
       setCurrentDelays(service.getCurrentDelays());
+      setAllOperatorInfo(service.getAllInfo());
       setLastUpdated(service.getLastUpdated());
+
+      // 診断ログ
+      console.log('[DelayHistoryModal] Fetch complete:', {
+        historyCount: service.getHistory().length,
+        currentDelaysCount: service.getCurrentDelays().length,
+        allOperatorInfoCount: service.getAllInfo().length,
+      });
     } catch (error) {
       console.error('[DelayHistoryModal] Fetch error:', error);
     } finally {
@@ -101,11 +124,11 @@ const DelayHistoryModal: React.FC<DelayHistoryModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col"
+        className="bg-white dark:bg-gray-900 rounded-t-xl sm:rounded-lg shadow-xl w-full sm:max-w-lg sm:mx-4 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ヘッダー */}
@@ -184,54 +207,188 @@ const DelayHistoryModal: React.FC<DelayHistoryModalProps> = ({
           </div>
         )}
 
-        {/* 遅延報告メッセージ作成（遅延有無に関わらず常に表示） */}
-        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <DelayReportComposer
-            currentDelays={currentDelays}
-            token={token}
-            externalDelay={selectedHistoryEntry}
-            onClearExternalDelay={() => setSelectedHistoryEntry(null)}
-            externalRailwayName={externalRailwayName}
-            onClearExternalRailway={onClearExternalRailway}
-          />
-        </div>
-
-        {/* 履歴リスト */}
-        <div className="flex-1 overflow-y-auto px-4 py-2">
-          {isLoading && history.length === 0 ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="w-6 h-6 text-gray-400 animate-spin" />
+        {/* 遅延報告メッセージ作成（折りたたみ可能・スクロール対応） */}
+        <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setIsReportExpanded(!isReportExpanded)}
+            className="w-full px-4 py-2 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+          >
+            <span className="text-sm font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              遅延報告メッセージを作成
+            </span>
+            {isReportExpanded ? (
+              <ChevronUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            )}
+          </button>
+          {isReportExpanded && (
+            <div className="overflow-y-auto overscroll-contain max-h-[35vh] sm:max-h-[40vh] px-3 py-2 bg-gray-50 dark:bg-gray-800/50">
+              <DelayReportComposer
+                currentDelays={currentDelays}
+                token={token}
+                externalDelay={selectedHistoryEntry}
+                onClearExternalDelay={() => setSelectedHistoryEntry(null)}
+                externalRailwayName={externalRailwayName}
+                onClearExternalRailway={onClearExternalRailway}
+              />
             </div>
-          ) : filteredHistory.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
-              <CheckCircle className="w-12 h-12 mb-2 text-green-500" />
-              <p className="text-sm">遅延情報はありません</p>
-              <p className="text-xs mt-1">直近6時間の履歴を表示します</p>
-            </div>
-          ) : (
-            <>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                ※クリックしてメッセージ作成に使用できます
-              </p>
-            <div className="space-y-2">
-              {filteredHistory.map((entry, index) => (
-                <HistoryItem
-                  key={`${entry.id}-${entry.recordedAt}-${index}`}
-                  entry={entry}
-                  onSelect={(e) => setSelectedHistoryEntry(e)}
-                  isSelected={selectedHistoryEntry?.id === entry.id && selectedHistoryEntry?.recordedAt === entry.recordedAt}
-                />
-              ))}
-            </div>
-            </>
           )}
         </div>
 
+        {/* 履歴リスト - スクロール可能なメイン領域 */}
+        <div className="flex-1 overflow-y-auto overscroll-contain min-h-[120px]">
+          <div className="px-4 py-3">
+            {/* セクションヘッダー */}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                直近6時間の遅延履歴
+              </h3>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {filteredHistory.length}件
+              </span>
+            </div>
+
+            {isLoading && history.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="w-6 h-6 text-gray-400 animate-spin" />
+              </div>
+            ) : filteredHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+                <CheckCircle className="w-16 h-16 mb-3 text-green-500" />
+                <p className="text-base font-medium">遅延情報はありません</p>
+                <p className="text-xs mt-2 text-center">
+                  直近6時間の遅延情報が表示されます<br />
+                  Yahoo!路線情報から自動取得しています
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 bg-gray-100 dark:bg-gray-800 p-2 rounded-lg">
+                  💡 項目をタップすると遅延報告メッセージに反映できます
+                </p>
+                <div className="space-y-2 pb-4">
+                  {filteredHistory.map((entry, index) => (
+                    <HistoryItem
+                      key={`${entry.id}-${entry.recordedAt}-${index}`}
+                      entry={entry}
+                      onSelect={(e) => {
+                        setSelectedHistoryEntry(e);
+                        setIsReportExpanded(true); // 選択時にレポートセクションを開く
+                      }}
+                      isSelected={selectedHistoryEntry?.id === entry.id && selectedHistoryEntry?.recordedAt === entry.recordedAt}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
         {/* フッター */}
-        <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-          <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-            データ提供: 公共交通オープンデータセンター (CC BY 4.0)
-          </p>
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+          <div className="flex flex-col gap-2">
+            {/* データソース */}
+            <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+              <p className="flex items-center gap-1">
+                <span>データ提供:</span>
+              </p>
+              <p className="pl-2 flex items-center gap-1">
+                • 公共交通オープンデータセンター (CC BY 4.0)
+              </p>
+              <p className="pl-2 flex items-center gap-1">
+                •{' '}
+                <a
+                  href="https://transit.yahoo.co.jp/traininfo/area/4/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:text-blue-700 dark:text-blue-400 inline-flex items-center gap-0.5"
+                >
+                  Yahoo!路線情報
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                （遅延履歴）
+              </p>
+            </div>
+
+            {/* 診断ボタン */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowDiagnostics(!showDiagnostics)}
+                className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400"
+              >
+                {showDiagnostics ? '診断を閉じる' : '診断'}
+              </button>
+            </div>
+          </div>
+
+          {/* 診断パネル */}
+          {showDiagnostics && (
+            <div className="mt-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs space-y-2">
+              <div className="font-bold text-gray-700 dark:text-gray-300">診断情報</div>
+
+              <div>
+                <span className="text-gray-600 dark:text-gray-400">履歴エントリ数: </span>
+                <span className="font-mono text-gray-900 dark:text-gray-100">{history.length}</span>
+              </div>
+
+              <div>
+                <span className="text-gray-600 dark:text-gray-400">現在遅延中: </span>
+                <span className="font-mono text-gray-900 dark:text-gray-100">{currentDelays.length}</span>
+              </div>
+
+              <div>
+                <span className="text-gray-600 dark:text-gray-400">全路線情報: </span>
+                <span className="font-mono text-gray-900 dark:text-gray-100">{allOperatorInfo.length}</span>
+              </div>
+
+              <div>
+                <span className="text-gray-600 dark:text-gray-400">最終更新: </span>
+                <span className="font-mono text-gray-900 dark:text-gray-100">
+                  {lastUpdated ? lastUpdated.toLocaleString('ja-JP') : 'なし'}
+                </span>
+              </div>
+
+              {/* 全路線のステータス */}
+              <div className="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
+                <div className="font-bold text-gray-700 dark:text-gray-300 mb-1">API取得データ（全路線）:</div>
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {allOperatorInfo.map((info, idx) => (
+                    <div key={idx} className={`flex justify-between ${
+                      info.status === 'delayed' || info.status === 'suspended'
+                        ? 'text-amber-600 dark:text-amber-400 font-medium'
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`}>
+                      <span>{info.railwayName || info.operatorName}</span>
+                      <span className="font-mono">
+                        {info.status === 'delayed' ? '遅延' :
+                         info.status === 'suspended' ? '運休' :
+                         info.status === 'normal' ? '平常' : '不明'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 履歴データ */}
+              {history.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
+                  <div className="font-bold text-gray-700 dark:text-gray-300 mb-1">履歴データ:</div>
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {history.map((entry, idx) => (
+                      <div key={idx} className="text-gray-600 dark:text-gray-400">
+                        <span>{new Date(entry.recordedAt).toLocaleTimeString('ja-JP')}</span>
+                        <span className="mx-1">-</span>
+                        <span>{entry.railwayName}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

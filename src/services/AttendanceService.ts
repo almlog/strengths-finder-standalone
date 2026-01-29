@@ -931,12 +931,40 @@ export class AttendanceService {
 
   /**
    * 深夜休憩申請漏れをチェック
-   * 深夜労働がある場合、深夜休憩修正または休憩時間修正申請が必要
+   *
+   * 深夜労働がある場合に、以下の条件をすべて満たす場合に違反と判定：
+   * 1. 深夜労働時間が一定時間（30分）以上ある
+   * 2. 基本的な休憩時間が不足している（労基法：6時間超→45分、8時間超→60分）
+   * 3. 深夜休憩修正が入力されていない
+   * 4. 休憩時間修正申請がない
+   *
+   * 22:15退勤など深夜帯勤務が短時間で、かつ必要な休憩を取得している場合は
+   * 違反として検出しない。
    */
   static hasNightBreakApplicationMissing(record: AttendanceRecord): boolean {
     // 深夜労働時間がない場合は対象外
     const nightWorkMinutesStr = record.nightWorkMinutes || '';
     if (!nightWorkMinutesStr || nightWorkMinutesStr === '' || nightWorkMinutesStr === '0:00') {
+      return false;
+    }
+
+    // 深夜労働時間を分に変換
+    const nightWorkMinutes = this.parseTimeToMinutes(nightWorkMinutesStr);
+
+    // 深夜労働が30分未満の場合は対象外（軽微な超過は違反としない）
+    const NIGHT_WORK_THRESHOLD_MINUTES = 30;
+    if (nightWorkMinutes < NIGHT_WORK_THRESHOLD_MINUTES) {
+      return false;
+    }
+
+    // 実働時間と休憩時間を取得
+    const actualWorkMinutes = this.parseTimeToMinutes(record.actualWorkHours);
+    const breakMinutes = record.breakTimeMinutes || 0;
+    const requiredBreakMinutes = this.calculateRequiredBreakMinutes(actualWorkMinutes);
+
+    // 基本的な休憩時間が十分に取得されている場合は対象外
+    // （勤務時間に対して必要な休憩を満たしている）
+    if (breakMinutes >= requiredBreakMinutes) {
       return false;
     }
 
@@ -952,7 +980,7 @@ export class AttendanceService {
       return false;
     }
 
-    // 深夜労働があるが休憩修正がない = 申請漏れ
+    // 深夜労働が30分以上あり、かつ休憩時間が不足している = 申請漏れ
     return true;
   }
 

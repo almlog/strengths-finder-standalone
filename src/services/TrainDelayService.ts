@@ -15,6 +15,7 @@ import {
   DELAY_STORAGE_KEY,
   HISTORY_RETENTION_MS,
 } from '../types/trainDelay';
+import { fetchExternalDelayHistory } from './YahooDelayService';
 
 /**
  * 運行情報テキストからステータスを判定
@@ -243,6 +244,8 @@ export class TrainDelayService {
       (info) => info.status === 'delayed' || info.status === 'suspended'
     );
 
+    console.log('[TrainDelayService] updateHistory - delayed infos:', delayedInfos.length);
+
     const newEntries: DelayHistoryEntry[] = delayedInfos.map((info) => ({
       ...info,
       recordedAt: now,
@@ -251,6 +254,7 @@ export class TrainDelayService {
     // 重複を避けるため、同じ路線の直近のエントリは更新しない（5分以内）
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
+    let addedCount = 0;
     newEntries.forEach((entry) => {
       const existingIndex = this.history.findIndex(
         (h) => h.railway === entry.railway && h.recordedAt > fiveMinutesAgo
@@ -258,7 +262,14 @@ export class TrainDelayService {
 
       if (existingIndex === -1) {
         this.history.unshift(entry);
+        addedCount++;
+        console.log('[TrainDelayService] Added history entry:', entry.railwayName);
       }
+    });
+
+    console.log('[TrainDelayService] History update complete:', {
+      added: addedCount,
+      total: this.history.length,
     });
 
     this.saveHistory();
@@ -272,11 +283,60 @@ export class TrainDelayService {
       const stored = localStorage.getItem(DELAY_STORAGE_KEY);
       if (stored) {
         this.history = JSON.parse(stored);
+        console.log('[TrainDelayService] Loaded history from storage:', this.history.length, 'entries');
         this.pruneOldHistory();
+        console.log('[TrainDelayService] After pruning:', this.history.length, 'entries');
+      } else {
+        console.log('[TrainDelayService] No history in storage');
       }
     } catch (error) {
       console.error('[TrainDelayService] Load history error:', error);
       this.history = [];
+    }
+  }
+
+  /**
+   * LocalStorageから履歴を再読み込み（外部から呼び出し可能）
+   */
+  reloadHistory(): void {
+    this.loadHistory();
+  }
+
+  /**
+   * 外部ソース（Yahoo!路線情報、JR東日本RSS）から遅延履歴を取得
+   * ODPTのリアルタイムデータを補完
+   */
+  async fetchExternalHistory(): Promise<DelayHistoryEntry[]> {
+    try {
+      console.log('[TrainDelayService] Fetching external history...');
+      const externalEntries = await fetchExternalDelayHistory();
+
+      // 外部ソースのエントリを履歴にマージ
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+      let addedCount = 0;
+      externalEntries.forEach((entry) => {
+        // 同じ路線の直近エントリがなければ追加
+        const existingIndex = this.history.findIndex(
+          (h) => h.railwayName === entry.railwayName && h.recordedAt > fiveMinutesAgo
+        );
+
+        if (existingIndex === -1) {
+          this.history.unshift(entry);
+          addedCount++;
+          console.log('[TrainDelayService] Added external entry:', entry.railwayName);
+        }
+      });
+
+      if (addedCount > 0) {
+        this.saveHistory();
+        console.log('[TrainDelayService] Added', addedCount, 'external entries');
+      }
+
+      return externalEntries;
+    } catch (error) {
+      console.error('[TrainDelayService] External fetch error:', error);
+      return [];
     }
   }
 
