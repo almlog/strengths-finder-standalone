@@ -159,21 +159,57 @@ describe('AttendanceService - 申請漏れ検出', () => {
   });
 
   describe('深夜休憩申請漏れ (night_break_application_missing)', () => {
-    it('should detect night break application missing when night work without 休憩時間修正申請', () => {
+    /**
+     * 深夜休憩違反の検出条件:
+     * 1. 深夜労働時間が30分以上ある
+     * 2. 基本的な休憩時間が不足している（労基法：6時間超→45分、8時間超→60分）
+     * 3. 深夜休憩修正が入力されていない
+     * 4. 休憩時間修正申請がない
+     */
+    it('should detect night break application missing when night work >= 30min AND insufficient break', () => {
       const record = createBaseRecord({
-        nightWorkMinutes: '2:00',
+        nightWorkMinutes: '2:00',           // 2時間の深夜労働（>= 30分）
         nightBreakModification: '',
         applicationContent: '',
+        actualWorkHours: '10:00',           // 10時間勤務（8時間超で60分休憩必要）
+        breakTimeMinutes: 45,               // 45分の休憩（60分に対して不足）
       });
       const analysis = AttendanceService.analyzeDailyRecord(record);
       expect(analysis.violations).toContain('night_break_application_missing');
     });
 
-    it('should NOT detect night break application missing when night work with 休憩時間修正申請', () => {
+    it('should NOT detect when night work >= 30min BUT sufficient break', () => {
+      const record = createBaseRecord({
+        nightWorkMinutes: '2:00',           // 2時間の深夜労働
+        nightBreakModification: '',
+        applicationContent: '',
+        actualWorkHours: '10:00',           // 10時間勤務（8時間超で60分休憩必要）
+        breakTimeMinutes: 60,               // 60分の休憩（十分）
+      });
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+      expect(analysis.violations).not.toContain('night_break_application_missing');
+    });
+
+    it('should NOT detect when night work < 30min (minor overtime like 22:15)', () => {
+      // ユーザーケース: 09:00-22:15勤務、深夜労働15分
+      const record = createBaseRecord({
+        nightWorkMinutes: '0:15',           // 15分の深夜労働（< 30分）
+        nightBreakModification: '',
+        applicationContent: '',
+        actualWorkHours: '12:00',           // 12時間勤務
+        breakTimeMinutes: 75,               // 75分の休憩
+      });
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+      expect(analysis.violations).not.toContain('night_break_application_missing');
+    });
+
+    it('should NOT detect night break application missing when night work with 深夜休憩修正', () => {
       const record = createBaseRecord({
         nightWorkMinutes: '2:00',
         nightBreakModification: '0:30',
         applicationContent: '',
+        actualWorkHours: '10:00',
+        breakTimeMinutes: 45,               // 休憩不足だが深夜休憩修正あり
       });
       const analysis = AttendanceService.analyzeDailyRecord(record);
       expect(analysis.violations).not.toContain('night_break_application_missing');
@@ -184,6 +220,8 @@ describe('AttendanceService - 申請漏れ検出', () => {
         nightWorkMinutes: '2:00',
         nightBreakModification: '',
         applicationContent: '休憩時間修正申請',
+        actualWorkHours: '10:00',
+        breakTimeMinutes: 45,               // 休憩不足だが申請あり
       });
       const analysis = AttendanceService.analyzeDailyRecord(record);
       expect(analysis.violations).not.toContain('night_break_application_missing');

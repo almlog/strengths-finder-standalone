@@ -368,18 +368,60 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
   // 6. 深夜休憩関連
   // ============================================
   describe('深夜休憩関連の違反検出', () => {
-    it('501_深夜労働（休憩修正なし）: - 届出漏れ検出', () => {
+    /**
+     * 深夜休憩違反の検出条件:
+     * 1. 深夜労働時間が30分以上ある
+     * 2. 基本的な休憩時間が不足している（労基法：6時間超→45分、8時間超→60分）
+     * 3. 深夜休憩修正が入力されていない
+     * 4. 休憩時間修正申請がない
+     */
+    it('501_深夜労働（休憩修正なし、休憩不足）: - 届出漏れ検出', () => {
       const record = createTestRecord('D501', '深夜 休憩漏れ', {
         clockIn: new Date('2026-01-06T09:00:00'),
         clockOut: new Date('2026-01-06T23:00:00'),
-        nightWorkMinutes: '1:00',
+        nightWorkMinutes: '1:00',           // 1時間の深夜労働（>= 30分）
         nightBreakModification: '',
         applicationContent: '',
+        actualWorkHours: '13:00',           // 13時間勤務（8時間超で60分休憩必要）
+        breakTimeMinutes: 45,               // 45分の休憩（60分に対して不足）
       });
 
       const analysis = AttendanceService.analyzeDailyRecord(record);
 
       expect(analysis.violations).toContain('night_break_application_missing');
+    });
+
+    it('501b_深夜労働（休憩修正なし、休憩十分）: - 違反なし', () => {
+      const record = createTestRecord('D501b', '深夜 休憩足りる', {
+        clockIn: new Date('2026-01-06T09:00:00'),
+        clockOut: new Date('2026-01-06T23:00:00'),
+        nightWorkMinutes: '1:00',           // 1時間の深夜労働
+        nightBreakModification: '',
+        applicationContent: '',
+        actualWorkHours: '13:00',           // 13時間勤務
+        breakTimeMinutes: 60,               // 60分の休憩（十分）
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.violations).not.toContain('night_break_application_missing');
+    });
+
+    it('501c_深夜労働（30分未満、休憩不足）: - 違反なし（軽微な超過）', () => {
+      // ユーザーケース: 22:15退勤など深夜帯勤務が短時間
+      const record = createTestRecord('D501c', '深夜 軽微超過', {
+        clockIn: new Date('2026-01-06T09:00:00'),
+        clockOut: new Date('2026-01-06T22:15:00'),
+        nightWorkMinutes: '0:15',           // 15分の深夜労働（< 30分）
+        nightBreakModification: '',
+        applicationContent: '',
+        actualWorkHours: '12:00',           // 12時間勤務
+        breakTimeMinutes: 75,               // 休憩は十分
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.violations).not.toContain('night_break_application_missing');
     });
 
     it('502_深夜労働（休憩修正あり）: - 違反なし', () => {
@@ -389,6 +431,8 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
         nightWorkMinutes: '1:00',
         nightBreakModification: '0:15',
         applicationContent: '',
+        actualWorkHours: '13:00',
+        breakTimeMinutes: 45,               // 休憩不足だが修正あり
       });
 
       const analysis = AttendanceService.analyzeDailyRecord(record);
@@ -403,6 +447,8 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
         nightWorkMinutes: '1:00',
         nightBreakModification: '',
         applicationContent: '休憩時間修正申請',
+        actualWorkHours: '13:00',
+        breakTimeMinutes: 45,               // 休憩不足だが申請あり
       });
 
       const analysis = AttendanceService.analyzeDailyRecord(record);
@@ -444,14 +490,16 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
       expect(analysis.violations).toContain('early_leave_application_missing');
     });
 
-    it('602_早出＋深夜（両方申請なし）: - 両方検出', () => {
+    it('602_早出＋深夜（両方申請なし、休憩不足）: - 両方検出', () => {
       const record = createTestRecord('D602', '早出深夜 両方', {
         clockIn: new Date('2026-01-06T07:00:00'),
         clockOut: new Date('2026-01-06T23:00:00'),
         earlyStartFlag: false,
-        nightWorkMinutes: '1:00',
+        nightWorkMinutes: '1:00',           // 1時間の深夜労働（>= 30分）
         nightBreakModification: '',
         applicationContent: '',
+        actualWorkHours: '15:00',           // 15時間勤務（8時間超で60分休憩必要）
+        breakTimeMinutes: 45,               // 45分の休憩（60分に対して不足）
       });
 
       const analysis = AttendanceService.analyzeDailyRecord(record);

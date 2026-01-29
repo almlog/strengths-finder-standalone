@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
-import { TrainDelayService } from '../../services/TrainDelayService';
+import { AlertTriangle, CheckCircle, Loader2, RefreshCw, History } from 'lucide-react';
+import { getTrainDelayService } from '../../services/TrainDelayService';
 import { TrainDelayInfo } from '../../types/trainDelay';
 
 interface DelayTickerProps {
@@ -27,7 +27,8 @@ const DelayTicker: React.FC<DelayTickerProps> = ({
   onClick,
   updateInterval = 5 * 60 * 1000, // 5分
 }) => {
-  const [service] = useState(() => new TrainDelayService(token));
+  // シングルトンを使用して履歴を共有
+  const [service] = useState(() => getTrainDelayService(token));
   const [delays, setDelays] = useState<TrainDelayInfo[]>([]);
   const [tickerText, setTickerText] = useState<string>('情報取得中...');
   const [isLoading, setIsLoading] = useState(true);
@@ -88,7 +89,7 @@ const DelayTicker: React.FC<DelayTickerProps> = ({
         transition-all cursor-pointer hover:opacity-80
         ${bgColor}
       `}
-      title={`クリックで詳細を表示${lastUpdated ? `\n最終更新: ${lastUpdated.toLocaleTimeString('ja-JP')}` : ''}`}
+      title={`タップで過去6時間の遅延履歴を表示${lastUpdated ? `\n最終更新: ${lastUpdated.toLocaleTimeString('ja-JP')}` : ''}`}
     >
       {/* ステータスアイコン */}
       <StatusIcon
@@ -111,22 +112,38 @@ const DelayTicker: React.FC<DelayTickerProps> = ({
         </div>
       </div>
 
-      {/* 更新ボタン */}
-      <button
+      {/* 履歴ボタンのヒント（平常運転時のみ表示） */}
+      {!hasDelays && !isLoading && (
+        <span className="hidden sm:flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+          <History className="w-3 h-3" />
+          履歴
+        </span>
+      )}
+
+      {/* 更新アイコン（クリックイベントは親ボタンが処理） */}
+      <span
         onClick={(e) => {
           e.stopPropagation();
           fetchData();
         }}
-        disabled={isLoading}
         className={`
           flex-shrink-0 p-1 rounded hover:bg-black/10 dark:hover:bg-white/10
-          transition-colors disabled:opacity-50
+          transition-colors cursor-pointer
+          ${isLoading ? 'opacity-50 pointer-events-none' : ''}
           ${textColor}
         `}
         title={`更新${lastUpdated ? ` (最終: ${lastUpdated.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })})` : ''}`}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.stopPropagation();
+            fetchData();
+          }
+        }}
       >
         <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-      </button>
+      </span>
 
       {/* マーキーアニメーション用CSS */}
       <style>{`

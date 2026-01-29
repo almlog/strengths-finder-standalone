@@ -7,7 +7,7 @@
  * 2. 手動モード: 遅延情報がない場合、路線名・遅延理由を自由入力
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   AlertTriangle,
   Clock,
@@ -84,6 +84,68 @@ const COMMON_RAILWAYS = [
 ];
 
 /**
+ * 路線名の英語→日本語マッピング
+ * ODPT APIの路線ID（英語）とYahoo等から取得する遅延情報の路線名（日本語）をマッチングするため
+ */
+const RAILWAY_NAME_MAP: Record<string, string[]> = {
+  // 東急
+  'Setagaya': ['世田谷線', '東急世田谷線'],
+  'Toyoko': ['東横線', '東急東横線'],
+  'DenEnToshi': ['田園都市線', '東急田園都市線'],
+  'Meguro': ['目黒線', '東急目黒線'],
+  'Oimachi': ['大井町線', '東急大井町線'],
+  'Ikegami': ['池上線', '東急池上線'],
+  'TokyuTamagawa': ['東急多摩川線', '多摩川線'],
+  // JR
+  'ChuoRapid': ['中央線快速', '中央線', '中央快速線'],
+  'ChuoSobuLocal': ['中央・総武線各停', '中央総武線', '総武線各停', '中央線各停'],
+  'Yamanote': ['山手線'],
+  'KeihinTohoku': ['京浜東北線'],
+  'Tokaido': ['東海道線'],
+  'Yokosuka': ['横須賀線'],
+  'SobuRapid': ['総武線快速', '総武快速線'],
+  'Saikyo': ['埼京線'],
+  'ShonanShinjuku': ['湘南新宿ライン'],
+  'Takasaki': ['高崎線'],
+  'Utsunomiya': ['宇都宮線'],
+  'Joban': ['常磐線'],
+  'Musashino': ['武蔵野線'],
+  'Nambu': ['南武線'],
+  'Yokohama': ['横浜線'],
+  'Chuo': ['中央線'],
+  // 東京メトロ
+  'Ginza': ['銀座線', '東京メトロ銀座線'],
+  'Marunouchi': ['丸ノ内線', '丸の内線', '東京メトロ丸ノ内線'],
+  'Hibiya': ['日比谷線', '東京メトロ日比谷線'],
+  'Tozai': ['東西線', '東京メトロ東西線'],
+  'Chiyoda': ['千代田線', '東京メトロ千代田線'],
+  'Yurakucho': ['有楽町線', '東京メトロ有楽町線'],
+  'Hanzomon': ['半蔵門線', '東京メトロ半蔵門線'],
+  'Namboku': ['南北線', '東京メトロ南北線'],
+  'Fukutoshin': ['副都心線', '東京メトロ副都心線'],
+  // 都営
+  'Asakusa': ['浅草線', '都営浅草線'],
+  'Mita': ['三田線', '都営三田線'],
+  'ToeiShinjuku': ['新宿線', '都営新宿線'],
+  'Oedo': ['大江戸線', '都営大江戸線'],
+  // 小田急
+  'Odawara': ['小田原線', '小田急小田原線', '小田急線'],
+  'Enoshima': ['江ノ島線', '小田急江ノ島線'],
+  'OdakyuTama': ['多摩線', '小田急多摩線'],
+  // 京王
+  'KeioLine': ['京王線'],
+  'Inokashira': ['井の頭線', '京王井の頭線'],
+  'Sagamihara': ['相模原線', '京王相模原線'],
+  // 西武
+  'SeibuIkebukuro': ['池袋線', '西武池袋線'],
+  'SeibuShinjuku': ['新宿線', '西武新宿線'],
+  // 東武
+  'Tojo': ['東上線', '東武東上線'],
+  'Skytree': ['スカイツリーライン', '東武スカイツリーライン', '伊勢崎線'],
+  'Isesaki': ['伊勢崎線', '東武伊勢崎線'],
+};
+
+/**
  * 遅延報告メッセージ作成コンポーネント
  */
 const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
@@ -122,6 +184,9 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
   const [manualRailway, setManualRailway] = useState('');
   const [manualRailwayCustom, setManualRailwayCustom] = useState('');
   const [manualReason, setManualReason] = useState('');
+  // 駅名の手動入力
+  const [isManualStationInput, setIsManualStationInput] = useState(false);
+  const [manualStationName, setManualStationName] = useState('');
 
   // 位置情報フック
   const { coordinate, status: geoStatus, error: geoError, requestLocation } = useGeolocation();
@@ -135,21 +200,141 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
     ? externalDelay
     : currentDelays[selectedDelayIndex] || null;
 
+  // 路線名のマッチング（部分一致・類似名対応）
+  const matchRailwayName = useCallback((stationRailway: string, delayRailway: string): boolean => {
+    if (!stationRailway || !delayRailway) return false;
+
+    // 完全一致
+    if (stationRailway === delayRailway) return true;
+
+    // 正規化関数
+    const normalize = (name: string) =>
+      name
+        .replace(/[・\s　]/g, '')
+        .replace(/各停$|各駅停車$|快速$|急行$/, '')
+        .replace(/^東急|^東京メトロ|^都営|^JR|^ＪＲ/, '');
+
+    const normalizedStation = normalize(stationRailway);
+    const normalizedDelay = normalize(delayRailway);
+
+    // 正規化後の完全一致
+    if (normalizedStation === normalizedDelay) return true;
+
+    // 部分一致（一方が他方を含む）
+    if (normalizedStation.includes(normalizedDelay) || normalizedDelay.includes(normalizedStation)) {
+      return true;
+    }
+
+    // 英語名→日本語名のマッピングでチェック
+    for (const [engName, jpNames] of Object.entries(RAILWAY_NAME_MAP)) {
+      // 駅側が英語名の場合
+      if (stationRailway.includes(engName)) {
+        // 遅延側が対応する日本語名のいずれかに一致するか
+        if (jpNames.some(jp => delayRailway.includes(jp) || normalize(delayRailway).includes(normalize(jp)))) {
+          return true;
+        }
+      }
+      // 遅延側が日本語名の場合
+      if (jpNames.some(jp => delayRailway.includes(jp))) {
+        // 駅側が英語名を含むか
+        if (stationRailway.includes(engName)) {
+          return true;
+        }
+        // 駅側も日本語名のいずれかに一致するか
+        if (jpNames.some(jp => stationRailway.includes(jp) || normalize(stationRailway).includes(normalize(jp)))) {
+          return true;
+        }
+      }
+    }
+
+    // 「線」を除去した名前で比較
+    const stripLine = (name: string) => normalize(name).replace(/線$/, '');
+    if (stripLine(stationRailway) === stripLine(delayRailway)) return true;
+
+    return false;
+  }, []);
+
+  // 現在選択されている路線名を取得（自動モード or 手動モード）
+  const currentRailwayName = useMemo(() => {
+    if (isManualMode) {
+      // 手動モードの場合、選択された路線名を取得
+      if (manualRailway === 'custom') {
+        return manualRailwayCustom;
+      }
+      const railway = COMMON_RAILWAYS.find(r => r.id === manualRailway);
+      return railway?.name || '';
+    } else {
+      // 自動モードの場合、遅延情報の路線名を使用
+      return selectedDelay?.railwayName || '';
+    }
+  }, [isManualMode, manualRailway, manualRailwayCustom, selectedDelay?.railwayName]);
+
+  // 選択された路線の駅をフィルタリング（自動・手動両モード対応）
+  const filteredStationsByRailway = useMemo(() => {
+    console.log('[DelayReportComposer] Filtering - currentRailwayName:', currentRailwayName);
+    console.log('[DelayReportComposer] Filtering - total stations:', stations.length);
+
+    if (!currentRailwayName || stations.length === 0) {
+      console.log('[DelayReportComposer] Filtering - early return (no railway or no stations)');
+      return [];
+    }
+
+    // デバッグ: 最初の数駅のrailway情報を表示
+    if (stations.length > 0) {
+      console.log('[DelayReportComposer] Sample station railways:', stations.slice(0, 5).map(s => ({
+        name: s.name,
+        railway: s.railway,
+        railwayName: s.railwayName
+      })));
+    }
+
+    const filtered = stations.filter(station => {
+      // railwayName同士でマッチング
+      if (matchRailwayName(station.railwayName, currentRailwayName)) {
+        return true;
+      }
+      // 駅のrailway ID（例: odpt.Railway:Tokyu.Setagaya）から路線名部分を抽出してマッチング
+      const railwayIdParts = station.railway.split('.');
+      const railwayIdName = railwayIdParts[railwayIdParts.length - 1] || '';
+      if (matchRailwayName(railwayIdName, currentRailwayName)) {
+        return true;
+      }
+      return false;
+    });
+
+    console.log('[DelayReportComposer] Filtered stations:', filtered.length);
+    if (filtered.length > 0) {
+      console.log('[DelayReportComposer] First few filtered:', filtered.slice(0, 3).map(s => s.name));
+    }
+
+    return filtered;
+  }, [stations, currentRailwayName, matchRailwayName]);
+
   // 駅データの読み込み
   useEffect(() => {
     const loadStations = async () => {
       setIsLoadingStations(true);
+      console.log('[DelayReportComposer] Starting station load...');
+      console.log('[DelayReportComposer] Token status:', token ? `set (${token.substring(0, 8)}...)` : 'NOT SET');
+
       try {
         // キャッシュが有効ならキャッシュから、そうでなければAPIから取得
         if (stationDataService.isCacheValid()) {
+          console.log('[DelayReportComposer] Cache is valid, loading from cache');
           const cached = stationDataService.loadFromCache();
           if (cached) {
+            console.log('[DelayReportComposer] Loaded from cache:', cached.length, 'stations');
             setStations(cached);
             setIsLoadingStations(false);
             return;
           }
         }
+        console.log('[DelayReportComposer] Fetching from API...');
         const data = await stationDataService.fetchStations();
+        console.log('[DelayReportComposer] Loaded stations:', data.length);
+        if (data.length > 0) {
+          console.log('[DelayReportComposer] Sample railways:', [...new Set(data.slice(0, 20).map(s => s.railwayName))]);
+        }
         setStations(data);
       } catch (error) {
         console.error('[DelayReportComposer] Failed to load stations:', error);
@@ -159,7 +344,7 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
     };
 
     loadStations();
-  }, [stationDataService]);
+  }, [stationDataService, token]);
 
   // 位置情報から最寄り駅を検出
   // coordinateが変わったら常に最寄り駅を更新する
@@ -216,7 +401,10 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
   // メッセージ生成
   const generateMessage = (): string => {
     const delayTimeText = delayMinutes ? `${delayMinutes}` : '○○';
-    const stationText = selectedStation?.name || '▼▼';
+    // 手動入力の場合はその値を使用、そうでなければ選択された駅名
+    const stationText = isManualStationInput
+      ? (manualStationName || '【駅名を入力】')
+      : (selectedStation?.name || '▼▼');
 
     if (isManualMode) {
       // 手動モード
@@ -262,10 +450,11 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
     }
   };
 
-  // 入力完了チェック
+  // 入力完了チェック（駅は手動入力または選択のどちらかがあればOK）
+  const hasStation = isManualStationInput ? !!manualStationName : !!selectedStation;
   const isComplete = isManualMode
-    ? (manualRailway && (manualRailway !== 'custom' || manualRailwayCustom) && manualReason && delayMinutes && selectedStation)
-    : (selectedDelay && delayMinutes && selectedStation);
+    ? (manualRailway && (manualRailway !== 'custom' || manualRailwayCustom) && manualReason && delayMinutes && hasStation)
+    : (selectedDelay && delayMinutes && hasStation);
 
   // 遅延情報の表示テキスト
   const getDelayDisplayText = (delay: TrainDelayInfo): string => {
@@ -348,9 +537,9 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
         </div>
       )}
 
-      {/* コンテンツ */}
+      {/* コンテンツ（コンパクトなスペーシング） */}
       {isExpanded && (
-        <div className={`px-4 py-4 space-y-4 ${isManualMode ? 'bg-blue-50 dark:bg-blue-900/10' : 'bg-amber-50 dark:bg-amber-900/10'}`}>
+        <div className={`px-3 py-3 space-y-3 ${isManualMode ? 'bg-blue-50 dark:bg-blue-900/10' : 'bg-amber-50 dark:bg-amber-900/10'}`}>
           {/* 外部選択された路線名バナー */}
           {hasExternalRailway && externalRailwayName && isManualMode && (
             <div className="flex items-center justify-between p-2 bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg">
@@ -504,32 +693,248 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
               現在地（駅）<span className="text-red-500">*</span>
             </label>
 
-            {/* 位置情報取得ボタン */}
-            <button
-              onClick={requestLocation}
-              disabled={geoStatus === 'requesting' || isLoadingStations}
-              className="flex items-center gap-2 px-3 py-2 mb-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {geoStatus === 'requesting' || isLoadingStations ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <MapPin className="w-4 h-4" />
-              )}
-              {geoStatus === 'requesting' ? '取得中...' : '現在地から検出'}
-            </button>
+            {/* 自動モードで遅延情報が選択されている場合 → その路線の駅を直接表示 */}
+            {!isManualMode && selectedDelay ? (
+              <div>
+                {/* 路線の駅リスト（フィルタリング済み or 全駅から検索） */}
+                {filteredStationsByRailway.length > 0 ? (
+                  <>
+                    <select
+                      value={selectedStation?.id || ''}
+                      onChange={(e) => {
+                        if (e.target.value === '__manual__') {
+                          setIsManualStationInput(true);
+                          return;
+                        }
+                        const station = filteredStationsByRailway.find((s) => s.id === e.target.value);
+                        if (station) {
+                          setSelectedStation(station);
+                        }
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-amber-300 dark:border-amber-600 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">🚃 {selectedDelay.railwayName}の駅を選択</option>
+                      {filteredStationsByRailway.map((station) => (
+                        <option key={station.id} value={station.id}>
+                          {station.name}
+                        </option>
+                      ))}
+                      <option value="__manual__">📝 駅名を直接入力する</option>
+                    </select>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      📍 {selectedDelay.railwayName}（{filteredStationsByRailway.length}駅）
+                    </p>
+                  </>
+                ) : isManualStationInput ? (
+                  /* 手動入力モード */
+                  <div>
+                    <input
+                      type="text"
+                      value={manualStationName}
+                      onChange={(e) => setManualStationName(e.target.value)}
+                      placeholder="駅名を入力（例：新宿）"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      💡 コピー後にLINEWORKS等で修正も可能です
+                    </p>
+                  </div>
+                ) : (
+                  /* 駅データがマッチしない場合 → 手動入力を促す */
+                  <div>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                      ⚠️ {selectedDelay.railwayName}の駅データが見つかりません
+                    </p>
+                    <button
+                      onClick={() => setIsManualStationInput(true)}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      駅名を入力する
+                    </button>
+                  </div>
+                )}
 
-            {/* エラー表示 */}
-            {geoError && (
-              <p className="text-sm text-red-500 dark:text-red-400 mb-2">
-                {geoError}
-              </p>
-            )}
+                {/* 別の方法で選択するオプション */}
+                {filteredStationsByRailway.length > 0 && !isManualStationInput && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => {
+                        setIsManualStationInput(false);
+                        requestLocation();
+                      }}
+                      disabled={geoStatus === 'requesting'}
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                    >
+                      {geoStatus === 'requesting' ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <MapPin className="w-3 h-3" />
+                      )}
+                      <span>現在地から探す</span>
+                    </button>
+                    <button
+                      onClick={() => setIsManualStationInput(true)}
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>手動入力</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* 手動モード or 遅延情報未選択 */
+              <>
+                {/* 手動モードで路線が選択されている場合 → その路線の駅を表示 */}
+                {isManualMode && currentRailwayName && filteredStationsByRailway.length > 0 ? (
+                  <div>
+                    <select
+                      value={selectedStation?.id || ''}
+                      onChange={(e) => {
+                        if (e.target.value === '__manual__') {
+                          setIsManualStationInput(true);
+                          return;
+                        }
+                        const station = filteredStationsByRailway.find((s) => s.id === e.target.value);
+                        if (station) {
+                          setSelectedStation(station);
+                        }
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-600 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">🚃 {currentRailwayName}の駅を選択</option>
+                      {filteredStationsByRailway.map((station) => (
+                        <option key={station.id} value={station.id}>
+                          {station.name}
+                        </option>
+                      ))}
+                      <option value="__manual__">📝 駅名を直接入力する</option>
+                    </select>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                      📍 {currentRailwayName}（{filteredStationsByRailway.length}駅）
+                    </p>
+                    {/* 補助オプション */}
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => {
+                          requestLocation();
+                        }}
+                        disabled={geoStatus === 'requesting'}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                      >
+                        {geoStatus === 'requesting' ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <MapPin className="w-3 h-3" />
+                        )}
+                        <span>現在地から探す</span>
+                      </button>
+                      <button
+                        onClick={() => setIsManualStationInput(true)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>手動入力</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : isManualMode && currentRailwayName && filteredStationsByRailway.length === 0 ? (
+                  /* 手動モードで路線選択済みだが駅データがない場合 */
+                  <div>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                      ⚠️ {currentRailwayName}の駅データが見つかりません
+                    </p>
+                    {isManualStationInput ? (
+                      <div>
+                        <input
+                          type="text"
+                          value={manualStationName}
+                          onChange={(e) => setManualStationName(e.target.value)}
+                          placeholder="駅名を入力（例：新宿）"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          💡 コピー後にLINEWORKS等で修正も可能です
+                        </p>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setIsManualStationInput(true)}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        駅名を入力する
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  /* 路線未選択の場合 → 従来のUI */
+                  <>
+                    {/* 入力モード切り替え */}
+                    <div className="flex gap-2 mb-2">
+                      <button
+                        onClick={() => {
+                          setIsManualStationInput(false);
+                          requestLocation();
+                        }}
+                        disabled={geoStatus === 'requesting' || isLoadingStations}
+                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded-lg transition-colors ${
+                          !isManualStationInput
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        } disabled:opacity-50`}
+                      >
+                        {geoStatus === 'requesting' || isLoadingStations ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <MapPin className="w-3 h-3" />
+                        )}
+                        <span>現在地から</span>
+                      </button>
+                      <button
+                        onClick={() => setIsManualStationInput(true)}
+                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded-lg transition-colors ${
+                          isManualStationInput
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>手動入力</span>
+                      </button>
+                    </div>
 
-            {/* 最寄り駅ドロップダウン */}
-            {nearestStations.length > 0 ? (
+                    {/* エラー表示 */}
+                    {geoError && !isManualStationInput && (
+                      <p className="text-sm text-red-500 dark:text-red-400 mb-2">
+                        {geoError}
+                      </p>
+                    )}
+
+                    {isManualStationInput ? (
+                      /* 手動入力モード */
+                      <div>
+                        <input
+                          type="text"
+                          value={manualStationName}
+                          onChange={(e) => setManualStationName(e.target.value)}
+                          placeholder="駅名を入力（例：新宿）"
+                          className={`w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 ${isManualMode ? 'focus:ring-blue-500' : 'focus:ring-amber-500'}`}
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          💡 コピー後にLINEWORKS等で修正も可能です
+                        </p>
+                      </div>
+                    ) : nearestStations.length > 0 ? (
+                      /* 最寄り駅ドロップダウン（位置情報から） */
               <select
                 value={selectedStation?.id || ''}
                 onChange={(e) => {
+                  if (e.target.value === '__manual__') {
+                    setIsManualStationInput(true);
+                    return;
+                  }
                   const station = nearestStations.find(
                     (ns) => ns.station.id === e.target.value
                   )?.station;
@@ -544,12 +949,17 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
                     {getStationDisplayText(result)}
                   </option>
                 ))}
+                <option value="__manual__">📝 その他（手動入力）</option>
               </select>
             ) : stations.length > 0 ? (
-              // 位置情報なしの場合は全駅から選択
+              /* 位置情報なしの場合は全駅から選択 */
               <select
                 value={selectedStation?.id || ''}
                 onChange={(e) => {
+                  if (e.target.value === '__manual__') {
+                    setIsManualStationInput(true);
+                    return;
+                  }
                   const station = stations.find((s) => s.id === e.target.value);
                   if (station) {
                     setSelectedStation(station);
@@ -563,21 +973,26 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
                     {station.name}（{station.railwayName}）
                   </option>
                 ))}
+                <option value="__manual__">📝 その他（手動入力）</option>
               </select>
             ) : (
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {isLoadingStations ? '駅データを読み込み中...' : '「現在地から検出」ボタンを押して駅を選択してください'}
+                {isLoadingStations ? '駅データを読み込み中...' : '上のボタンで駅を選択または手動入力してください'}
               </p>
+            )}
+                  </>
+                )}
+              </>
             )}
           </div>
 
           {/* メッセージプレビュー */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              メッセージプレビュー
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              プレビュー
             </label>
-            <div className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans">
+            <div className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg max-h-24 overflow-y-auto">
+              <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
                 {generateMessage()}
               </pre>
             </div>
@@ -587,7 +1002,7 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
           <button
             onClick={handleCopy}
             disabled={!isComplete}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+            className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
               isComplete
                 ? isCopied
                   ? 'bg-green-600 text-white'
@@ -599,21 +1014,16 @@ const DelayReportComposer: React.FC<DelayReportComposerProps> = ({
           >
             {isCopied ? (
               <>
-                <Check className="w-5 h-5" />
-                コピーしました！
+                <Check className="w-4 h-4" />
+                コピー完了
               </>
             ) : (
               <>
-                <Copy className="w-5 h-5" />
+                <Copy className="w-4 h-4" />
                 メッセージをコピー
               </>
             )}
           </button>
-
-          {/* 注意書き */}
-          <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-            ※LINEWORKSなどに貼り付けてください
-          </p>
         </div>
       )}
     </div>
