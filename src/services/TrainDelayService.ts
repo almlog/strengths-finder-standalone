@@ -6,7 +6,6 @@
 import {
   TrainDelayInfo,
   DelayHistoryEntry,
-  ODPTTrainInformationResponse,
   OperatorGroup,
   TrainStatus,
   OPERATOR_NAMES,
