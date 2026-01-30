@@ -535,9 +535,13 @@ const AttendanceAnalysisPage: React.FC = () => {
                     <p className="text-base text-gray-600 dark:text-gray-300 mb-1">
                       XLSXファイルをドロップまたはクリックして選択
                     </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
                       楽楽勤怠「出勤簿_日別詳細」ファイル
                     </p>
+                    <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-2 rounded-md max-w-sm">
+                      <p className="font-medium mb-1">💡 当日分の分析について</p>
+                      <p>デフォルトでは当日分は除外されます。月末締め日など本日分も分析したい場合は、上の「分析オプション」で切り替えてください。</p>
+                    </div>
                   </div>
                 )}
               </label>
