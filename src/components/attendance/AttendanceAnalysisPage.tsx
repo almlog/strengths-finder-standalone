@@ -1167,9 +1167,9 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className={isExportingPdf ? "grid grid-cols-2 gap-6" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
+        <div className={isExportingPdf ? "bg-white p-6" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
+          <h3 className={isExportingPdf ? "text-lg font-semibold text-gray-900 mb-4" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
             全体統計
           </h3>
           <dl className="space-y-3">
@@ -1209,8 +1209,8 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <div className={isExportingPdf ? "bg-white p-6" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
+          <h3 className={isExportingPdf ? "text-lg font-semibold text-gray-900 mb-4" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
             違反サマリー
           </h3>
           <div className="space-y-2">
@@ -1239,12 +1239,12 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
         </div>
       </div>
 
-      {/* グラフセクション: 部門別残業 + 違反種別（2カラム横並び） */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* グラフセクション: 部門別残業 + 違反種別（WEB:横並び、PDF:縦並び・中央揃え） */}
+      <div className={isExportingPdf ? "flex flex-col items-center gap-6" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
         {/* 部門別残業時間チャート */}
         {departmentOvertimeData.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <div className={isExportingPdf ? "bg-white p-6 w-full max-w-2xl" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
+            <h3 className={isExportingPdf ? "text-lg font-semibold text-gray-900 mb-4 text-center" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
               部門別 平均残業時間
             </h3>
             <div style={{ height: isExportingPdf ? Math.min(200, Math.max(150, departmentOvertimeData.length * 28)) : Math.max(250, departmentOvertimeData.length * 40) }}>
@@ -1252,7 +1252,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                 <BarChart
                   data={departmentOvertimeData}
                   layout="vertical"
-                  margin={{ top: 5, right: isExportingPdf ? 20 : 30, left: isExportingPdf ? 5 : 80, bottom: 5 }}
+                  margin={{ top: 5, right: isExportingPdf ? 40 : 30, left: isExportingPdf ? 10 : 80, bottom: 5 }}
                 >
                   <XAxis
                     type="number"
@@ -1282,26 +1282,26 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
 
         {/* 違反種別分布チャート */}
         {violationDistributionData.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <div className={isExportingPdf ? "bg-white p-6 w-full max-w-2xl" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
+            <h3 className={isExportingPdf ? "text-lg font-semibold text-gray-900 mb-4 text-center" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
               違反種別の分布
             </h3>
-            <div style={{ height: isExportingPdf ? 200 : 280 }}>
+            <div style={{ height: 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={violationDistributionData}
                     cx="50%"
-                    cy={isExportingPdf ? "35%" : "50%"}
-                    outerRadius={isExportingPdf ? 50 : 80}
-                    innerRadius={isExportingPdf ? 20 : 40}
+                    cy="40%"
+                    outerRadius={isExportingPdf ? 60 : 80}
+                    innerRadius={isExportingPdf ? 25 : 40}
                     paddingAngle={2}
                     dataKey="value"
-                    label={isExportingPdf ? false : (props: { name?: string; percent?: number }) => {
+                    label={(props: { name?: string; percent?: number }) => {
                       const { name, percent } = props;
                       return `${name || ''}: ${((percent || 0) * 100).toFixed(0)}%`;
                     }}
-                    labelLine={isExportingPdf ? false : { stroke: '#9CA3AF', strokeWidth: 1 }}
+                    labelLine={{ stroke: '#9CA3AF', strokeWidth: 1 }}
                   >
                     {violationDistributionData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -1312,7 +1312,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                     layout="horizontal"
                     verticalAlign="bottom"
                     align="center"
-                    wrapperStyle={{ paddingTop: isExportingPdf ? 5 : 10, fontSize: isExportingPdf ? 9 : 11 }}
+                    wrapperStyle={{ paddingTop: 10, fontSize: 11 }}
                     formatter={(value) => {
                       const item = violationDistributionData.find(d => d.name === value);
                       const percent = item ? ((item.value / violationDistributionData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(0) : '0';
