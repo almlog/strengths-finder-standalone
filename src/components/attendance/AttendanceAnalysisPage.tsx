@@ -211,6 +211,10 @@ const AttendanceAnalysisPage: React.FC = () => {
     if (!summaryRef.current || !analysisResult) return;
 
     setIsExportingPdf(true);
+
+    // Reactの再レンダリングを待つ（縦並びレイアウトが適用されるまで）
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     try {
       // html2canvasでキャプチャ
       const canvas = await html2canvas(summaryRef.current, {
