@@ -31,6 +31,7 @@ import {
   Pie,
   Cell,
   Legend,
+  CartesianGrid,
 } from 'recharts';
 import AttendanceService from '../../services/AttendanceService';
 import {
@@ -1255,13 +1256,14 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                   margin={{ top: 5, right: isExportingPdf ? 30 : 30, left: isExportingPdf ? 5 : 80, bottom: 20 }}
                   barCategoryGap="20%"
                 >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} stroke="#E5E7EB" />
                   <XAxis
                     type="number"
                     tickFormatter={(value) => `${Math.floor(value / 60)}h`}
                     stroke="#9CA3AF"
                     fontSize={isExportingPdf ? 9 : 12}
-                    axisLine={{ stroke: '#E5E7EB' }}
-                    tickLine={{ stroke: '#E5E7EB' }}
+                    axisLine={false}
+                    tickLine={false}
                   />
                   <YAxis
                     type="category"
@@ -1270,7 +1272,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                     fontSize={isExportingPdf ? 8 : 12}
                     width={isExportingPdf ? 65 : 75}
                     tick={{ textAnchor: 'end' }}
-                    axisLine={{ stroke: '#E5E7EB' }}
+                    axisLine={false}
                     tickLine={false}
                   />
                   <Tooltip content={<ChartTooltip />} />
@@ -1291,15 +1293,15 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
             <h3 className={isExportingPdf ? "text-base font-semibold text-gray-900 mb-3 text-center" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
               違反種別の分布
             </h3>
-            <div style={{ height: isExportingPdf ? 180 : 280 }}>
+            <div style={{ height: isExportingPdf ? 200 : 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={violationDistributionData}
                     cx="50%"
-                    cy={isExportingPdf ? "45%" : "40%"}
-                    outerRadius={isExportingPdf ? 50 : 80}
-                    innerRadius={isExportingPdf ? 20 : 40}
+                    cy={isExportingPdf ? "42%" : "40%"}
+                    outerRadius={isExportingPdf ? 65 : 80}
+                    innerRadius={isExportingPdf ? 25 : 40}
                     paddingAngle={2}
                     dataKey="value"
                     label={isExportingPdf ? false : (props: { name?: string; percent?: number }) => {
@@ -1317,7 +1319,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                     layout="horizontal"
                     verticalAlign="bottom"
                     align="center"
-                    wrapperStyle={{ paddingTop: isExportingPdf ? 5 : 10, fontSize: isExportingPdf ? 9 : 11 }}
+                    wrapperStyle={{ paddingTop: isExportingPdf ? 8 : 10, fontSize: isExportingPdf ? 10 : 11 }}
                     formatter={(value) => {
                       const item = violationDistributionData.find(d => d.name === value);
                       const percent = item ? ((item.value / violationDistributionData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(0) : '0';
