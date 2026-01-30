@@ -30,6 +30,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from 'recharts';
 import AttendanceService from '../../services/AttendanceService';
 import {
@@ -1238,11 +1239,11 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
         </div>
       </div>
 
-      {/* グラフセクション: 部門別残業 + 違反種別（通常2カラム、PDF出力時は縦並び） */}
+      {/* グラフセクション: 部門別残業 + 違反種別（通常2カラム、PDF出力時は縦並び中央配置） */}
       <div className={`grid gap-6 ${isExportingPdf ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
         {/* 部門別残業時間チャート */}
         {departmentOvertimeData.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${isExportingPdf ? 'max-w-2xl mx-auto w-full' : ''}`}>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               部門別 平均残業時間
             </h3>
@@ -1280,32 +1281,43 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
 
         {/* 違反種別分布チャート */}
         {violationDistributionData.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${isExportingPdf ? 'max-w-2xl mx-auto w-full' : ''}`}>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               違反種別の分布
             </h3>
-            <div style={{ height: 280 }}>
+            <div style={{ height: isExportingPdf ? 220 : 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={violationDistributionData}
                     cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    innerRadius={40}
+                    cy="40%"
+                    outerRadius={isExportingPdf ? 60 : 80}
+                    innerRadius={isExportingPdf ? 25 : 40}
                     paddingAngle={2}
                     dataKey="value"
-                    label={(props: { name?: string; percent?: number }) => {
+                    label={isExportingPdf ? false : (props: { name?: string; percent?: number }) => {
                       const { name, percent } = props;
                       return `${name || ''}: ${((percent || 0) * 100).toFixed(0)}%`;
                     }}
-                    labelLine={{ stroke: '#9CA3AF', strokeWidth: 1 }}
+                    labelLine={isExportingPdf ? false : { stroke: '#9CA3AF', strokeWidth: 1 }}
                   >
                     {violationDistributionData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                   </Pie>
                   <Tooltip content={<ChartTooltip formatter={(v) => `${v}件`} />} />
+                  <Legend
+                    layout="horizontal"
+                    verticalAlign="bottom"
+                    align="center"
+                    wrapperStyle={{ paddingTop: 10, fontSize: 11 }}
+                    formatter={(value, entry) => {
+                      const item = violationDistributionData.find(d => d.name === value);
+                      const percent = item ? ((item.value / violationDistributionData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(0) : '0';
+                      return `${value}: ${percent}%`;
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
