@@ -720,7 +720,7 @@ const AttendanceAnalysisPage: React.FC = () => {
           <div className="min-h-[400px]">
             {activeTab === 'summary' && (
               <div ref={summaryRef}>
-                <SummaryTab result={analysisResult} />
+                <SummaryTab result={analysisResult} isExportingPdf={isExportingPdf} />
               </div>
             )}
             {activeTab === 'employees' && (
@@ -997,7 +997,7 @@ const ChartTooltip: React.FC<{
   return null;
 };
 
-const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) => {
+const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: boolean }> = ({ result, isExportingPdf = false }) => {
   // 部門別残業データ（横棒グラフ用）
   const departmentOvertimeData = useMemo(() => {
     return result.departmentSummaries
@@ -1230,8 +1230,8 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) =>
         </div>
       </div>
 
-      {/* グラフセクション: 部門別残業 + 違反種別（2カラム） */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* グラフセクション: 部門別残業 + 違反種別（2カラム、PDF出力時は縦並び） */}
+      <div className={`grid gap-6 ${isExportingPdf ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
         {/* 部門別残業時間チャート */}
         {departmentOvertimeData.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
