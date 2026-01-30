@@ -1240,36 +1240,41 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
       </div>
 
       {/* グラフセクション: 部門別残業 + 違反種別（WEB:横並び、PDF:縦並び・中央揃え） */}
-      <div className={isExportingPdf ? "flex flex-col items-center gap-6" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
+      <div className={isExportingPdf ? "flex flex-col items-center gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
         {/* 部門別残業時間チャート */}
         {departmentOvertimeData.length > 0 && (
-          <div className={isExportingPdf ? "bg-white p-6 w-full max-w-2xl" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
-            <h3 className={isExportingPdf ? "text-lg font-semibold text-gray-900 mb-4 text-center" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
+          <div className={isExportingPdf ? "bg-white p-4 w-full max-w-2xl" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
+            <h3 className={isExportingPdf ? "text-base font-semibold text-gray-900 mb-3 text-center" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
               部門別 平均残業時間
             </h3>
-            <div style={{ height: isExportingPdf ? Math.min(200, Math.max(150, departmentOvertimeData.length * 28)) : Math.max(250, departmentOvertimeData.length * 40) }}>
+            <div style={{ height: isExportingPdf ? Math.min(180, Math.max(120, departmentOvertimeData.length * 25)) : Math.max(250, departmentOvertimeData.length * 40) }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={departmentOvertimeData}
                   layout="vertical"
-                  margin={{ top: 5, right: isExportingPdf ? 40 : 30, left: isExportingPdf ? 10 : 80, bottom: 5 }}
+                  margin={{ top: 5, right: isExportingPdf ? 30 : 30, left: isExportingPdf ? 5 : 80, bottom: 20 }}
+                  barCategoryGap="20%"
                 >
                   <XAxis
                     type="number"
                     tickFormatter={(value) => `${Math.floor(value / 60)}h`}
                     stroke="#9CA3AF"
-                    fontSize={isExportingPdf ? 10 : 12}
+                    fontSize={isExportingPdf ? 9 : 12}
+                    axisLine={{ stroke: '#E5E7EB' }}
+                    tickLine={{ stroke: '#E5E7EB' }}
                   />
                   <YAxis
                     type="category"
                     dataKey="name"
                     stroke="#9CA3AF"
-                    fontSize={isExportingPdf ? 9 : 12}
-                    width={isExportingPdf ? 70 : 75}
+                    fontSize={isExportingPdf ? 8 : 12}
+                    width={isExportingPdf ? 65 : 75}
                     tick={{ textAnchor: 'end' }}
+                    axisLine={{ stroke: '#E5E7EB' }}
+                    tickLine={false}
                   />
                   <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={isExportingPdf ? 18 : 30}>
                     {departmentOvertimeData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
@@ -1282,26 +1287,26 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
 
         {/* 違反種別分布チャート */}
         {violationDistributionData.length > 0 && (
-          <div className={isExportingPdf ? "bg-white p-6 w-full max-w-2xl" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
-            <h3 className={isExportingPdf ? "text-lg font-semibold text-gray-900 mb-4 text-center" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
+          <div className={isExportingPdf ? "bg-white p-4 w-full max-w-2xl" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
+            <h3 className={isExportingPdf ? "text-base font-semibold text-gray-900 mb-3 text-center" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
               違反種別の分布
             </h3>
-            <div style={{ height: 280 }}>
+            <div style={{ height: isExportingPdf ? 180 : 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={violationDistributionData}
                     cx="50%"
-                    cy="40%"
-                    outerRadius={isExportingPdf ? 60 : 80}
-                    innerRadius={isExportingPdf ? 25 : 40}
+                    cy={isExportingPdf ? "45%" : "40%"}
+                    outerRadius={isExportingPdf ? 50 : 80}
+                    innerRadius={isExportingPdf ? 20 : 40}
                     paddingAngle={2}
                     dataKey="value"
-                    label={(props: { name?: string; percent?: number }) => {
+                    label={isExportingPdf ? false : (props: { name?: string; percent?: number }) => {
                       const { name, percent } = props;
                       return `${name || ''}: ${((percent || 0) * 100).toFixed(0)}%`;
                     }}
-                    labelLine={{ stroke: '#9CA3AF', strokeWidth: 1 }}
+                    labelLine={isExportingPdf ? false : { stroke: '#9CA3AF', strokeWidth: 1 }}
                   >
                     {violationDistributionData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -1312,7 +1317,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                     layout="horizontal"
                     verticalAlign="bottom"
                     align="center"
-                    wrapperStyle={{ paddingTop: 10, fontSize: 11 }}
+                    wrapperStyle={{ paddingTop: isExportingPdf ? 5 : 10, fontSize: isExportingPdf ? 9 : 11 }}
                     formatter={(value) => {
                       const item = violationDistributionData.find(d => d.name === value);
                       const percent = item ? ((item.value / violationDistributionData.reduce((sum, d) => sum + d.value, 0)) * 100).toFixed(0) : '0';
