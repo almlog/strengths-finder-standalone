@@ -1234,33 +1234,34 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
         </div>
       </div>
 
-      {/* グラフセクション: 部門別残業 + 違反種別（2カラム、PDF出力時は縦並び） */}
-      <div className={`grid gap-6 ${isExportingPdf ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+      {/* グラフセクション: 部門別残業 + 違反種別（2カラム） */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* 部門別残業時間チャート */}
         {departmentOvertimeData.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               部門別 平均残業時間
             </h3>
-            <div style={{ height: Math.max(250, departmentOvertimeData.length * 40) }}>
+            <div style={{ height: isExportingPdf ? 200 : Math.max(250, departmentOvertimeData.length * 40) }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={departmentOvertimeData}
                   layout="vertical"
-                  margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+                  margin={{ top: 5, right: 30, left: isExportingPdf ? 100 : 80, bottom: 5 }}
                 >
                   <XAxis
                     type="number"
                     tickFormatter={(value) => `${Math.floor(value / 60)}h`}
                     stroke="#9CA3AF"
-                    fontSize={12}
+                    fontSize={isExportingPdf ? 10 : 12}
                   />
                   <YAxis
                     type="category"
                     dataKey="name"
                     stroke="#9CA3AF"
-                    fontSize={12}
-                    width={75}
+                    fontSize={isExportingPdf ? 9 : 12}
+                    width={isExportingPdf ? 95 : 75}
+                    tickFormatter={(value) => isExportingPdf && value.length > 12 ? value.substring(0, 12) + '…' : value}
                   />
                   <Tooltip content={<ChartTooltip />} />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]}>
@@ -1280,15 +1281,15 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               違反種別の分布
             </h3>
-            <div style={{ height: 280 }}>
+            <div style={{ height: isExportingPdf ? 200 : 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={violationDistributionData}
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
-                    innerRadius={40}
+                    outerRadius={isExportingPdf ? 60 : 80}
+                    innerRadius={isExportingPdf ? 30 : 40}
                     paddingAngle={2}
                     dataKey="value"
                     label={(props: { name?: string; percent?: number }) => {
