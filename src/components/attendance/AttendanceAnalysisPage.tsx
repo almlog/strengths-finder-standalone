@@ -393,10 +393,13 @@ const AttendanceAnalysisPage: React.FC = () => {
     // 問題あり（違反がある従業員）
     const issues = analysisResult.employeeSummaries.filter(emp => emp.violations.length > 0);
 
-    // 高緊急度（VIOLATION_URGENCYで 'high' に分類される違反がある従業員）
-    const highUrgency = analysisResult.employeeSummaries.filter(emp =>
-      emp.violations.some(v => VIOLATION_URGENCY[v.type] === 'high')
-    );
+    // 高緊急度（残業45時間以上 OR 法令違反の可能性がある違反）
+    const highUrgency = analysisResult.employeeSummaries.filter(emp => {
+      const overtimeLevel = AttendanceService.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+      const isOvertimeHigh = ['exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'].includes(overtimeLevel);
+      const hasHighViolation = emp.violations.some(v => VIOLATION_URGENCY[v.type] === 'high');
+      return isOvertimeHigh || hasHighViolation;
+    });
 
     // 中緊急度（VIOLATION_URGENCYで 'medium' に分類される違反がある従業員）
     const mediumUrgency = analysisResult.employeeSummaries.filter(emp =>
@@ -796,8 +799,8 @@ const SummaryDetailModal: React.FC<{
       borderColor: 'border-red-200 dark:border-red-800',
     },
     highUrgency: {
-      title: '法令違反の可能性がある対象者',
-      description: '休憩時間違反など、労働基準法に抵触する可能性があるメンバーです',
+      title: '緊急対応が必要な対象者',
+      description: '残業45時間超過（36協定上限）または休憩時間違反など、法令に抵触する可能性があるメンバーです',
       icon: <span className="text-xl">{URGENCY_ICONS.high}</span>,
       bgColor: 'bg-red-50 dark:bg-red-900/20',
       borderColor: 'border-red-200 dark:border-red-800',
@@ -853,8 +856,15 @@ const SummaryDetailModal: React.FC<{
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">社員番号</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">氏名</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">部門</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">違反数</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">主な違反</th>
+                  {type === 'highUrgency' && (
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">残業時間</th>
+                  )}
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    {type === 'highUrgency' ? '問題数' : '違反数'}
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    {type === 'highUrgency' ? '問題内容' : '主な違反'}
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -872,18 +882,51 @@ const SummaryDetailModal: React.FC<{
                     violationTypeCounts[displayName] = (violationTypeCounts[displayName] || 0) + 1;
                   });
 
+                  // 残業情報（highUrgency用）
+                  const overtimeLevel = AttendanceService.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+                  const isOvertimeHigh = ['exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'].includes(overtimeLevel);
+                  const overtimeHours = Math.round(emp.totalOvertimeMinutes / 60 * 10) / 10;
+
                   return (
                     <tr key={emp.employeeId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{emp.employeeId}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{emp.employeeName}</td>
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{emp.department}</td>
+                      {type === 'highUrgency' && (
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            isOvertimeHigh
+                              ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {overtimeHours}h
+                          </span>
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-center">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
-                          {relevantViolations.length}
-                        </span>
+                        {(() => {
+                          // highUrgencyの場合、残業超過も問題としてカウント
+                          const problemCount = type === 'highUrgency' && isOvertimeHigh
+                            ? relevantViolations.length + 1
+                            : relevantViolations.length;
+                          return (
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              problemCount > 0
+                                ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}>
+                              {problemCount}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                         <div className="flex flex-wrap gap-1">
+                          {type === 'highUrgency' && isOvertimeHigh && (
+                            <span className="inline-flex px-2 py-0.5 rounded text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                              残業超過（36協定上限）
+                            </span>
+                          )}
                           {Object.entries(violationTypeCounts).slice(0, 3).map(([typeName, count]) => (
                             <span
                               key={typeName}

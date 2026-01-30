@@ -56,6 +56,7 @@ import {
   // 36協定・残業時間管理
   OVERTIME_THRESHOLDS,
   OvertimeAlertLevel,
+  VIOLATION_URGENCY,
 } from '../models/AttendanceTypes';
 
 /**
@@ -1035,11 +1036,11 @@ export class AttendanceService {
     const hasTimeLeavePunchMissing = this.hasTimeLeavePunchMissing(record);
     const hasNightBreakApplicationMissing = this.hasNightBreakApplicationMissing(record);
 
-    // 備考欄チェック
-    const remarksCheck = this.checkRemarksRequired(record);
-    const hasRemarksMissing = remarksCheck.isRequired && remarksCheck.isMissing;
-    const remarksFormatCheck = this.checkRemarksFormat(record.remarks || '');
-    const hasRemarksFormatWarning = remarksCheck.isRequired && !remarksCheck.isMissing && !remarksFormatCheck.isValid;
+    // 備考欄チェックは楽楽勤怠側で管理されるため無効化（2026-01-30）
+    // const remarksCheck = this.checkRemarksRequired(record);
+    // const hasRemarksMissing = remarksCheck.isRequired && remarksCheck.isMissing;
+    // const remarksFormatCheck = this.checkRemarksFormat(record.remarks || '');
+    // const hasRemarksFormatWarning = remarksCheck.isRequired && !remarksCheck.isMissing && !remarksFormatCheck.isValid;
 
     // 違反リスト作成（申請漏れベース）
     const violations: ViolationType[] = [];
@@ -1050,8 +1051,9 @@ export class AttendanceService {
     if (hasEarlyStartViolation) violations.push('early_start_application_missing');
     if (hasTimeLeavePunchMissing) violations.push('time_leave_punch_missing');
     if (hasNightBreakApplicationMissing) violations.push('night_break_application_missing');
-    if (hasRemarksMissing) violations.push('remarks_missing');
-    if (hasRemarksFormatWarning) violations.push('remarks_format_warning');
+    // 備考欄チェックは無効化（楽楽勤怠側で管理）
+    // if (hasRemarksMissing) violations.push('remarks_missing');
+    // if (hasRemarksFormatWarning) violations.push('remarks_format_warning');
 
     return {
       record,
@@ -1448,30 +1450,29 @@ export class AttendanceService {
         });
       }
 
-      // 備考欄未入力
-      if (analysis.violations.includes('remarks_missing')) {
-        const remarksCheck = this.checkRemarksRequired(record);
-        violations.push({
-          employeeId,
-          employeeName: firstRecord.employeeName,
-          department: firstRecord.department,
-          date: record.date,
-          type: 'remarks_missing',
-          details: remarksCheck.requiredReason || '備考欄未入力',
-        });
-      }
+      // 備考欄チェックは楽楽勤怠側で管理されるため無効化（2026-01-30）
+      // if (analysis.violations.includes('remarks_missing')) {
+      //   const remarksCheck = this.checkRemarksRequired(record);
+      //   violations.push({
+      //     employeeId,
+      //     employeeName: firstRecord.employeeName,
+      //     department: firstRecord.department,
+      //     date: record.date,
+      //     type: 'remarks_missing',
+      //     details: remarksCheck.requiredReason || '備考欄未入力',
+      //   });
+      // }
 
-      // 備考欄フォーマット警告
-      if (analysis.violations.includes('remarks_format_warning')) {
-        violations.push({
-          employeeId,
-          employeeName: firstRecord.employeeName,
-          department: firstRecord.department,
-          date: record.date,
-          type: 'remarks_format_warning',
-          details: `備考「${record.remarks}」が短すぎます`,
-        });
-      }
+      // if (analysis.violations.includes('remarks_format_warning')) {
+      //   violations.push({
+      //     employeeId,
+      //     employeeName: firstRecord.employeeName,
+      //     department: firstRecord.department,
+      //     date: record.date,
+      //     type: 'remarks_format_warning',
+      //     details: `備考「${record.remarks}」が短すぎます`,
+      //   });
+      // }
     }
 
     // 申請カウントと総就業時間を計算
@@ -1589,11 +1590,20 @@ export class AttendanceService {
     // ユニークなシート名
     const uniqueSheets = [...new Set(records.map(r => r.sheetName))];
 
-    // 緊急度別カウント（出退勤時刻なしの連続日数で判定）
-    const missingClockResults = this.detectMissingEntries(records);
-    const highCount = missingClockResults.filter(r => r.urgencyLevel === 'high').length;
-    const mediumCount = missingClockResults.filter(r => r.urgencyLevel === 'medium').length;
-    const lowCount = missingClockResults.filter(r => r.urgencyLevel === 'low').length;
+    // 緊急度別カウント
+    // 高緊急度: 残業45時間以上 OR 法令違反（休憩違反、深夜休憩申請漏れ）
+    const highCount = employeeSummaries.filter(emp => {
+      const overtimeLevel = this.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+      const isOvertimeHigh = ['exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'].includes(overtimeLevel);
+      const hasHighViolation = emp.violations.some(v => VIOLATION_URGENCY[v.type] === 'high');
+      return isOvertimeHigh || hasHighViolation;
+    }).length;
+    // 中緊急度: 届出漏れ（遅刻・早退・早出・時間有休）
+    const mediumCount = employeeSummaries.filter(emp =>
+      emp.violations.some(v => VIOLATION_URGENCY[v.type] === 'medium')
+    ).length;
+    // 低緊急度は使用しないが互換性のため0を設定
+    const lowCount = 0;
 
     const summary: AnalysisSummary = {
       totalEmployees: employeeSummaries.length,
