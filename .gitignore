@@ -47,3 +47,4 @@ claude-memory.txt
 # Windows artifacts
 nul
 docs/temp/
+docs/ai-model/

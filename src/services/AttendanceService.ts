@@ -618,6 +618,13 @@ export class AttendanceService {
 
   /**
    * 休暇種別を判定
+   *
+   * 以下の休暇は1日単位で取得され、出退勤打刻が不要なため全休として扱う：
+   * - FULL_DAY_KEYWORDS: 有休、欠勤、特休など
+   * - 生理休暇 (MENSTRUAL_LEAVE_KEYWORDS)
+   * - 子の看護休暇 (CHILD_CARE_LEAVE_KEYWORDS)
+   * - 介護休暇 (NURSING_CARE_LEAVE_KEYWORDS)
+   * - 明け休 (POST_NIGHT_LEAVE_KEYWORDS)
    */
   static determineLeaveType(applicationContent: string): LeaveType {
     if (!applicationContent) return 'none';
@@ -635,11 +642,32 @@ export class AttendanceService {
       }
     }
 
-    // 全休チェック
+    // 全休チェック（基本キーワード）
     for (const keyword of FULL_DAY_KEYWORDS) {
       if (applicationContent.includes(keyword)) {
         return 'full_day';
       }
+    }
+
+    // 1日単位の特別休暇（打刻不要）
+    // 生理休暇
+    if (hasApplicationKeyword(applicationContent, MENSTRUAL_LEAVE_KEYWORDS)) {
+      return 'full_day';
+    }
+
+    // 子の看護休暇
+    if (hasApplicationKeyword(applicationContent, CHILD_CARE_LEAVE_KEYWORDS)) {
+      return 'full_day';
+    }
+
+    // 介護休暇
+    if (hasApplicationKeyword(applicationContent, NURSING_CARE_LEAVE_KEYWORDS)) {
+      return 'full_day';
+    }
+
+    // 明け休
+    if (hasApplicationKeyword(applicationContent, POST_NIGHT_LEAVE_KEYWORDS)) {
+      return 'full_day';
     }
 
     return 'none';
@@ -779,8 +807,50 @@ export class AttendanceService {
   }
 
   /**
+   * 申請内容から始業時刻を抽出
+   * 形式:
+   *   - "830-1700/1200-1300/7.75/5" → { hour: 8, minute: 30 }
+   *   - "残業終了,900-1730/1200-1300/7.75/5" → { hour: 9, minute: 0 }
+   *
+   * @param applicationContent 申請内容
+   * @returns 始業時刻（hour, minute）またはnull
+   */
+  static parseScheduledStartTime(applicationContent: string): { hour: number; minute: number } | null {
+    if (!applicationContent) return null;
+
+    // 始業時刻パターン: 3-4桁の数字（830, 930, 1000など）
+    // 形式1: "HHMM-HHMM/..." の先頭部分
+    // 形式2: "申請タイプ,HHMM-HHMM/..." カンマ区切り
+    // (?:^|,) は先頭またはカンマの後にマッチ
+    const match = applicationContent.match(/(?:^|,)(\d{3,4})-\d{3,4}/);
+    if (!match) return null;
+
+    const startTimeStr = match[1];
+    let hour: number;
+    let minute: number;
+
+    if (startTimeStr.length === 3) {
+      // 830 → 8:30
+      hour = parseInt(startTimeStr[0], 10);
+      minute = parseInt(startTimeStr.slice(1), 10);
+    } else {
+      // 1000 → 10:00
+      hour = parseInt(startTimeStr.slice(0, 2), 10);
+      minute = parseInt(startTimeStr.slice(2), 10);
+    }
+
+    // 妥当性チェック
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+
+    return { hour, minute };
+  }
+
+  /**
    * 早出フラグ未入力違反をチェック
-   * 9時より前に出社しているが、早出フラグが入力されていない場合は違反
+   * - 申請内容に始業時刻がある場合、その時刻より前の出勤で早出フラグがなければ違反
+   * - 申請内容に始業時刻がない場合、9時より前の出勤で早出フラグがなければ違反
    * - 休日は対象外
    * - 休暇申請がある場合は対象外
    * - 早出申請がある場合も対象外
@@ -809,9 +879,21 @@ export class AttendanceService {
       return false;
     }
 
-    // 出社時刻が9時より前かチェック
+    // 申請内容から始業時刻を抽出
+    const scheduledStart = this.parseScheduledStartTime(record.applicationContent || '');
+
+    // 出勤時刻を分に変換
     const clockInHour = record.clockIn.getHours();
-    if (clockInHour < STANDARD_WORK_START_HOUR) {
+    const clockInMinute = record.clockIn.getMinutes();
+    const clockInTotalMinutes = clockInHour * 60 + clockInMinute;
+
+    // 始業時刻を決定（申請内容から取得、なければデフォルト9時）
+    const scheduledHour = scheduledStart?.hour ?? STANDARD_WORK_START_HOUR;
+    const scheduledMinute = scheduledStart?.minute ?? 0;
+    const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
+
+    // 出勤時刻が始業時刻より前かチェック
+    if (clockInTotalMinutes < scheduledTotalMinutes) {
       // 早出フラグが入力されていない場合は違反
       return !record.earlyStartFlag;
     }

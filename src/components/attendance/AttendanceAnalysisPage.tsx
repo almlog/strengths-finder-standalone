@@ -640,19 +640,12 @@ const AttendanceAnalysisPage: React.FC = () => {
       {analysisResult && (
         <>
           {/* サマリーカード */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <SummaryCard
               icon={<Users className="w-6 h-6" />}
               label="総従業員数"
               value={analysisResult.summary.totalEmployees}
               color="blue"
-            />
-            <SummaryCard
-              icon={<AlertTriangle className="w-6 h-6" />}
-              label="問題あり"
-              value={analysisResult.summary.employeesWithIssues}
-              color="red"
-              onClick={() => setSummaryModal('issues')}
             />
             <SummaryCard
               icon={<span className="text-xl">{URGENCY_ICONS.high}</span>}
