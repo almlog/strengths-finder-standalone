@@ -313,33 +313,40 @@ export interface DailyAttendanceAnalysis {
 
 /**
  * 申請カウント（個人分析PDF用）
+ * 楽楽勤怠マニュアルの申請一覧に基づく
  */
 export interface ApplicationCounts {
-  // 勤務関連
-  lateApplication: number;        // 遅刻申請回数
-  trainDelayApplication: number;  // 電車遅延申請回数
-  earlyLeaveApplication: number;  // 早退申請回数
-  earlyStartApplication: number;  // 早出申請/フラグ回数
-  flextimeApplication: number;    // 時差出勤申請回数
-  breakModification: number;      // 休憩修正申請回数
-  directGo: number;               // 直行回数
-  directReturn: number;           // 直帰回数
-  clockModification: number;      // 打刻修正回数
-  // 休暇・休日関連
-  hourlyLeave: number;            // 時間有休回数
-  amLeave: number;                // 午前休回数
-  pmLeave: number;                // 午後休回数
-  substituteWork: number;         // 振替出勤回数
-  substituteHoliday: number;      // 振替休日回数
-  holidayWork: number;            // 休日出勤回数
-  compensatoryLeave: number;      // 代休回数
-  absence: number;                // 欠勤回数
-  specialLeave: number;           // 特休回数
-  condolenceLeave: number;        // 慶弔休暇回数
-  menstrualLeave: number;         // 生理休暇回数
-  childCareLeave: number;         // 子の看護休暇回数
-  nursingCareLeave: number;       // 介護休暇回数
-  postNightLeave: number;         // 明け休回数
+  // === 勤務関連（9項目） ===
+  overtime: number;               // 残業申請
+  earlyStart: number;             // 早出申請
+  earlyStartBreak: number;        // 早出中抜け時間帯申請
+  lateEarlyLeave: number;         // 遅刻・早退申請
+  trainDelay: number;             // 電車遅延申請
+  flextime: number;               // 時差出勤申請
+  breakModification: number;      // 休憩時間修正申請
+  standby: number;                // 待機申請
+  nightDuty: number;              // 宿直申請
+
+  // === 休暇・休日関連（15項目） ===
+  annualLeave: number;            // 有休申請（全休）
+  amLeave: number;                // 午前有休
+  pmLeave: number;                // 午後有休
+  hourlyLeave: number;            // 時間有休申請
+  holidayWork: number;            // 休出申請（休日出勤）
+  substituteWork: number;         // 振替出勤申請
+  substituteHoliday: number;      // 振替休日申請
+  compensatoryLeave: number;      // 代休申請
+  absence: number;                // 欠勤申請
+  specialLeave: number;           // 特休申請
+  menstrualLeave: number;         // 生理休暇申請
+  childCareLeave: number;         // 子の看護休暇申請
+  hourlyChildCareLeave: number;   // 時間子の看護休暇申請
+  nursingCareLeave: number;       // 介護休暇申請
+  hourlyNursingCareLeave: number; // 時間介護休暇申請
+  postNightLeave: number;         // 明け休申請
+
+  // === その他 ===
+  other: number;                  // その他（マニュアル一覧外の申請）
 }
 
 /**

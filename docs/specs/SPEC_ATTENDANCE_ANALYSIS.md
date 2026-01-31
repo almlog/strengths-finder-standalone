@@ -266,8 +266,126 @@ class AttendanceService {
     record: AttendanceRecord,
     lateMinutes: number
   ): boolean
+
+  // 始業時刻抽出
+  static parseScheduledStartTime(applicationContent: string): { hour: number; minute: number } | null
+  static parseScheduledStartTimeFromSheetName(sheetName: string): { hour: number; minute: number } | null
+
+  // 早出判定
+  static hasEarlyStartViolation(record: AttendanceRecord, leaveType: LeaveType): boolean
+
+  // 申請カウント
+  static countApplications(records: AttendanceRecord[]): ApplicationCounts
 }
 ```
+
+### 4.4 早出判定の始業時刻決定ロジック
+
+早出申請漏れの判定において、始業時刻は以下の優先順位で決定される：
+
+#### 4.4.1 優先順位
+
+```
+1. 申請内容（applicationContent）にスケジュールがある → その時刻を使用
+2. シート名にスケジュールパターンがある → その時刻を使用
+3. どちらもない → デフォルト9時基準
+```
+
+#### 4.4.2 申請内容からの抽出
+
+申請内容に含まれるスケジュール情報から始業時刻を抽出：
+
+| パターン | 例 | 抽出結果 |
+|---------|-----|---------|
+| カンマ区切り | `午後有休,900-1730/1200-1300/7.75/5` | 9:00 |
+| スケジュールのみ | `830-1700/1200-1300/7.75/5` | 8:30 |
+
+#### 4.4.3 シート名からの抽出
+
+シート名に含まれる時刻パターンから始業時刻を抽出：
+
+| パターン | 例 | 抽出結果 |
+|---------|-----|---------|
+| 3-4桁数字 | `KDDI_日勤_800-1630～930-1800_1200...` | 8:00 |
+| コロン区切り | `プロジェクト_9:00-17:30` | 9:00 |
+
+**実装メソッド:**
+```typescript
+static parseScheduledStartTimeFromSheetName(sheetName: string): { hour: number; minute: number } | null
+```
+
+#### 4.4.4 早出判定条件
+
+以下の条件を全て満たす場合、早出申請漏れと判定：
+1. 出勤打刻が始業時刻より前
+2. 早出フラグ（earlyStartFlag）がfalse
+3. 早出開始申請がない
+
+### 4.5 申請カウント機能
+
+楽楽勤怠マニュアルに記載された24種類の申請タイプに対応。
+
+#### 4.5.1 申請タイプ一覧
+
+**勤務関連（9項目）:**
+| カウント名 | 申請タイプ | 判定キーワード |
+|-----------|-----------|---------------|
+| overtime | 残業申請 | 残業開始, 残業終了 |
+| earlyStart | 早出申請 | 早出開始, 早出終了, 早出中抜け |
+| earlyStartBreak | 早出中抜け時間帯申請 | 早出中抜け |
+| lateEarlyLeave | 遅刻・早退申請 | 遅刻, 早退 |
+| trainDelay | 電車遅延申請 | 電車遅延 |
+| flextime | 時差出勤申請 | 時差出勤 |
+| breakModification | 休憩時間修正申請 | 休憩時間修正, 休憩修正 |
+| standby | 待機申請 | 待機 |
+| nightDuty | 宿直申請 | 宿直 |
+
+**休暇・休日関連（15項目）:**
+| カウント名 | 申請タイプ | 判定キーワード |
+|-----------|-----------|---------------|
+| annualLeave | 有休申請（全休） | 有休（午前/午後/時間を含まない） |
+| amLeave | 午前有休 | 午前有休 |
+| pmLeave | 午後有休 | 午後有休 |
+| hourlyLeave | 時間有休申請 | 有休時間, 時間有休 |
+| holidayWork | 休出申請 | 休出, 休日出勤 |
+| substituteWork | 振替出勤申請 | 振替出勤, 振出 |
+| substituteHoliday | 振替休日申請 | 振替休日, 振休 |
+| compensatoryLeave | 代休申請 | 代休 |
+| absence | 欠勤申請 | 欠勤 |
+| specialLeave | 特休申請 | 特休, 特別休暇 |
+| menstrualLeave | 生理休暇申請 | 生理休暇 |
+| childCareLeave | 子の看護休暇申請 | 子の看護休暇, 看護休暇 |
+| hourlyChildCareLeave | 時間子の看護休暇申請 | 時間子の看護 |
+| nursingCareLeave | 介護休暇申請 | 介護休暇 |
+| hourlyNursingCareLeave | 時間介護休暇申請 | 時間介護 |
+| postNightLeave | 明け休申請 | 明け休 |
+| other | その他 | 上記以外 |
+
+#### 4.5.2 申請内容パターン判定
+
+```
+■ スケジュールのみ（カウント対象外）
+  パターン: /^\d{3,4}-\d{3,4}\/\d{3,4}-\d{3,4}\/[\d.]+\/\d+$/
+  例: "900-1730/1200-1300/7.75/5"
+
+■ 申請キーワード + スケジュール
+  例: "午後有休,900-1730/1200-1300/7.75/5"
+  → カンマ前の「午後有休」をカウント
+
+■ 申請キーワードのみ
+  例: "有休", "電車遅延"
+  → そのままカウント
+```
+
+### 4.6 出勤率計算
+
+**計算式:**
+```
+出勤率 = (月間平日日数 - 欠勤日数) / 月間平日日数 × 100
+```
+
+- 有休、振休、特休などは「出勤扱い」
+- 欠勤のみが出勤率に影響
 
 ## 5. テスト
 
@@ -276,7 +394,9 @@ class AttendanceService {
 src/__tests__/services/
 ├── AttendanceService.36Agreement.test.ts    # 36協定チェック
 ├── AttendanceService.8HourSchedule.test.ts  # 8時間勤務者処理
+├── AttendanceService.ApplicationCount.test.ts  # 申請カウント（24種類）
 ├── AttendanceService.ApplicationMissing.test.ts  # 申請漏れ検出
+├── AttendanceService.EarlyStart.test.ts     # 早出判定（シート名対応）
 └── AttendanceService.Remarks.test.ts        # 備考欄チェック
 ```
 
@@ -287,6 +407,9 @@ src/__tests__/services/
 - 8時間勤務者の遅刻除外
 - 備考欄必須チェック
 - 備考欄フォーマットチェック
+- 申請カウント（24種類 + その他）
+- シート名からの始業時刻抽出
+- 早出判定優先順位
 
 ## 6. 非機能要件
 
@@ -310,3 +433,4 @@ src/__tests__/services/
 |------|------------|----------|
 | 2026-01-08 | 1.0 | 初版作成 |
 | 2026-01-09 | 2.0 | 36協定7段階チェック、予兆アラート、備考欄チェック、8時間勤務者対応を追加 |
+| 2026-01-31 | 3.0 | 申請カウント24種類対応、シート名からの始業時刻抽出、出勤率計算改善を追加 |

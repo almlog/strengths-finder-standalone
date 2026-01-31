@@ -807,6 +807,61 @@ export class AttendanceService {
   }
 
   /**
+   * シート名から始業時刻を抽出
+   * 形式: "KDDI_日勤_800-1630～930-1800_1200..." → { hour: 8, minute: 0 }
+   *
+   * パターン:
+   *   - _XXX-XXXX または -XXX-XXXX 形式（3-4桁の数字）
+   *   - _X:XX-XX:XX または -X:XX-XX:XX 形式（コロン区切り）
+   *
+   * シート名に含まれる最初の時間パターンがデフォルトの始業時刻
+   *
+   * @param sheetName シート名
+   * @returns 始業時刻（hour, minute）またはnull
+   */
+  static parseScheduledStartTimeFromSheetName(sheetName: string): { hour: number; minute: number } | null {
+    if (!sheetName) return null;
+
+    // パターン1: _800-1630 または -800-1630 形式（3-4桁の数字）
+    // [_-] は _ または - にマッチ
+    const matchNumeric = sheetName.match(/[_-](\d{3,4})-\d{3,4}/);
+    if (matchNumeric) {
+      const startTimeStr = matchNumeric[1];
+      let hour: number;
+      let minute: number;
+
+      if (startTimeStr.length === 3) {
+        // 800 → 8:00, 830 → 8:30
+        hour = parseInt(startTimeStr[0], 10);
+        minute = parseInt(startTimeStr.slice(1), 10);
+      } else {
+        // 1000 → 10:00
+        hour = parseInt(startTimeStr.slice(0, 2), 10);
+        minute = parseInt(startTimeStr.slice(2), 10);
+      }
+
+      // 妥当性チェック
+      if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+        return { hour, minute };
+      }
+    }
+
+    // パターン2: _9:00-17:30 または -9:00-17:30 形式（コロン区切り）
+    const matchColon = sheetName.match(/[_-](\d{1,2}):(\d{2})-\d{1,2}:\d{2}/);
+    if (matchColon) {
+      const hour = parseInt(matchColon[1], 10);
+      const minute = parseInt(matchColon[2], 10);
+
+      // 妥当性チェック
+      if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+        return { hour, minute };
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * 申請内容から始業時刻を抽出
    * 形式:
    *   - "830-1700/1200-1300/7.75/5" → { hour: 8, minute: 30 }
@@ -879,15 +934,20 @@ export class AttendanceService {
       return false;
     }
 
-    // 申請内容から始業時刻を抽出
-    const scheduledStart = this.parseScheduledStartTime(record.applicationContent || '');
+    // 1. 申請内容から始業時刻を抽出（優先）
+    let scheduledStart = this.parseScheduledStartTime(record.applicationContent || '');
+
+    // 2. 申請内容になければシート名から抽出
+    if (!scheduledStart) {
+      scheduledStart = this.parseScheduledStartTimeFromSheetName(record.sheetName || '');
+    }
 
     // 出勤時刻を分に変換
     const clockInHour = record.clockIn.getHours();
     const clockInMinute = record.clockIn.getMinutes();
     const clockInTotalMinutes = clockInHour * 60 + clockInMinute;
 
-    // 始業時刻を決定（申請内容から取得、なければデフォルト9時）
+    // 3. 始業時刻を決定（申請内容 → シート名 → デフォルト9時）
     const scheduledHour = scheduledStart?.hour ?? STANDARD_WORK_START_HOUR;
     const scheduledMinute = scheduledStart?.minute ?? 0;
     const scheduledTotalMinutes = scheduledHour * 60 + scheduledMinute;
@@ -1156,182 +1216,261 @@ export class AttendanceService {
 
   /**
    * 申請種別ごとのカウントを取得（個人分析PDF用）
+   * 楽楽勤怠マニュアルの申請一覧に基づくカウント
    */
   static countApplications(records: AttendanceRecord[]): ApplicationCounts {
-    // 勤務関連
-    let lateApplication = 0;
-    let trainDelayApplication = 0;
-    let earlyLeaveApplication = 0;
-    let earlyStartApplication = 0;
-    let flextimeApplication = 0;
-    let breakModification = 0;
-    let directGo = 0;
-    let directReturn = 0;
-    let clockModification = 0;
-    // 休暇・休日関連
-    let hourlyLeave = 0;
-    let amLeave = 0;
-    let pmLeave = 0;
-    let substituteWork = 0;
-    let substituteHoliday = 0;
-    let holidayWork = 0;
-    let compensatoryLeave = 0;
-    let absence = 0;
-    let specialLeave = 0;
-    let condolenceLeave = 0;
-    let menstrualLeave = 0;
-    let childCareLeave = 0;
-    let nursingCareLeave = 0;
-    let postNightLeave = 0;
+    // === 勤務関連（9項目） ===
+    let overtime = 0;           // 残業申請
+    let earlyStart = 0;         // 早出申請
+    let earlyStartBreak = 0;    // 早出中抜け時間帯申請
+    let lateEarlyLeave = 0;     // 遅刻・早退申請
+    let trainDelay = 0;         // 電車遅延申請
+    let flextime = 0;           // 時差出勤申請
+    let breakModification = 0;  // 休憩時間修正申請
+    let standby = 0;            // 待機申請
+    let nightDuty = 0;          // 宿直申請
+
+    // === 休暇・休日関連（15項目） ===
+    let annualLeave = 0;            // 有休申請（全休）
+    let amLeave = 0;                // 午前有休
+    let pmLeave = 0;                // 午後有休
+    let hourlyLeave = 0;            // 時間有休申請
+    let holidayWork = 0;            // 休出申請
+    let substituteWork = 0;         // 振替出勤申請
+    let substituteHoliday = 0;      // 振替休日申請
+    let compensatoryLeave = 0;      // 代休申請
+    let absence = 0;                // 欠勤申請
+    let specialLeave = 0;           // 特休申請
+    let menstrualLeave = 0;         // 生理休暇申請
+    let childCareLeave = 0;         // 子の看護休暇申請
+    let hourlyChildCareLeave = 0;   // 時間子の看護休暇申請
+    let nursingCareLeave = 0;       // 介護休暇申請
+    let hourlyNursingCareLeave = 0; // 時間介護休暇申請
+    let postNightLeave = 0;         // 明け休申請
+
+    // === その他 ===
+    let other = 0;
 
     for (const record of records) {
       const app = record.applicationContent || '';
 
+      // 空文字またはスケジュール情報のみの場合は早出フラグのみチェック
+      if (!app || this.isScheduleOnly(app)) {
+        // 早出フラグがある場合のみカウント
+        if (record.earlyStartFlag) {
+          earlyStart++;
+        }
+        continue;
+      }
+
+      // マッチしたかどうかのフラグ
+      let matched = false;
+
       // === 勤務関連 ===
-      // 遅刻申請（遅刻・早退申請も含む）
-      if (hasApplicationKeyword(app, LATE_APPLICATION_KEYWORDS)) {
-        lateApplication++;
+
+      // 残業申請: 残業, 残業開始, 残業終了
+      if (app.includes('残業')) {
+        overtime++;
+        matched = true;
+      }
+
+      // 早出中抜け時間帯申請（早出より先にチェック）
+      if (app.includes('早出中抜け')) {
+        earlyStartBreak++;
+        matched = true;
+      }
+      // 早出申請: 早出, 早出開始（早出中抜けを除く）
+      else if (app.includes('早出') || record.earlyStartFlag) {
+        earlyStart++;
+        matched = true;
+      }
+
+      // 遅刻・早退申請: 遅刻, 早退, 遅刻・早退
+      if (app.includes('遅刻') || app.includes('早退')) {
+        lateEarlyLeave++;
+        matched = true;
       }
 
       // 電車遅延申請
-      if (hasApplicationKeyword(app, TRAIN_DELAY_APPLICATION_KEYWORDS)) {
-        trainDelayApplication++;
-      }
-
-      // 早退申請（遅刻・早退申請も含む）
-      if (hasApplicationKeyword(app, EARLY_LEAVE_APPLICATION_KEYWORDS)) {
-        earlyLeaveApplication++;
-      }
-
-      // 早出申請またはフラグ
-      if (hasApplicationKeyword(app, EARLY_START_APPLICATION_KEYWORDS) || record.earlyStartFlag) {
-        earlyStartApplication++;
+      if (app.includes('電車遅延') || app.includes('遅延届') || app.includes('遅延申請')) {
+        trainDelay++;
+        matched = true;
       }
 
       // 時差出勤申請
-      if (hasApplicationKeyword(app, FLEXTIME_APPLICATION_KEYWORDS)) {
-        flextimeApplication++;
+      if (app.includes('時差出勤') || app.includes('時差勤務')) {
+        flextime++;
+        matched = true;
       }
 
-      // 休憩修正申請
-      if (hasApplicationKeyword(app, BREAK_MODIFICATION_APPLICATION_KEYWORDS)) {
+      // 休憩時間修正申請
+      if (app.includes('休憩修正') || app.includes('休憩時間修正') || app.includes('深夜休憩')) {
         breakModification++;
+        matched = true;
       }
 
-      // 直行
-      if (hasApplicationKeyword(app, DIRECT_GO_APPLICATION_KEYWORDS)) {
-        directGo++;
+      // 待機申請
+      if (app.includes('待機')) {
+        standby++;
+        matched = true;
       }
 
-      // 直帰
-      if (hasApplicationKeyword(app, DIRECT_RETURN_APPLICATION_KEYWORDS)) {
-        directReturn++;
-      }
-
-      // 打刻修正
-      if (hasApplicationKeyword(app, CLOCK_MODIFICATION_APPLICATION_KEYWORDS)) {
-        clockModification++;
+      // 宿直申請
+      if (app.includes('宿直')) {
+        nightDuty++;
+        matched = true;
       }
 
       // === 休暇・休日関連 ===
-      // 時間有休
-      if (hasApplicationKeyword(app, HOURLY_LEAVE_KEYWORDS)) {
+
+      // 時間有休申請（有休時間、時間有休）- 先にチェック
+      const isHourlyLeave = app.includes('有休時間') || app.includes('時間有休');
+      if (isHourlyLeave) {
         hourlyLeave++;
+        matched = true;
       }
 
-      // 午前休
-      if (app.includes('午前休') || app.includes('AM半休') || app.includes('午前半休')) {
+      // 午前有休
+      const isAmLeave = app.includes('午前有休') || app.includes('AM有休') || app.includes('午前休');
+      if (isAmLeave) {
         amLeave++;
+        matched = true;
       }
 
-      // 午後休
-      if (app.includes('午後休') || app.includes('PM半休') || app.includes('午後半休')) {
+      // 午後有休
+      const isPmLeave = app.includes('午後有休') || app.includes('PM有休') || app.includes('午後休');
+      if (isPmLeave) {
         pmLeave++;
+        matched = true;
       }
 
-      // 振替出勤
-      if (hasApplicationKeyword(app, SUBSTITUTE_WORK_KEYWORDS)) {
-        substituteWork++;
+      // 有休申請（全休）- 午前/午後/時間有休を除外
+      if ((app.includes('有休') || app.includes('有給') || app.includes('年休')) &&
+          !isHourlyLeave && !isAmLeave && !isPmLeave) {
+        annualLeave++;
+        matched = true;
       }
 
-      // 振替休日
-      if (hasApplicationKeyword(app, SUBSTITUTE_HOLIDAY_KEYWORDS)) {
-        substituteHoliday++;
-      }
-
-      // 休日出勤
-      if (hasApplicationKeyword(app, HOLIDAY_WORK_KEYWORDS)) {
+      // 休出申請（休日出勤）
+      if (app.includes('休出') || app.includes('休日出勤')) {
         holidayWork++;
+        matched = true;
       }
 
-      // 代休
-      if (hasApplicationKeyword(app, COMPENSATORY_LEAVE_KEYWORDS)) {
+      // 振替出勤申請
+      if (app.includes('振替出勤') || (app.includes('振出') && !app.includes('振休'))) {
+        substituteWork++;
+        matched = true;
+      }
+
+      // 振替休日申請
+      if (app.includes('振替休日') || app.includes('振休')) {
+        substituteHoliday++;
+        matched = true;
+      }
+
+      // 代休申請
+      if (app.includes('代休')) {
         compensatoryLeave++;
+        matched = true;
       }
 
-      // 欠勤
-      if (hasApplicationKeyword(app, ABSENCE_KEYWORDS)) {
+      // 欠勤申請
+      if (app.includes('欠勤')) {
         absence++;
+        matched = true;
       }
 
-      // 特休
-      if (hasApplicationKeyword(app, SPECIAL_LEAVE_KEYWORDS)) {
+      // 特休申請
+      if (app.includes('特休') || app.includes('特別休暇')) {
         specialLeave++;
+        matched = true;
       }
 
-      // 慶弔休暇
-      if (hasApplicationKeyword(app, CONDOLENCE_LEAVE_KEYWORDS)) {
-        condolenceLeave++;
-      }
-
-      // 生理休暇
-      if (hasApplicationKeyword(app, MENSTRUAL_LEAVE_KEYWORDS)) {
+      // 生理休暇申請
+      if (app.includes('生理休暇')) {
         menstrualLeave++;
+        matched = true;
       }
 
-      // 子の看護休暇
-      if (hasApplicationKeyword(app, CHILD_CARE_LEAVE_KEYWORDS)) {
+      // 時間子の看護休暇申請（看護休暇より先にチェック）
+      if (app.includes('看護休暇時間') || app.includes('時間看護休暇')) {
+        hourlyChildCareLeave++;
+        matched = true;
+      }
+      // 子の看護休暇申請
+      else if (app.includes('看護休暇') || app.includes('子の看護')) {
         childCareLeave++;
+        matched = true;
       }
 
-      // 介護休暇
-      if (hasApplicationKeyword(app, NURSING_CARE_LEAVE_KEYWORDS)) {
+      // 時間介護休暇申請（介護休暇より先にチェック）
+      if (app.includes('介護休暇時間') || app.includes('時間介護休暇')) {
+        hourlyNursingCareLeave++;
+        matched = true;
+      }
+      // 介護休暇申請
+      else if (app.includes('介護休暇')) {
         nursingCareLeave++;
+        matched = true;
       }
 
-      // 明け休
-      if (hasApplicationKeyword(app, POST_NIGHT_LEAVE_KEYWORDS)) {
+      // 明け休申請
+      if (app.includes('明け休')) {
         postNightLeave++;
+        matched = true;
+      }
+
+      // === その他 ===
+      // マニュアル一覧に該当しない申請
+      if (!matched) {
+        other++;
       }
     }
 
     return {
       // 勤務関連
-      lateApplication,
-      trainDelayApplication,
-      earlyLeaveApplication,
-      earlyStartApplication,
-      flextimeApplication,
+      overtime,
+      earlyStart,
+      earlyStartBreak,
+      lateEarlyLeave,
+      trainDelay,
+      flextime,
       breakModification,
-      directGo,
-      directReturn,
-      clockModification,
+      standby,
+      nightDuty,
       // 休暇・休日関連
-      hourlyLeave,
+      annualLeave,
       amLeave,
       pmLeave,
+      hourlyLeave,
+      holidayWork,
       substituteWork,
       substituteHoliday,
-      holidayWork,
       compensatoryLeave,
       absence,
       specialLeave,
-      condolenceLeave,
       menstrualLeave,
       childCareLeave,
+      hourlyChildCareLeave,
       nursingCareLeave,
+      hourlyNursingCareLeave,
       postNightLeave,
+      // その他
+      other,
     };
+  }
+
+  /**
+   * 申請内容がスケジュール情報のみかどうか判定
+   * 形式: "900-1730/1200-1300/7.75/5" のようなパターン
+   */
+  private static isScheduleOnly(applicationContent: string): boolean {
+    if (!applicationContent) return true;
+
+    // スケジュールパターン: 数字-数字/数字-数字/数字.数字/数字
+    const schedulePattern = /^\d{3,4}-\d{3,4}\/\d{3,4}-\d{3,4}\/[\d.]+\/\d+$/;
+    return schedulePattern.test(applicationContent.trim());
   }
 
   /**
