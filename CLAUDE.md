@@ -22,6 +22,13 @@
    - 結果: テストがない = 品質保証がない = バグの温床
    - 影響: リグレッションバグ、予期しない動作、データ破損のリスク
 
+4. **🆕 ローカルビルドのみでCI環境を検証せずにpush**
+   - 結果: ローカルでは成功してもCI環境でビルド失敗
+   - 影響: 本番デプロイが失敗し、緊急hotfix対応が必要に
+   - **重要**: `npm run build` と `CI=true npm run build` は挙動が異なる
+     - ローカル: ESLint警告は警告のまま → ビルド成功
+     - CI環境: ESLint警告がエラーに昇格 → ビルド失敗
+
 ### 🔴 mainブランチ = 本番環境という認識
 
 ```
@@ -54,7 +61,14 @@ mainへのpush = 本番環境への自動デプロイ = ユーザーへの即時
 │    → ブラウザで http://localhost:3006 を開く            │
 │    → 実際に機能が動くことを目視確認                      │
 ├─────────────────────────────────────────────────────────┤
-│ 5. Commit & Push（これより前の工程を飛ばすな！）        │
+│ 5. 🆕 CI環境ビルド検証（必須）★2026-01-31追加★          │
+│    set CI=true && npm run build （Windows）              │
+│    CI=true npm run build （Mac/Linux）                   │
+│    → ESLint警告がエラーとして検出される                  │
+│    → 「Compiled successfully.」が出ることを確認          │
+│    ⚠️ npm run build だけでは不十分！CI環境を再現せよ！   │
+├─────────────────────────────────────────────────────────┤
+│ 6. Commit & Push（これより前の工程を飛ばすな！）        │
 │    git add .                                             │
 │    git commit -m "..."                                   │
 │    git push origin main                                  │
@@ -71,6 +85,25 @@ mainへのpush = 本番環境への自動デプロイ = ユーザーへの即時
 4. 🚨 CI/CDビルドが失敗
 5. 🚨 緊急hotfix対応 (commit d4c9621)
 6. 🚨 さらにテスト追加 (commit 4ebf7ab)
+
+**🆕 2026年1月31日の実例（CI環境未検証）:**
+
+1. ❌ ローカルで `npm run build` 成功を確認
+2. ❌ `CI=true` での検証を省略
+3. ❌ mainにpush (commit eaba6dc)
+4. 🚨 GitHub Actions CIビルドが失敗
+   - ESLint警告「未使用のインポート12件」がエラーに昇格
+   - `Treating warnings as errors because process.env.CI = true`
+5. 🚨 本番デプロイ失敗
+6. 🚨 緊急hotfix対応 (commit 1d6dae4)
+
+**根本原因:**
+- ローカル `npm run build`: ESLint警告は警告のまま → ビルド成功
+- CI環境 `CI=true npm run build`: 警告がエラーに → ビルド失敗
+- **ローカルビルド成功 ≠ CI環境ビルド成功**
+
+**教訓:**
+> 本番適用前は必ず `CI=true npm run build` でCI環境を再現して検証すること
 
 **もしCI/CDがエラーを検出できなかった場合:**
 - 本番アプリケーションがクラッシュ
@@ -98,6 +131,13 @@ mainへのpush = 本番環境への自動デプロイ = ユーザーへの即時
 
 - [ ] **関連する既存テストが全てPASS**
   - `npm test` で全テストがパスする
+
+- [ ] **🆕 CI環境ビルドが成功（2026-01-31追加・必須）**
+  - Windows: `set CI=true && npm run build`
+  - Mac/Linux: `CI=true npm run build`
+  - ⚠️ `npm run build` だけでは不十分！
+  - ESLint警告がCI環境ではエラーになるため、必ずCI環境を再現すること
+  - 「Compiled successfully.」が出ることを確認
 
 - [ ] **GitHub Actionsの前回ビルドが成功している**
   - https://github.com/almlog/strengths-finder-standalone/actions でビルド履歴を確認
