@@ -412,43 +412,46 @@ const AttendanceAnalysisPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center space-x-3">
           <Clock className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">勤怠分析</h1>
         </div>
         {analysisResult && (
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleExportCsv}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base"
             >
               <Download className="w-4 h-4" />
-              <span>CSV出力</span>
+              <span className="hidden xs:inline">CSV出力</span>
+              <span className="xs:hidden">CSV</span>
             </button>
             <button
               onClick={handleExportPdf}
               disabled={isExportingPdf || activeTab !== 'summary'}
-              className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
               title={activeTab !== 'summary' ? 'サマリータブでのみPDF出力可能です' : ''}
             >
               <FileText className="w-4 h-4" />
-              <span>{isExportingPdf ? '出力中...' : 'PDF出力'}</span>
+              <span className="hidden xs:inline">{isExportingPdf ? '出力中...' : 'PDF出力'}</span>
+              <span className="xs:hidden">PDF</span>
             </button>
             <button
               onClick={() => setShowUserFilter(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
               title="分析対象ユーザーを選択"
             >
               <UserCheck className="w-4 h-4" />
-              <span>ユーザー選択</span>
+              <span className="hidden sm:inline">ユーザー選択</span>
+              <span className="sm:hidden">選択</span>
             </button>
             <button
               onClick={handleReset}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm sm:text-base"
             >
               <RefreshCw className="w-4 h-4" />
-              <span>リセット</span>
+              <span className="hidden sm:inline">リセット</span>
             </button>
           </div>
         )}

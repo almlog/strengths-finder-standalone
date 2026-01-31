@@ -1,7 +1,7 @@
 // src/components/strengths/StrengthsFinderPage.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical, BookOpen, LogOut, Clock, Train } from 'lucide-react';
+import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical, BookOpen, LogOut, Clock, Train, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -35,6 +35,7 @@ const DEFAULT_SIDEBAR_WIDTH = 300; // 25%相当
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 600;
 const SIDEBAR_WIDTH_STORAGE_KEY = 'strengths-sidebar-width';
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'strengths-sidebar-collapsed';
 
 // インポート・エクスポートボタンコンポーネント
 const ImportExportButtons: React.FC = () => {
@@ -228,6 +229,19 @@ const StrengthsFinderPage: React.FC = () => {
   const resizeStartX = useRef<number>(0);
   const resizeStartWidth = useRef<number>(0);
 
+  // メンバーリスト折りたたみ機能のstate
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    return saved === 'true';
+  });
+
+  // 折りたたみ状態をLocalStorageに保存
+  const toggleSidebarCollapsed = () => {
+    const newState = !isSidebarCollapsed;
+    setIsSidebarCollapsed(newState);
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, newState.toString());
+  };
+
   // 初回マウント時にデータマイグレーションを実行
   useEffect(() => {
     if (MigrationService.needsMigration()) {
@@ -355,31 +369,68 @@ const StrengthsFinderPage: React.FC = () => {
       <div className="flex flex-col md:flex-row gap-0 md:gap-6">
         {/* メンバーリスト */}
         <div
-          className="w-full md:flex-shrink-0 bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 md:mb-0"
-          style={{ width: window.innerWidth >= 768 ? `${sidebarWidth}px` : '100%' }}
-        >
-          <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-800 dark:text-gray-100">
-            <Users className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
-            メンバー一覧
-          </h3>
-          <MembersList
-            onSelect={handleMemberSelect}
-            selectedMemberId={selectedMemberId}
-          />
-        </div>
-
-        {/* リサイザーハンドル */}
-        <div
-          className="hidden md:block w-1 cursor-col-resize hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors relative group"
-          onMouseDown={handleResizeStart}
+          className={`w-full md:flex-shrink-0 bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 md:mb-0 transition-all duration-300 ${
+            isSidebarCollapsed ? 'md:w-12' : ''
+          }`}
           style={{
-            backgroundColor: isResizing ? '#3b82f6' : 'transparent',
-            userSelect: 'none'
+            width: isSidebarCollapsed
+              ? (window.innerWidth >= 768 ? '48px' : '100%')
+              : (window.innerWidth >= 768 ? `${sidebarWidth}px` : '100%')
           }}
         >
-          {/* ホバー時の視覚的なインジケーター */}
-          <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-500/20 dark:group-hover:bg-blue-400/20 rounded" />
+          {/* ヘッダー（折りたたみボタン付き） */}
+          <div className="flex items-center justify-between mb-4">
+            {!isSidebarCollapsed && (
+              <h3 className="text-lg font-semibold flex items-center text-gray-800 dark:text-gray-100">
+                <Users className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                メンバー一覧
+              </h3>
+            )}
+            <button
+              onClick={toggleSidebarCollapsed}
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+              title={isSidebarCollapsed ? 'メンバー一覧を展開' : 'メンバー一覧を折りたたむ'}
+            >
+              {/* PC: 横方向の矢印、スマホ: 縦方向の矢印 */}
+              <span className="hidden md:block">
+                {isSidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+              </span>
+              <span className="md:hidden">
+                {isSidebarCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+              </span>
+            </button>
+          </div>
+
+          {/* メンバーリスト本体（折りたたみ時は非表示） */}
+          {!isSidebarCollapsed && (
+            <MembersList
+              onSelect={handleMemberSelect}
+              selectedMemberId={selectedMemberId}
+            />
+          )}
+
+          {/* 折りたたみ時のPC表示用アイコン */}
+          {isSidebarCollapsed && (
+            <div className="hidden md:flex flex-col items-center">
+              <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+          )}
         </div>
+
+        {/* リサイザーハンドル（折りたたみ時は非表示） */}
+        {!isSidebarCollapsed && (
+          <div
+            className="hidden md:block w-1 cursor-col-resize hover:bg-blue-500 dark:hover:bg-blue-400 transition-colors relative group"
+            onMouseDown={handleResizeStart}
+            style={{
+              backgroundColor: isResizing ? '#3b82f6' : 'transparent',
+              userSelect: 'none'
+            }}
+          >
+            {/* ホバー時の視覚的なインジケーター */}
+            <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-500/20 dark:group-hover:bg-blue-400/20 rounded" />
+          </div>
+        )}
 
         {/* 分析エリア */}
         <div ref={analysisAreaRef} className="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow p-4" style={{ minWidth: 0 }}>
