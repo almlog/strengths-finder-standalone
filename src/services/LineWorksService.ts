@@ -235,11 +235,11 @@ export class LineWorksService {
         });
     }
 
-    // ■ 部門別平均残業時間
+    // ■ 部門別平均残業時間（ID順）
     if (departmentSummaries.length > 0) {
       lines.push('', '■ 部門別平均残業時間');
       const sorted = [...departmentSummaries].sort(
-        (a, b) => b.averageOvertimeMinutes - a.averageOvertimeMinutes
+        (a, b) => a.department.localeCompare(b.department)
       );
       sorted.forEach((dept) => {
         lines.push(`  ${dept.department}: ${this.formatMinutesToHM(dept.averageOvertimeMinutes)}`);
