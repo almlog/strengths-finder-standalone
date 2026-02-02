@@ -256,51 +256,49 @@ describe('LineWorksService', () => {
   // ==================== メッセージ構築 ====================
 
   describe('メッセージ構築', () => {
-    describe('勤怠アラートメッセージ', () => {
-      it('勤怠アラートメッセージを構築できる', () => {
+    describe('勤怠サマリーメッセージ', () => {
+      it('勤怠分析サマリーを構築できる', () => {
         const result = createMockExtendedAnalysisResult();
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        expect(message).toContain('【勤怠アラート】');
-      });
-
-      it('日付範囲が正しくフォーマットされる', () => {
-        const result = createMockExtendedAnalysisResult();
-        const message = LineWorksService.buildAttendanceMessage(result);
-
+        expect(message).toContain('【勤怠分析サマリー】');
         expect(message).toContain('期間: 1/1〜1/31');
       });
 
-      it('現在の残業時間と月末予測が表示される', () => {
+      it('全体統計が含まれる', () => {
         const result = createMockExtendedAnalysisResult();
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        // 田中太郎: 50h, 20/22営業日 → 予測55h
-        expect(message).toContain('田中太郎  001');
-        expect(message).toContain('現在50:00');
-        expect(message).toContain('予測55:00');
+        expect(message).toContain('■ 全体統計');
+        expect(message).toContain('対象者: 10名');
+        expect(message).toContain('問題あり: 3名');
+        expect(message).toContain('総残業時間:');
       });
 
-      it('月末予測に基づいてアラートレベルが判定される', () => {
+      it('違反サマリーが含まれる', () => {
         const result = createMockExtendedAnalysisResult();
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        // 田中太郎: 予測55h → 警戒レベル
-        expect(message).toContain('■ 警戒（1名）');
-        expect(message).toContain('→ 残業抑制指示');
-        expect(message).toContain('【警戒】');
+        expect(message).toContain('■ 違反サマリー');
+        expect(message).toContain('高: 2件');
+        expect(message).toContain('打刻漏れ');
       });
 
-      it('アラート対象者がいない場合メッセージが表示される', () => {
+      it('部門別平均残業時間が含まれる', () => {
         const result = createMockExtendedAnalysisResult();
-        // 全員の残業時間を月末予測35h未満に設定
-        result.employeeSummaries = result.employeeSummaries.map(emp => ({
-          ...emp,
-          totalOvertimeMinutes: 1200, // 20時間 → 予測22時間
-        }));
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        expect(message).toContain('対応が必要なメンバーはいません');
+        expect(message).toContain('■ 部門別平均残業時間');
+        expect(message).toContain('開発部: 10:00');
+      });
+
+      it('残業状況に氏名・現在・見込み・レベルが表示される', () => {
+        const result = createMockExtendedAnalysisResult();
+        const message = LineWorksService.buildAttendanceMessage(result);
+
+        expect(message).toContain('■ 残業状況（36協定）');
+        // 田中太郎: 50h → 予測55h = 警戒
+        expect(message).toContain('田中太郎  50:00 → 55:00  警戒');
       });
     });
 

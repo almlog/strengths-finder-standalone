@@ -175,35 +175,74 @@ export class LineWorksService {
   }
 
   /**
-   * 勤怠サマリーメッセージを構築（リーダー向けアクション形式）
+   * 勤怠サマリーメッセージを構築
    */
   static buildAttendanceMessage(result: ExtendedAnalysisResult): string {
-    const { summary, employeeSummaries } = result;
+    const { summary, employeeSummaries, departmentSummaries, allViolations } = result;
     const dateRange = `${this.formatDate(summary.analysisDateRange.start)}〜${this.formatDate(summary.analysisDateRange.end)}`;
 
     const lines: string[] = [
-      '【勤怠アラート】',
+      '【勤怠分析サマリー】',
       `期間: ${dateRange}`,
       '',
     ];
 
-    // アラートレベルごとにグループ化（月末予測ベース）
-    const alertGroups: Record<OvertimeAlertLevel, Array<{
+    // ■ 全体統計
+    const totalOvertimeMinutes = employeeSummaries.reduce(
+      (sum, emp) => sum + emp.totalOvertimeMinutes, 0
+    );
+    lines.push('■ 全体統計');
+    lines.push(`  対象者: ${summary.totalEmployees}名`);
+    lines.push(`  問題あり: ${summary.employeesWithIssues}名`);
+    lines.push(`  総残業時間: ${this.formatMinutesToHM(totalOvertimeMinutes)}`);
+
+    // ■ 違反サマリー
+    lines.push('', '■ 違反サマリー');
+    lines.push(`  高: ${summary.highUrgencyCount}件 / 中: ${summary.mediumUrgencyCount}件 / 低: ${summary.lowUrgencyCount}件`);
+
+    const violationCounts: Record<string, number> = {};
+    allViolations.forEach((v) => {
+      violationCounts[v.type] = (violationCounts[v.type] || 0) + 1;
+    });
+
+    if (Object.keys(violationCounts).length > 0) {
+      const violationLabels: Record<string, string> = {
+        missing_clock: '打刻漏れ',
+        break_violation: '休憩違反',
+        late_application_missing: '遅刻届出漏れ',
+        early_leave_application_missing: '早退届出漏れ',
+        early_start_application_missing: '早出届出漏れ',
+        time_leave_punch_missing: '時間有休打刻漏れ',
+        night_break_application_missing: '深夜休憩届出漏れ',
+        remarks_missing: '備考未入力',
+        remarks_format_warning: '備考フォーマット',
+      };
+
+      const items = Object.entries(violationCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([type, count]) => `${violationLabels[type] || type}${count}`)
+        .join(' / ');
+      lines.push(`  ${items}`);
+    }
+
+    // ■ 部門別平均残業時間
+    if (departmentSummaries.length > 0) {
+      lines.push('', '■ 部門別平均残業時間');
+      const sorted = [...departmentSummaries].sort(
+        (a, b) => b.averageOvertimeMinutes - a.averageOvertimeMinutes
+      );
+      sorted.forEach((dept) => {
+        lines.push(`  ${dept.department}: ${this.formatMinutesToHM(dept.averageOvertimeMinutes)}`);
+      });
+    }
+
+    // ■ 残業状況（35h以上の月末予測者）
+    const alertMembers: Array<{
       name: string;
-      id: string;
-      current: string;
-      projected: string;
+      current: number;
+      projected: number;
       level: string;
-    }>> = {
-      illegal: [],
-      critical: [],
-      severe: [],
-      serious: [],
-      caution: [],
-      exceeded: [],
-      warning: [],
-      normal: [],
-    };
+    }> = [];
 
     employeeSummaries.forEach((emp) => {
       const projectedMinutes = this.calculateProjectedOvertime(
@@ -212,50 +251,23 @@ export class LineWorksService {
         emp.totalWeekdaysInMonth
       );
       const level = this.getOvertimeAlertLevel(projectedMinutes);
-      const { label } = this.ALERT_DISPLAY[level];
-
-      alertGroups[level].push({
-        name: emp.employeeName,
-        id: emp.employeeId,
-        current: this.formatMinutesToHM(emp.totalOvertimeMinutes),
-        projected: this.formatMinutesToHM(projectedMinutes),
-        level: label,
-      });
+      if (level !== 'normal') {
+        alertMembers.push({
+          name: emp.employeeName,
+          current: emp.totalOvertimeMinutes,
+          projected: projectedMinutes,
+          level: this.ALERT_DISPLAY[level].label,
+        });
+      }
     });
 
-    // 高い緊急度から順に表示（normalは除く）
-    const alertOrder: OvertimeAlertLevel[] = [
-      'illegal', 'critical', 'severe', 'serious', 'caution', 'exceeded', 'warning'
-    ];
-
-    let hasAlerts = false;
-
-    alertOrder.forEach((level) => {
-      const members = alertGroups[level];
-      if (members.length === 0) return;
-
-      hasAlerts = true;
-      const { label, action } = this.ALERT_DISPLAY[level];
-
-      lines.push(`■ ${label}（${members.length}名）`);
-      lines.push(`  → ${action}`);
-
+    if (alertMembers.length > 0) {
+      lines.push('', '■ 残業状況（36協定）');
       // 月末予測でソート（降順）
-      members.sort((a, b) => {
-        const aMin = parseInt(a.projected.split(':')[0]) * 60 + parseInt(a.projected.split(':')[1]);
-        const bMin = parseInt(b.projected.split(':')[0]) * 60 + parseInt(b.projected.split(':')[1]);
-        return bMin - aMin;
+      alertMembers.sort((a, b) => b.projected - a.projected);
+      alertMembers.forEach((m) => {
+        lines.push(`  ${m.name}  ${this.formatMinutesToHM(m.current)} → ${this.formatMinutesToHM(m.projected)}  ${m.level}`);
       });
-
-      members.forEach((m) => {
-        lines.push(`  ${m.name}  ${m.id}`);
-        lines.push(`    現在${m.current} → 予測${m.projected}【${m.level}】`);
-      });
-      lines.push('');
-    });
-
-    if (!hasAlerts) {
-      lines.push('対応が必要なメンバーはいません。');
     }
 
     return lines.join('\n');
