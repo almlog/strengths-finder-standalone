@@ -48,3 +48,20 @@ claude-memory.txt
 nul
 docs/temp/
 docs/ai-model/
+
+# Test data files (Excel, CSV, etc.) - not for production
+docs/rakurakukintai/*.xlsx
+docs/rakurakukintai/*.csv
+docs/rakurakukintai/*.pdf
+docs/rakurakukintai/*.log
+docs/rakurakukintai/*.txt
+
+# Presentation files
+docs/slides/*.pptx
+docs/slides/*.ppt
+
+# Implementation examples/references (not part of production code)
+personality-analysis-implementation/
+
+# Local settings
+.claude/settings.local.json
