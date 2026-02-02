@@ -276,7 +276,7 @@ export class LineWorksService {
       // 月末予測でソート（降順）
       alertMembers.sort((a, b) => b.projected - a.projected);
       alertMembers.forEach((m) => {
-        lines.push(`  ${m.name}  ${this.formatMinutesToHM(m.current)} → ${this.formatMinutesToHM(m.projected)}  ${m.level}`);
+        lines.push(`  ${m.name}  現在${this.formatMinutesToHM(m.current)} 見込${this.formatMinutesToHM(m.projected)}  ${m.level}`);
       });
     }
 
