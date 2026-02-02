@@ -280,7 +280,7 @@ describe('LineWorksService', () => {
         const message = LineWorksService.buildAttendanceMessage(result);
 
         expect(message).toContain('■ 違反サマリー');
-        expect(message).toContain('高: 2件');
+        expect(message).toContain('高: 2名');
         expect(message).toContain('打刻漏れ');
       });
 
