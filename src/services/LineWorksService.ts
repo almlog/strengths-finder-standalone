@@ -198,8 +198,16 @@ export class LineWorksService {
 
     // ■ 違反サマリー
     lines.push('', '■ 違反サマリー');
-    lines.push(`  高: ${summary.highUrgencyCount}名 / 中: ${summary.mediumUrgencyCount}名 / 低: ${summary.lowUrgencyCount}名`);
 
+    // 高緊急度（法令違反）
+    lines.push(`  高緊急度: ${summary.highUrgencyCount}名`);
+    lines.push(`    （休憩違反/深夜休憩届出漏れ）`);
+
+    // 中緊急度（届出漏れ）
+    lines.push(`  中緊急度: ${summary.mediumUrgencyCount}名`);
+    lines.push(`    （遅刻/早退/早出届出漏れ）`);
+
+    // 違反種別の内訳
     const violationCounts: Record<string, number> = {};
     allViolations.forEach((v) => {
       violationCounts[v.type] = (violationCounts[v.type] || 0) + 1;
@@ -218,11 +226,13 @@ export class LineWorksService {
         remarks_format_warning: '備考フォーマット',
       };
 
-      const items = Object.entries(violationCounts)
+      lines.push('  内訳:');
+      Object.entries(violationCounts)
         .sort((a, b) => b[1] - a[1])
-        .map(([type, count]) => `${violationLabels[type] || type}${count}`)
-        .join(' / ');
-      lines.push(`  ${items}`);
+        .forEach(([type, count]) => {
+          const label = violationLabels[type] || type;
+          lines.push(`    ${label}: ${count}件`);
+        });
     }
 
     // ■ 部門別平均残業時間
