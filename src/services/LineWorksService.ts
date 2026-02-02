@@ -128,42 +128,90 @@ export class LineWorksService {
    * 勤怠サマリーメッセージを構築
    */
   static buildAttendanceMessage(result: ExtendedAnalysisResult): string {
-    const { summary, departmentSummaries, allViolations } = result;
+    const { summary, departmentSummaries, allViolations, employeeSummaries } = result;
     const dateRange = `${this.formatDate(summary.analysisDateRange.start)}〜${this.formatDate(summary.analysisDateRange.end)}`;
 
     const lines: string[] = [
       '【勤怠分析サマリー】',
       `期間: ${dateRange}`,
-      `対象者: ${summary.totalEmployees}名`,
       '',
-      '■ アラート状況',
-      `  高緊急度: ${summary.highUrgencyCount}件`,
-      `  中緊急度: ${summary.mediumUrgencyCount}件`,
-      `  低緊急度: ${summary.lowUrgencyCount}件`,
     ];
 
-    // 部門別サマリー（上位3部門）
+    // ■ 全体統計
+    lines.push('■ 全体統計');
+    lines.push(`  対象者: ${summary.totalEmployees}名`);
+    lines.push(`  問題あり: ${summary.employeesWithIssues}名`);
+
+    // 全体の総残業時間を計算
+    const totalOvertimeMinutes = employeeSummaries.reduce(
+      (sum, emp) => sum + emp.totalOvertimeMinutes, 0
+    );
+    const totalOvertimeHours = Math.floor(totalOvertimeMinutes / 60);
+    const totalOvertimeMins = totalOvertimeMinutes % 60;
+    lines.push(`  総残業時間: ${totalOvertimeHours}h${totalOvertimeMins}m`);
+
+    // ■ 違反サマリー
+    lines.push('', '■ 違反サマリー');
+    lines.push(`  高緊急度: ${summary.highUrgencyCount}件`);
+    lines.push(`  中緊急度: ${summary.mediumUrgencyCount}件`);
+    lines.push(`  低緊急度: ${summary.lowUrgencyCount}件`);
+
+    // 違反種別ごとの件数
+    const violationCounts: Record<string, number> = {};
+    allViolations.forEach((v) => {
+      violationCounts[v.type] = (violationCounts[v.type] || 0) + 1;
+    });
+
+    if (Object.keys(violationCounts).length > 0) {
+      const violationLabels: Record<string, string> = {
+        missing_clock: '打刻漏れ',
+        break_violation: '休憩違反',
+        late_application_missing: '遅刻届出漏れ',
+        early_leave_application_missing: '早退届出漏れ',
+        early_start_application_missing: '早出届出漏れ',
+        time_leave_punch_missing: '時間有休打刻漏れ',
+        night_break_application_missing: '深夜休憩届出漏れ',
+        remarks_missing: '備考未入力',
+        remarks_format_warning: '備考フォーマット',
+      };
+
+      lines.push('  【内訳】');
+      Object.entries(violationCounts)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([type, count]) => {
+          const label = violationLabels[type] || type;
+          lines.push(`    ${label}: ${count}件`);
+        });
+    }
+
+    // ■ 部門別 平均残業時間
     if (departmentSummaries.length > 0) {
-      lines.push('', '■ 部門別残業時間（TOP3）');
+      lines.push('', '■ 部門別 平均残業時間');
       const sorted = [...departmentSummaries].sort(
-        (a, b) => b.totalOvertimeMinutes - a.totalOvertimeMinutes
+        (a, b) => b.averageOvertimeMinutes - a.averageOvertimeMinutes
       );
-      sorted.slice(0, 3).forEach((dept, i) => {
-        const hours = Math.floor(dept.totalOvertimeMinutes / 60);
-        const mins = dept.totalOvertimeMinutes % 60;
-        lines.push(`  ${i + 1}. ${dept.department}: ${hours}h${mins}m`);
+      sorted.forEach((dept) => {
+        const avgHours = Math.floor(dept.averageOvertimeMinutes / 60);
+        const avgMins = dept.averageOvertimeMinutes % 60;
+        lines.push(`  ${dept.department}(${dept.employeeCount}名): ${avgHours}h${avgMins}m`);
       });
     }
 
-    // 高緊急度の違反（具体例）
-    const highUrgency = allViolations.filter(
-      (v) => v.type === 'missing_clock'
-    );
-    if (highUrgency.length > 0) {
-      lines.push('', '■ 要対応（抜粋）');
-      highUrgency.slice(0, 3).forEach((v) => {
-        lines.push(`  • ${v.employeeName}: ${v.details}`);
+    // ■ 残業状況（45時間超過者）
+    const overtimeWarning = employeeSummaries
+      .filter((emp) => emp.totalOvertimeMinutes >= 45 * 60)
+      .sort((a, b) => b.totalOvertimeMinutes - a.totalOvertimeMinutes);
+
+    if (overtimeWarning.length > 0) {
+      lines.push('', '■ 残業状況（45h超過）');
+      overtimeWarning.slice(0, 5).forEach((emp) => {
+        const hours = Math.floor(emp.totalOvertimeMinutes / 60);
+        const mins = emp.totalOvertimeMinutes % 60;
+        lines.push(`  ${emp.employeeName}(${emp.department}): ${hours}h${mins}m`);
       });
+      if (overtimeWarning.length > 5) {
+        lines.push(`  ...他${overtimeWarning.length - 5}名`);
+      }
     }
 
     return lines.join('\n');

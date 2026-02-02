@@ -15,6 +15,7 @@ import {
   DepartmentSummary,
   AttendanceViolation,
   ViolationType,
+  EmployeeMonthlySummary,
 } from '../../models/AttendanceTypes';
 import { StrengthsAnalysisResult, MemberStrengths, StrengthGroup, Strength, RankedStrength } from '../../models/StrengthsTypes';
 
@@ -93,10 +94,59 @@ function createMockViolations(): AttendanceViolation[] {
   ];
 }
 
+function createMockEmployeeSummaries(): EmployeeMonthlySummary[] {
+  return [
+    {
+      employeeId: '001',
+      employeeName: '田中太郎',
+      department: '開発部',
+      sheetName: 'シート1',
+      totalWorkDays: 20,
+      holidayWorkDays: 1,
+      totalOvertimeMinutes: 3000, // 50時間（45h超過）
+      lateDays: 0,
+      earlyLeaveDays: 0,
+      timelyDepartureDays: 5,
+      fullDayLeaveDays: 1,
+      halfDayLeaveDays: 0,
+      breakViolationDays: 0,
+      missingClockDays: 1,
+      earlyStartViolationDays: 0,
+      violations: [],
+      passedWeekdays: 20,
+      totalWeekdaysInMonth: 22,
+      applicationCounts: {} as any,
+      totalWorkMinutes: 9600,
+    },
+    {
+      employeeId: '002',
+      employeeName: '鈴木花子',
+      department: '営業部',
+      sheetName: 'シート1',
+      totalWorkDays: 20,
+      holidayWorkDays: 0,
+      totalOvertimeMinutes: 1800, // 30時間
+      lateDays: 1,
+      earlyLeaveDays: 0,
+      timelyDepartureDays: 10,
+      fullDayLeaveDays: 0,
+      halfDayLeaveDays: 1,
+      breakViolationDays: 1,
+      missingClockDays: 0,
+      earlyStartViolationDays: 0,
+      violations: [],
+      passedWeekdays: 20,
+      totalWeekdaysInMonth: 22,
+      applicationCounts: {} as any,
+      totalWorkMinutes: 9000,
+    },
+  ];
+}
+
 function createMockExtendedAnalysisResult(): ExtendedAnalysisResult {
   return {
     summary: createMockAnalysisSummary(),
-    employeeSummaries: [],
+    employeeSummaries: createMockEmployeeSummaries(),
     departmentSummaries: createMockDepartmentSummary(),
     allViolations: createMockViolations(),
     analyzedAt: new Date('2026-01-31'),
@@ -224,13 +274,38 @@ describe('LineWorksService', () => {
         expect(message).toContain('低緊急度: 8件');
       });
 
-      it('部門別残業時間TOP3が含まれる', () => {
+      it('部門別平均残業時間が含まれる', () => {
         const result = createMockExtendedAnalysisResult();
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        expect(message).toContain('部門別残業時間（TOP3）');
-        expect(message).toContain('開発部');
-        expect(message).toContain('50h0m');
+        expect(message).toContain('部門別 平均残業時間');
+        expect(message).toContain('開発部(5名): 10h0m');
+        expect(message).toContain('営業部(3名): 10h0m');
+      });
+
+      it('違反サマリーの内訳が含まれる', () => {
+        const result = createMockExtendedAnalysisResult();
+        const message = LineWorksService.buildAttendanceMessage(result);
+
+        expect(message).toContain('違反サマリー');
+        expect(message).toContain('【内訳】');
+        expect(message).toContain('打刻漏れ: 1件');
+      });
+
+      it('全体統計が含まれる', () => {
+        const result = createMockExtendedAnalysisResult();
+        const message = LineWorksService.buildAttendanceMessage(result);
+
+        expect(message).toContain('全体統計');
+        expect(message).toContain('問題あり: 3名');
+      });
+
+      it('残業状況（45h超過者）が含まれる', () => {
+        const result = createMockExtendedAnalysisResult();
+        const message = LineWorksService.buildAttendanceMessage(result);
+
+        expect(message).toContain('残業状況（45h超過）');
+        expect(message).toContain('田中太郎(開発部): 50h0m');
       });
 
       it('日付範囲が正しくフォーマットされる', () => {
