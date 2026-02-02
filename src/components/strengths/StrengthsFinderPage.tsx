@@ -379,13 +379,20 @@ const StrengthsFinderPage: React.FC = () => {
           }}
         >
           {/* ヘッダー（折りたたみボタン付き） */}
-          <div className="flex items-center justify-between mb-4">
-            {!isSidebarCollapsed && (
-              <h3 className="text-lg font-semibold flex items-center text-gray-800 dark:text-gray-100">
-                <Users className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
-                メンバー一覧
-              </h3>
-            )}
+          <div className={`flex items-center justify-between ${isSidebarCollapsed ? 'mb-0' : 'mb-4'}`}>
+            {/* タイトル: スマホでは常に表示、PCでは折りたたみ時は非表示 */}
+            <h3 className={`text-lg font-semibold flex items-center text-gray-800 dark:text-gray-100 ${
+              isSidebarCollapsed ? 'md:hidden' : ''
+            }`}>
+              <Users className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+              メンバー一覧
+              {/* スマホ折りたたみ時: メンバー数を表示 */}
+              {isSidebarCollapsed && (
+                <span className="md:hidden ml-2 text-sm text-gray-500 dark:text-gray-400">
+                  （タップで展開）
+                </span>
+              )}
+            </h3>
             <button
               onClick={toggleSidebarCollapsed}
               className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
