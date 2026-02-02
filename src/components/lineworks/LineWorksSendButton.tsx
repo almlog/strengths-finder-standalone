@@ -5,10 +5,11 @@
  */
 
 import React, { useState } from 'react';
-import { Send, Settings, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Eye, Settings } from 'lucide-react';
 import { LineWorksService } from '../../services/LineWorksService';
 import { NotificationType } from '../../types/lineworks';
 import LineWorksSettingsModal from './LineWorksSettingsModal';
+import LineWorksPreviewModal from './LineWorksPreviewModal';
 
 interface LineWorksSendButtonProps {
   /** 通知タイプ */
@@ -26,8 +27,9 @@ interface LineWorksSendButtonProps {
 /**
  * LINE WORKS送信ボタン
  *
- * - 未設定時: 設定アイコン表示、クリックで設定モーダルを開く
- * - 設定済み時: 送信アイコン表示、クリックで確認後に送信
+ * - クリックでプレビューモーダルを開く
+ * - プレビューモーダルでメッセージ確認・コピー・送信
+ * - 設定ボタンで設定モーダルを開く
  */
 const LineWorksSendButton: React.FC<LineWorksSendButtonProps> = ({
   type,
@@ -37,39 +39,16 @@ const LineWorksSendButton: React.FC<LineWorksSendButtonProps> = ({
   size = 'sm',
 }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewMessage, setPreviewMessage] = useState('');
 
   const isConfigured = LineWorksService.isConfigured();
 
-  // 送信処理
-  const handleSend = async () => {
-    if (!isConfigured) {
-      setIsSettingsOpen(true);
-      return;
-    }
-
-    // 確認ダイアログ
+  // プレビューモーダルを開く
+  const handlePreview = () => {
     const message = buildMessage();
-    const preview = message.length > 100 ? message.substring(0, 100) + '...' : message;
-
-    if (!window.confirm(`以下のメッセージをLINE WORKSに送信しますか？\n\n${preview}`)) {
-      return;
-    }
-
-    setIsSending(true);
-    setSendResult(null);
-
-    const result = await LineWorksService.send(type, message);
-
-    setIsSending(false);
-    setSendResult({
-      success: result.success,
-      message: result.success ? '送信しました' : `送信失敗: ${result.error}`,
-    });
-
-    // 3秒後に結果表示をクリア
-    setTimeout(() => setSendResult(null), 3000);
+    setPreviewMessage(message);
+    setIsPreviewOpen(true);
   };
 
   // 設定ボタンクリック
@@ -87,59 +66,39 @@ const LineWorksSendButton: React.FC<LineWorksSendButtonProps> = ({
   return (
     <>
       <div className="relative inline-flex items-center">
-        {/* メインボタン */}
+        {/* メインボタン（プレビュー表示） */}
         <button
-          onClick={handleSend}
-          disabled={disabled || isSending}
+          onClick={handlePreview}
+          disabled={disabled}
           className={`flex items-center ${sizeClasses} rounded-lg transition-colors ${
             isConfigured
               ? 'bg-green-600 hover:bg-green-700 text-white'
-              : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
           } disabled:opacity-50`}
-          title={isConfigured ? 'LINE WORKSに送信' : 'LINE WORKS設定を開く'}
+          title="LINE WORKSプレビュー"
         >
-          {isSending ? (
-            <RefreshCw className={`${iconSize} animate-spin`} />
-          ) : isConfigured ? (
-            <Send className={iconSize} />
-          ) : (
-            <Settings className={iconSize} />
-          )}
+          <Eye className={iconSize} />
           <span className="hidden sm:inline">{label || 'LINE WORKS'}</span>
           <span className="sm:hidden">LW</span>
         </button>
 
-        {/* 設定ボタン（設定済みの場合のみ表示） */}
-        {isConfigured && (
-          <button
-            onClick={handleSettingsClick}
-            className={`ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors`}
-            title="LINE WORKS設定"
-          >
-            <Settings className="w-3 h-3 text-gray-500 dark:text-gray-400" />
-          </button>
-        )}
-
-        {/* 送信結果トースト */}
-        {sendResult && (
-          <div
-            className={`absolute top-full left-0 mt-1 px-3 py-1 rounded-lg text-xs whitespace-nowrap z-10 ${
-              sendResult.success
-                ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
-                : 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'
-            }`}
-          >
-            <span className="flex items-center gap-1">
-              {sendResult.success ? (
-                <CheckCircle className="w-3 h-3" />
-              ) : (
-                <AlertCircle className="w-3 h-3" />
-              )}
-              {sendResult.message}
-            </span>
-          </div>
-        )}
+        {/* 設定ボタン */}
+        <button
+          onClick={handleSettingsClick}
+          className="ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          title="LINE WORKS設定"
+        >
+          <Settings className={`${size === 'sm' ? 'w-3 h-3' : 'w-4 h-4'} text-gray-500 dark:text-gray-400`} />
+        </button>
       </div>
+
+      {/* プレビューモーダル */}
+      <LineWorksPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        type={type}
+        message={previewMessage}
+      />
 
       {/* 設定モーダル */}
       <LineWorksSettingsModal
