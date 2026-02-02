@@ -14,7 +14,7 @@ import {
   LINEWORKS_STORAGE_KEYS,
   LINEWORKS_HISTORY_MAX_ENTRIES,
 } from '../types/lineworks';
-import { ExtendedAnalysisResult, OvertimeAlertLevel, OVERTIME_THRESHOLDS } from '../models/AttendanceTypes';
+import { ExtendedAnalysisResult, OvertimeAlertLevel, OVERTIME_THRESHOLDS, VIOLATION_URGENCY, ViolationType } from '../models/AttendanceTypes';
 import { StrengthsAnalysisResult, MemberStrengths, StrengthGroup } from '../models/StrengthsTypes';
 
 /**
@@ -199,39 +199,71 @@ export class LineWorksService {
     // ■ 違反サマリー
     lines.push('', '■ 違反サマリー');
 
-    // 高緊急度（法令違反）
-    lines.push(`  高緊急度: ${summary.highUrgencyCount}名`);
-    lines.push(`    （休憩違反/深夜休憩届出漏れ）`);
+    const violationLabels: Record<string, string> = {
+      missing_clock: '打刻漏れ',
+      break_violation: '休憩違反',
+      late_application_missing: '遅刻届出漏れ',
+      early_leave_application_missing: '早退届出漏れ',
+      early_start_application_missing: '早出届出漏れ',
+      time_leave_punch_missing: '時間有休打刻漏れ',
+      night_break_application_missing: '深夜休憩届出漏れ',
+      remarks_missing: '備考未入力',
+      remarks_format_warning: '備考フォーマット',
+    };
 
-    // 中緊急度（届出漏れ）
-    lines.push(`  中緊急度: ${summary.mediumUrgencyCount}名`);
-    lines.push(`    （遅刻/早退/早出届出漏れ）`);
-
-    // 違反種別の内訳
+    // 違反種別ごとにカウント
     const violationCounts: Record<string, number> = {};
     allViolations.forEach((v) => {
       violationCounts[v.type] = (violationCounts[v.type] || 0) + 1;
     });
 
-    if (Object.keys(violationCounts).length > 0) {
-      const violationLabels: Record<string, string> = {
-        missing_clock: '打刻漏れ',
-        break_violation: '休憩違反',
-        late_application_missing: '遅刻届出漏れ',
-        early_leave_application_missing: '早退届出漏れ',
-        early_start_application_missing: '早出届出漏れ',
-        time_leave_punch_missing: '時間有休打刻漏れ',
-        night_break_application_missing: '深夜休憩届出漏れ',
-        remarks_missing: '備考未入力',
-        remarks_format_warning: '備考フォーマット',
-      };
+    // 高緊急度・中緊急度の内訳を分類
+    const highViolations: Array<[string, number]> = [];
+    const mediumViolations: Array<[string, number]> = [];
+    const otherViolations: Array<[string, number]> = [];
 
-      lines.push('  内訳:');
-      Object.entries(violationCounts)
+    Object.entries(violationCounts).forEach(([type, count]) => {
+      const urgency = VIOLATION_URGENCY[type as ViolationType];
+      if (urgency === 'high') {
+        highViolations.push([type, count]);
+      } else if (urgency === 'medium') {
+        mediumViolations.push([type, count]);
+      } else {
+        otherViolations.push([type, count]);
+      }
+    });
+
+    // 高緊急度（法令違反）
+    lines.push(`  高緊急度: ${summary.highUrgencyCount}名`);
+    if (highViolations.length > 0) {
+      const items = highViolations
+        .sort((a, b) => b[1] - a[1])
+        .map(([type, count]) => `${violationLabels[type]}${count}件`)
+        .join(' / ');
+      lines.push(`    ${items}`);
+    } else {
+      lines.push(`    （休憩違反/深夜休憩届出漏れ）`);
+    }
+
+    // 中緊急度（届出漏れ）
+    lines.push(`  中緊急度: ${summary.mediumUrgencyCount}名`);
+    if (mediumViolations.length > 0) {
+      const items = mediumViolations
+        .sort((a, b) => b[1] - a[1])
+        .map(([type, count]) => `${violationLabels[type]}${count}件`)
+        .join(' / ');
+      lines.push(`    ${items}`);
+    } else {
+      lines.push(`    （遅刻/早退/早出届出漏れ）`);
+    }
+
+    // その他（緊急度なし）
+    if (otherViolations.length > 0) {
+      lines.push(`  その他:`);
+      otherViolations
         .sort((a, b) => b[1] - a[1])
         .forEach(([type, count]) => {
-          const label = violationLabels[type] || type;
-          lines.push(`    ${label}: ${count}件`);
+          lines.push(`    ${violationLabels[type]}: ${count}件`);
         });
     }
 
