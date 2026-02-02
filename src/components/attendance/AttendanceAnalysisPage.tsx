@@ -34,6 +34,8 @@ import {
   CartesianGrid,
 } from 'recharts';
 import AttendanceService from '../../services/AttendanceService';
+import { LineWorksService } from '../../services/LineWorksService';
+import { LineWorksSendButton } from '../lineworks';
 import {
   AttendanceRecord,
   ExtendedAnalysisResult,
@@ -437,6 +439,11 @@ const AttendanceAnalysisPage: React.FC = () => {
               <span className="hidden xs:inline">{isExportingPdf ? '出力中...' : 'PDF出力'}</span>
               <span className="xs:hidden">PDF</span>
             </button>
+            <LineWorksSendButton
+              type="attendance-summary"
+              buildMessage={() => LineWorksService.buildAttendanceMessage(analysisResult!)}
+              disabled={!analysisResult}
+            />
             <button
               onClick={() => setShowUserFilter(true)}
               className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
