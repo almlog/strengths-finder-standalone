@@ -291,8 +291,8 @@ describe('LineWorksService', () => {
         const result = createMockExtendedAnalysisResult();
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        expect(message).toContain('■ 部門別平均残業時間');
-        expect(message).toContain('開発部: 10:00');
+        expect(message).toContain('■ 部門別平均残業時間（/人）');
+        expect(message).toContain('開発部(5名): 10:00');
       });
 
       it('残業状況に氏名・現在・見込み・レベルが表示される', () => {

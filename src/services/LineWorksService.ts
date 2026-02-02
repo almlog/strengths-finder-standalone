@@ -237,12 +237,12 @@ export class LineWorksService {
 
     // ■ 部門別平均残業時間（ID順）
     if (departmentSummaries.length > 0) {
-      lines.push('', '■ 部門別平均残業時間');
+      lines.push('', '■ 部門別平均残業時間（/人）');
       const sorted = [...departmentSummaries].sort(
         (a, b) => a.department.localeCompare(b.department)
       );
       sorted.forEach((dept) => {
-        lines.push(`  ${dept.department}: ${this.formatMinutesToHM(dept.averageOvertimeMinutes)}`);
+        lines.push(`  ${dept.department}(${dept.employeeCount}名): ${this.formatMinutesToHM(dept.averageOvertimeMinutes)}`);
       });
     }
 
