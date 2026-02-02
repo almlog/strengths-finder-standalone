@@ -271,39 +271,32 @@ describe('LineWorksService', () => {
         expect(message).toContain('期間: 1/1〜1/31');
       });
 
-      it('45h超過者が「超過」グループに表示される', () => {
+      it('現在の残業時間と月末予測が表示される', () => {
         const result = createMockExtendedAnalysisResult();
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        expect(message).toContain('■ 超過（1名）');
-        expect(message).toContain('→ 特別条項確認');
-        expect(message).toContain('田中太郎  001  50:00');
+        // 田中太郎: 50h, 20/22営業日 → 予測55h
+        expect(message).toContain('田中太郎  001');
+        expect(message).toContain('現在50:00');
+        expect(message).toContain('予測55:00');
       });
 
-      it('35h超過者が「注意」グループに表示される', () => {
-        const result = createMockExtendedAnalysisResult();
-        // 鈴木花子の残業時間を37時間（35h超過）に変更
-        result.employeeSummaries[1].totalOvertimeMinutes = 37 * 60 + 6; // 37:06
-        const message = LineWorksService.buildAttendanceMessage(result);
-
-        expect(message).toContain('■ 注意（1名）');
-        expect(message).toContain('→ 上長への報告が必要です');
-        expect(message).toContain('鈴木花子  002  37:06');
-      });
-
-      it('36協定基準の説明が含まれる', () => {
+      it('月末予測に基づいてアラートレベルが判定される', () => {
         const result = createMockExtendedAnalysisResult();
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        expect(message).toContain('36協定基準:');
+        // 田中太郎: 予測55h → 警戒レベル
+        expect(message).toContain('■ 警戒（1名）');
+        expect(message).toContain('→ 残業抑制指示');
+        expect(message).toContain('【警戒】');
       });
 
       it('アラート対象者がいない場合メッセージが表示される', () => {
         const result = createMockExtendedAnalysisResult();
-        // 全員の残業時間を35h未満に設定
+        // 全員の残業時間を月末予測35h未満に設定
         result.employeeSummaries = result.employeeSummaries.map(emp => ({
           ...emp,
-          totalOvertimeMinutes: 1800, // 30時間
+          totalOvertimeMinutes: 1200, // 20時間 → 予測22時間
         }));
         const message = LineWorksService.buildAttendanceMessage(result);
 
