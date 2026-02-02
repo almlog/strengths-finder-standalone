@@ -280,8 +280,11 @@ describe('LineWorksService', () => {
         const message = LineWorksService.buildAttendanceMessage(result);
 
         expect(message).toContain('■ 違反サマリー');
-        expect(message).toContain('高: 2名');
-        expect(message).toContain('打刻漏れ');
+        expect(message).toContain('高緊急度: 2名');
+        expect(message).toContain('（休憩違反/深夜休憩届出漏れ）');
+        expect(message).toContain('中緊急度: 5名');
+        expect(message).toContain('（遅刻/早退/早出届出漏れ）');
+        expect(message).toContain('打刻漏れ: 1件');
       });
 
       it('部門別平均残業時間が含まれる', () => {
