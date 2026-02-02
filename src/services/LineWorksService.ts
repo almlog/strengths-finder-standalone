@@ -154,6 +154,27 @@ export class LineWorksService {
   };
 
   /**
+   * 月末予測残業時間を計算
+   */
+  private static calculateProjectedOvertime(
+    currentMinutes: number,
+    passedWeekdays: number,
+    totalWeekdaysInMonth: number
+  ): number {
+    if (passedWeekdays <= 0) return currentMinutes;
+    return Math.round(currentMinutes * (totalWeekdaysInMonth / passedWeekdays));
+  }
+
+  /**
+   * 分を時:分形式に変換
+   */
+  private static formatMinutesToHM(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}:${mins.toString().padStart(2, '0')}`;
+  }
+
+  /**
    * 勤怠サマリーメッセージを構築（リーダー向けアクション形式）
    */
   static buildAttendanceMessage(result: ExtendedAnalysisResult): string {
@@ -166,11 +187,13 @@ export class LineWorksService {
       '',
     ];
 
-    // アラートレベルごとにグループ化
+    // アラートレベルごとにグループ化（月末予測ベース）
     const alertGroups: Record<OvertimeAlertLevel, Array<{
       name: string;
       id: string;
-      overtime: string;
+      current: string;
+      projected: string;
+      level: string;
     }>> = {
       illegal: [],
       critical: [],
@@ -183,13 +206,20 @@ export class LineWorksService {
     };
 
     employeeSummaries.forEach((emp) => {
-      const level = this.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
-      const hours = Math.floor(emp.totalOvertimeMinutes / 60);
-      const mins = emp.totalOvertimeMinutes % 60;
+      const projectedMinutes = this.calculateProjectedOvertime(
+        emp.totalOvertimeMinutes,
+        emp.passedWeekdays,
+        emp.totalWeekdaysInMonth
+      );
+      const level = this.getOvertimeAlertLevel(projectedMinutes);
+      const { label } = this.ALERT_DISPLAY[level];
+
       alertGroups[level].push({
         name: emp.employeeName,
         id: emp.employeeId,
-        overtime: `${hours}:${mins.toString().padStart(2, '0')}`,
+        current: this.formatMinutesToHM(emp.totalOvertimeMinutes),
+        projected: this.formatMinutesToHM(projectedMinutes),
+        level: label,
       });
     });
 
@@ -210,15 +240,16 @@ export class LineWorksService {
       lines.push(`■ ${label}（${members.length}名）`);
       lines.push(`  → ${action}`);
 
-      // 残業時間でソート（降順）
+      // 月末予測でソート（降順）
       members.sort((a, b) => {
-        const aMin = parseInt(a.overtime.split(':')[0]) * 60 + parseInt(a.overtime.split(':')[1]);
-        const bMin = parseInt(b.overtime.split(':')[0]) * 60 + parseInt(b.overtime.split(':')[1]);
+        const aMin = parseInt(a.projected.split(':')[0]) * 60 + parseInt(a.projected.split(':')[1]);
+        const bMin = parseInt(b.projected.split(':')[0]) * 60 + parseInt(b.projected.split(':')[1]);
         return bMin - aMin;
       });
 
       members.forEach((m) => {
-        lines.push(`  ${m.name}  ${m.id}  ${m.overtime}`);
+        lines.push(`  ${m.name}  ${m.id}`);
+        lines.push(`    現在${m.current} → 予測${m.projected}【${m.level}】`);
       });
       lines.push('');
     });
@@ -226,10 +257,6 @@ export class LineWorksService {
     if (!hasAlerts) {
       lines.push('対応が必要なメンバーはいません。');
     }
-
-    // 基準説明
-    lines.push('---');
-    lines.push('36協定基準: 35h注意/45h超過/55h警戒/65h深刻/70h重大/80h危険/100h違法');
 
     return lines.join('\n');
   }
