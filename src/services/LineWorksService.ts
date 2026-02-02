@@ -304,7 +304,11 @@ export class LineWorksService {
     });
 
     if (alertMembers.length > 0) {
-      lines.push('', '■ 残業状況（36協定）');
+      // 残り営業日数を計算（最初のメンバーから取得）
+      const firstEmp = employeeSummaries[0];
+      const remainingDays = firstEmp ? firstEmp.totalWeekdaysInMonth - firstEmp.passedWeekdays : 0;
+
+      lines.push('', `■ 残業状況（36協定・残り${remainingDays}営業日）`);
       // 月末予測でソート（降順）
       alertMembers.sort((a, b) => b.projected - a.projected);
       alertMembers.forEach((m) => {
