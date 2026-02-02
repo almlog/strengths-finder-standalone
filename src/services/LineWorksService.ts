@@ -14,7 +14,7 @@ import {
   LINEWORKS_STORAGE_KEYS,
   LINEWORKS_HISTORY_MAX_ENTRIES,
 } from '../types/lineworks';
-import { ExtendedAnalysisResult } from '../models/AttendanceTypes';
+import { ExtendedAnalysisResult, OvertimeAlertLevel, OVERTIME_THRESHOLDS } from '../models/AttendanceTypes';
 import { StrengthsAnalysisResult, MemberStrengths, StrengthGroup } from '../models/StrengthsTypes';
 
 /**
@@ -125,94 +125,111 @@ export class LineWorksService {
   // ==================== メッセージ構築 ====================
 
   /**
-   * 勤怠サマリーメッセージを構築
+   * 残業時間からアラートレベルを判定
+   */
+  private static getOvertimeAlertLevel(overtimeMinutes: number): OvertimeAlertLevel {
+    const hours = overtimeMinutes / 60;
+    if (hours >= OVERTIME_THRESHOLDS.SPECIAL_LIMIT_HOURS) return 'illegal';
+    if (hours >= OVERTIME_THRESHOLDS.CRITICAL_HOURS) return 'critical';
+    if (hours >= OVERTIME_THRESHOLDS.SEVERE_HOURS) return 'severe';
+    if (hours >= OVERTIME_THRESHOLDS.SERIOUS_HOURS) return 'serious';
+    if (hours >= OVERTIME_THRESHOLDS.CAUTION_HOURS) return 'caution';
+    if (hours >= OVERTIME_THRESHOLDS.LIMIT_HOURS) return 'exceeded';
+    if (hours >= OVERTIME_THRESHOLDS.WARNING_HOURS) return 'warning';
+    return 'normal';
+  }
+
+  /**
+   * アラートレベルの表示情報
+   */
+  private static readonly ALERT_DISPLAY: Record<OvertimeAlertLevel, { label: string; action: string }> = {
+    illegal: { label: '違法', action: '即時是正必須' },
+    critical: { label: '危険', action: '医師面接指導' },
+    severe: { label: '重大', action: '親会社への報告' },
+    serious: { label: '深刻', action: '残業禁止措置の検討' },
+    caution: { label: '警戒', action: '残業抑制指示' },
+    exceeded: { label: '超過', action: '特別条項確認' },
+    warning: { label: '注意', action: '上長への報告が必要です' },
+    normal: { label: '正常', action: '' },
+  };
+
+  /**
+   * 勤怠サマリーメッセージを構築（リーダー向けアクション形式）
    */
   static buildAttendanceMessage(result: ExtendedAnalysisResult): string {
-    const { summary, departmentSummaries, allViolations, employeeSummaries } = result;
+    const { summary, employeeSummaries } = result;
     const dateRange = `${this.formatDate(summary.analysisDateRange.start)}〜${this.formatDate(summary.analysisDateRange.end)}`;
 
     const lines: string[] = [
-      '【勤怠分析サマリー】',
+      '【勤怠アラート】',
       `期間: ${dateRange}`,
       '',
     ];
 
-    // ■ 全体統計
-    lines.push('■ 全体統計');
-    lines.push(`  対象者: ${summary.totalEmployees}名`);
-    lines.push(`  問題あり: ${summary.employeesWithIssues}名`);
+    // アラートレベルごとにグループ化
+    const alertGroups: Record<OvertimeAlertLevel, Array<{
+      name: string;
+      id: string;
+      overtime: string;
+    }>> = {
+      illegal: [],
+      critical: [],
+      severe: [],
+      serious: [],
+      caution: [],
+      exceeded: [],
+      warning: [],
+      normal: [],
+    };
 
-    // 全体の総残業時間を計算
-    const totalOvertimeMinutes = employeeSummaries.reduce(
-      (sum, emp) => sum + emp.totalOvertimeMinutes, 0
-    );
-    const totalOvertimeHours = Math.floor(totalOvertimeMinutes / 60);
-    const totalOvertimeMins = totalOvertimeMinutes % 60;
-    lines.push(`  総残業時間: ${totalOvertimeHours}h${totalOvertimeMins}m`);
-
-    // ■ 違反サマリー
-    lines.push('', '■ 違反サマリー');
-    lines.push(`  高緊急度: ${summary.highUrgencyCount}件`);
-    lines.push(`  中緊急度: ${summary.mediumUrgencyCount}件`);
-    lines.push(`  低緊急度: ${summary.lowUrgencyCount}件`);
-
-    // 違反種別ごとの件数
-    const violationCounts: Record<string, number> = {};
-    allViolations.forEach((v) => {
-      violationCounts[v.type] = (violationCounts[v.type] || 0) + 1;
+    employeeSummaries.forEach((emp) => {
+      const level = this.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+      const hours = Math.floor(emp.totalOvertimeMinutes / 60);
+      const mins = emp.totalOvertimeMinutes % 60;
+      alertGroups[level].push({
+        name: emp.employeeName,
+        id: emp.employeeId,
+        overtime: `${hours}:${mins.toString().padStart(2, '0')}`,
+      });
     });
 
-    if (Object.keys(violationCounts).length > 0) {
-      const violationLabels: Record<string, string> = {
-        missing_clock: '打刻漏れ',
-        break_violation: '休憩違反',
-        late_application_missing: '遅刻届出漏れ',
-        early_leave_application_missing: '早退届出漏れ',
-        early_start_application_missing: '早出届出漏れ',
-        time_leave_punch_missing: '時間有休打刻漏れ',
-        night_break_application_missing: '深夜休憩届出漏れ',
-        remarks_missing: '備考未入力',
-        remarks_format_warning: '備考フォーマット',
-      };
+    // 高い緊急度から順に表示（normalは除く）
+    const alertOrder: OvertimeAlertLevel[] = [
+      'illegal', 'critical', 'severe', 'serious', 'caution', 'exceeded', 'warning'
+    ];
 
-      lines.push('  【内訳】');
-      Object.entries(violationCounts)
-        .sort((a, b) => b[1] - a[1])
-        .forEach(([type, count]) => {
-          const label = violationLabels[type] || type;
-          lines.push(`    ${label}: ${count}件`);
-        });
-    }
+    let hasAlerts = false;
 
-    // ■ 部門別 平均残業時間
-    if (departmentSummaries.length > 0) {
-      lines.push('', '■ 部門別 平均残業時間');
-      const sorted = [...departmentSummaries].sort(
-        (a, b) => b.averageOvertimeMinutes - a.averageOvertimeMinutes
-      );
-      sorted.forEach((dept) => {
-        const avgHours = Math.floor(dept.averageOvertimeMinutes / 60);
-        const avgMins = dept.averageOvertimeMinutes % 60;
-        lines.push(`  ${dept.department}(${dept.employeeCount}名): ${avgHours}h${avgMins}m`);
+    alertOrder.forEach((level) => {
+      const members = alertGroups[level];
+      if (members.length === 0) return;
+
+      hasAlerts = true;
+      const { label, action } = this.ALERT_DISPLAY[level];
+
+      lines.push(`■ ${label}（${members.length}名）`);
+      lines.push(`  → ${action}`);
+
+      // 残業時間でソート（降順）
+      members.sort((a, b) => {
+        const aMin = parseInt(a.overtime.split(':')[0]) * 60 + parseInt(a.overtime.split(':')[1]);
+        const bMin = parseInt(b.overtime.split(':')[0]) * 60 + parseInt(b.overtime.split(':')[1]);
+        return bMin - aMin;
       });
-    }
 
-    // ■ 残業状況（45時間超過者）
-    const overtimeWarning = employeeSummaries
-      .filter((emp) => emp.totalOvertimeMinutes >= 45 * 60)
-      .sort((a, b) => b.totalOvertimeMinutes - a.totalOvertimeMinutes);
-
-    if (overtimeWarning.length > 0) {
-      lines.push('', '■ 残業状況（45h超過）');
-      overtimeWarning.slice(0, 5).forEach((emp) => {
-        const hours = Math.floor(emp.totalOvertimeMinutes / 60);
-        const mins = emp.totalOvertimeMinutes % 60;
-        lines.push(`  ${emp.employeeName}(${emp.department}): ${hours}h${mins}m`);
+      members.forEach((m) => {
+        lines.push(`  ${m.name}  ${m.id}  ${m.overtime}`);
       });
-      if (overtimeWarning.length > 5) {
-        lines.push(`  ...他${overtimeWarning.length - 5}名`);
-      }
+      lines.push('');
+    });
+
+    if (!hasAlerts) {
+      lines.push('対応が必要なメンバーはいません。');
     }
+
+    // 基準説明
+    lines.push('---');
+    lines.push('36協定基準: 35h注意/45h超過/55h警戒/65h深刻/70h重大/80h危険/100h違法');
 
     return lines.join('\n');
   }
