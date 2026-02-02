@@ -299,7 +299,8 @@ describe('LineWorksService', () => {
         const result = createMockExtendedAnalysisResult();
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        expect(message).toContain('■ 残業状況（36協定）');
+        // 田中太郎: 50h, 20/22営業日 → 残り2営業日
+        expect(message).toContain('■ 残業状況（36協定・残り2営業日）');
         // 田中太郎: 50h → 予測55h = 警戒
         expect(message).toContain('田中太郎  現在50:00 見込55:00  警戒');
       });
