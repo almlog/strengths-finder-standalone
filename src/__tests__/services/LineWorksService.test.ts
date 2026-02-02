@@ -256,56 +256,12 @@ describe('LineWorksService', () => {
   // ==================== メッセージ構築 ====================
 
   describe('メッセージ構築', () => {
-    describe('勤怠サマリーメッセージ', () => {
-      it('勤怠サマリーメッセージを構築できる', () => {
+    describe('勤怠アラートメッセージ', () => {
+      it('勤怠アラートメッセージを構築できる', () => {
         const result = createMockExtendedAnalysisResult();
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        expect(message).toContain('【勤怠分析サマリー】');
-        expect(message).toContain('対象者: 10名');
-      });
-
-      it('アラート状況が含まれる', () => {
-        const result = createMockExtendedAnalysisResult();
-        const message = LineWorksService.buildAttendanceMessage(result);
-
-        expect(message).toContain('高緊急度: 2件');
-        expect(message).toContain('中緊急度: 5件');
-        expect(message).toContain('低緊急度: 8件');
-      });
-
-      it('部門別平均残業時間が含まれる', () => {
-        const result = createMockExtendedAnalysisResult();
-        const message = LineWorksService.buildAttendanceMessage(result);
-
-        expect(message).toContain('部門別 平均残業時間');
-        expect(message).toContain('開発部(5名): 10h0m');
-        expect(message).toContain('営業部(3名): 10h0m');
-      });
-
-      it('違反サマリーの内訳が含まれる', () => {
-        const result = createMockExtendedAnalysisResult();
-        const message = LineWorksService.buildAttendanceMessage(result);
-
-        expect(message).toContain('違反サマリー');
-        expect(message).toContain('【内訳】');
-        expect(message).toContain('打刻漏れ: 1件');
-      });
-
-      it('全体統計が含まれる', () => {
-        const result = createMockExtendedAnalysisResult();
-        const message = LineWorksService.buildAttendanceMessage(result);
-
-        expect(message).toContain('全体統計');
-        expect(message).toContain('問題あり: 3名');
-      });
-
-      it('残業状況（45h超過者）が含まれる', () => {
-        const result = createMockExtendedAnalysisResult();
-        const message = LineWorksService.buildAttendanceMessage(result);
-
-        expect(message).toContain('残業状況（45h超過）');
-        expect(message).toContain('田中太郎(開発部): 50h0m');
+        expect(message).toContain('【勤怠アラート】');
       });
 
       it('日付範囲が正しくフォーマットされる', () => {
@@ -313,6 +269,45 @@ describe('LineWorksService', () => {
         const message = LineWorksService.buildAttendanceMessage(result);
 
         expect(message).toContain('期間: 1/1〜1/31');
+      });
+
+      it('45h超過者が「超過」グループに表示される', () => {
+        const result = createMockExtendedAnalysisResult();
+        const message = LineWorksService.buildAttendanceMessage(result);
+
+        expect(message).toContain('■ 超過（1名）');
+        expect(message).toContain('→ 特別条項確認');
+        expect(message).toContain('田中太郎  001  50:00');
+      });
+
+      it('35h超過者が「注意」グループに表示される', () => {
+        const result = createMockExtendedAnalysisResult();
+        // 鈴木花子の残業時間を37時間（35h超過）に変更
+        result.employeeSummaries[1].totalOvertimeMinutes = 37 * 60 + 6; // 37:06
+        const message = LineWorksService.buildAttendanceMessage(result);
+
+        expect(message).toContain('■ 注意（1名）');
+        expect(message).toContain('→ 上長への報告が必要です');
+        expect(message).toContain('鈴木花子  002  37:06');
+      });
+
+      it('36協定基準の説明が含まれる', () => {
+        const result = createMockExtendedAnalysisResult();
+        const message = LineWorksService.buildAttendanceMessage(result);
+
+        expect(message).toContain('36協定基準:');
+      });
+
+      it('アラート対象者がいない場合メッセージが表示される', () => {
+        const result = createMockExtendedAnalysisResult();
+        // 全員の残業時間を35h未満に設定
+        result.employeeSummaries = result.employeeSummaries.map(emp => ({
+          ...emp,
+          totalOvertimeMinutes: 1800, // 30時間
+        }));
+        const message = LineWorksService.buildAttendanceMessage(result);
+
+        expect(message).toContain('対応が必要なメンバーはいません');
       });
     });
 
