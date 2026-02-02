@@ -198,7 +198,7 @@ export class LineWorksService {
 
     // ■ 違反サマリー
     lines.push('', '■ 違反サマリー');
-    lines.push(`  高: ${summary.highUrgencyCount}件 / 中: ${summary.mediumUrgencyCount}件 / 低: ${summary.lowUrgencyCount}件`);
+    lines.push(`  高: ${summary.highUrgencyCount}名 / 中: ${summary.mediumUrgencyCount}名 / 低: ${summary.lowUrgencyCount}名`);
 
     const violationCounts: Record<string, number> = {};
     allViolations.forEach((v) => {
