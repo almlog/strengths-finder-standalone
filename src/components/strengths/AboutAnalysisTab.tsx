@@ -577,6 +577,33 @@ const AboutAnalysisTab: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* 本システムでの判定方法 */}
+            <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+              <h4 className="font-semibold text-amber-900 dark:text-amber-300 mb-3">本システムでの判定方法</h4>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                基本の始業時刻は9:00ですが、客先との契約上8:00～10:30などの出社レンジを持つケースがあります。本システムでは、勤怠エクセルの<strong>シート名</strong>に含まれる時間情報から始業時刻を自動判定します。
+              </p>
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">始業時刻の決定順序（優先順位）：</p>
+                <ol className="text-sm text-gray-700 dark:text-gray-300 space-y-2 list-decimal list-inside">
+                  <li>
+                    <strong>申請内容の時間</strong> — 出社レンジ内で時間変更を行った場合は「勤務予定変更申請」を提出し承認を得てください。勤怠情報のカレンダーが変更されると、この時間を最優先で使用します。
+                  </li>
+                  <li>
+                    <strong>シート名の時間</strong> — 「勤務予定変更申請」によるカレンダー変更がない場合、シート名から契約上の始業時刻を抽出します（例：<code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">_800-1630</code> → 8:00始業）。ほぼすべての契約で時間が記載されているため、通常はこの時間が判定に使用されます。
+                  </li>
+                  <li>
+                    <strong>デフォルト 9:00</strong> — いずれにも該当しない場合は9:00を適用します。
+                  </li>
+                </ol>
+              </div>
+              <div className="bg-amber-100 dark:bg-amber-900/30 rounded p-3">
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  <strong>早出の判定：</strong>上記で決定した始業時刻より前に出勤した場合、早出フラグに「1」が入力されていないと、<strong>始業時刻前の勤務時間としてみなされません</strong>。
+                </p>
+              </div>
+            </div>
           </div>
         </AccordionSection>
 
