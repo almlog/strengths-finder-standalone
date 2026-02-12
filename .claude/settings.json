@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "MultiEdit",
+      "Bash(npm test:*)",
+      "Bash(pytest:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit:*)",
+        "hook": {
+          "type": "command",
+          "command": "bash -c 'echo \"🧪 Running tests before commit...\" >&2; if command -v pytest &>/dev/null; then pytest tests/ --tb=short 2>&1 || (echo \"❌ Tests failed: commit blocked\" >&2; exit 1); elif command -v npm &>/dev/null && [ -f package.json ]; then npm test 2>&1 || (echo \"❌ Tests failed: commit blocked\" >&2; exit 1); else echo \"⚠️ No test runner found, proceeding...\" >&2; fi'"
+        }
+      }
+    ]
+  }
+}
