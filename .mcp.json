@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "disabled": true,
+      "_comment": "E2E テスト時に有効化。常時有効はコンテキスト消費に注意"
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "_comment": "ライブラリドキュメント参照用。常時有効推奨"
+    }
+  }
+}

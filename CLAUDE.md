@@ -559,3 +559,62 @@ ls -la build/
    1. 型定義 → 2. サービス → 3. コンポーネント → 4. 統合
 
 この手順に従うことで、Claudeを使った効率的な開発が可能になります。
+
+---
+
+## 🔵 Session Lifecycle (セッション運用)
+
+```
+┌─ セッション開始 ─────────────────────────────────────────┐
+│ 🟢自動: git status && git branch                          │
+│ 🟢自動: /project:session-start フローを実行                │
+│   → この CLAUDE.md 確認                                    │
+│   → files/DASHBOARD.md で全体進捗を把握                    │
+│   → files/CHANGELOG.md の最新5エントリを確認               │
+│   → 現在の状態と次のアクションを報告                        │
+├─ 作業中 ──────────────────────────────────────────────────┤
+│ 実装指示 → 🟢自動で /user:tdd-cycle フローに従う            │
+│ Issue修正 → 🟢自動で /project:fix-issue フローに従う        │
+│ 設計判断 → 🟢自動で DECISIONS.md に追記                     │
+│ 罠発見 → 🟡提案: Gotchas への追記                          │
+│ SPEC未存在 → 🟡提案: docs/specs/ に作成                    │
+│ 70%超 → 🟡提案: /compact (確認後実行)                      │
+│ 80%超 → 🔴慎重: /clear (保全措置+確認後実行)               │
+│ タスク完了 → 🟢自動: CHANGELOG に追記                      │
+│ タスク切替 → 🔴慎重: /clear (保全措置+確認後実行)           │
+├─ セッション終了 ──────────────────────────────────────────┤
+│ 🟢自動: CHANGELOG.md に成果記録                            │
+│ 🟡提案: DASHBOARD.md のステータス更新                      │
+│ 🟡提案: 未コミット変更があれば git commit                   │
+└───────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Available Slash Commands
+
+| コマンド | 種別 | 用途 | 自動適用 |
+|---------|------|------|---------|
+| `/user:tdd-cycle <対象>` | グローバル | TDD サイクル全手順 | ✅ 実装指示で自動 |
+| `/project:session-start` | プロジェクト | セッション開始チェック | ✅ 最初の発話で自動 |
+| `/project:spec-review <file>` | プロジェクト | SPEC 5観点レビュー | ✅ レビュー指示で自動 |
+| `/project:fix-issue <num>` | プロジェクト | Issue修正フロー | ✅ Issue指示で自動 |
+
+---
+
+## Gotchas (Claude がハマりやすい罠)
+
+- `CI=true npm run build` でないとESLint警告がエラーにならない（ローカルとCI環境の差異）
+- Firebase Emulator未起動時に `REACT_APP_USE_EMULATOR=true` だとログイン失敗
+- 既存テストファイルに型エラーがあるが、本体コードには影響しない（テストのmock不備）
+- `crypto.randomUUID()` はJest環境で未定義のためモックが必要
+
+---
+
+## Key Decisions
+
+| ID | Content | Date |
+|----|---------|------|
+| D-001 | LINE WORKS複数Webhook対応でマイグレーション自動実行 | 2026-02-12 |
+
+詳細は `files/DECISIONS.md` を参照。
