@@ -23,6 +23,9 @@ export const STORAGE_KEYS = {
 
   /** データバージョン（移行管理用） */
   DATA_VERSION: 'strengths-data-version',
+
+  /** 初回ログイン説明モーダル表示済みフラグ */
+  WELCOME_SHOWN: 'strengths-welcome-shown',
 } as const;
 
 /**
