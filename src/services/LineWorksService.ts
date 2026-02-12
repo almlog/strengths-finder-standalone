@@ -7,6 +7,8 @@
 
 import {
   LineWorksConfig,
+  LineWorksConfigLegacy,
+  LineWorksWebhookEntry,
   LineWorksMessage,
   LineWorksSendHistory,
   LineWorksSendResult,
@@ -30,20 +32,34 @@ export class LineWorksService {
   static getConfig(): LineWorksConfig | null {
     try {
       const stored = localStorage.getItem(LINEWORKS_STORAGE_KEYS.CONFIG);
-      return stored ? JSON.parse(stored) : null;
+      if (!stored) return null;
+      const parsed = JSON.parse(stored);
+      // 新形式かどうかをwebhooks配列の有無で判定
+      if (Array.isArray(parsed.webhooks)) {
+        return parsed as LineWorksConfig;
+      }
+      return null;
     } catch {
       return null;
     }
   }
 
   /**
-   * Webhook URLを設定
+   * Webhook URLを設定（後方互換性のため維持、内部でaddWebhookを使用）
+   * @deprecated addWebhookを直接使用してください
    */
   static setConfig(webhookUrl: string): void {
+    // 既存のWebhookをクリアして新規追加
     const config: LineWorksConfig = {
-      webhookUrl,
+      webhooks: [{
+        id: crypto.randomUUID(),
+        roomName: 'デフォルト',
+        webhookUrl,
+        addedAt: Date.now(),
+      }],
       configuredAt: Date.now(),
     };
+    config.defaultWebhookId = config.webhooks[0].id;
     localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(config));
   }
 
@@ -58,21 +74,168 @@ export class LineWorksService {
    * 設定済みかどうか
    */
   static isConfigured(): boolean {
+    const webhooks = this.getWebhooks();
+    return webhooks.length > 0;
+  }
+
+  // ==================== 複数Webhook管理 ====================
+
+  /**
+   * 全てのWebhookを取得
+   */
+  static getWebhooks(): LineWorksWebhookEntry[] {
     const config = this.getConfig();
-    return config !== null && config.webhookUrl.length > 0;
+    return config?.webhooks || [];
+  }
+
+  /**
+   * Webhookを追加
+   */
+  static addWebhook(roomName: string, webhookUrl: string): void {
+    const config = this.getConfig() || {
+      webhooks: [],
+      configuredAt: Date.now(),
+    };
+
+    const newEntry: LineWorksWebhookEntry = {
+      id: crypto.randomUUID(),
+      roomName,
+      webhookUrl,
+      addedAt: Date.now(),
+    };
+
+    config.webhooks.push(newEntry);
+
+    // 最初のWebhookはデフォルトに設定
+    if (config.webhooks.length === 1) {
+      config.defaultWebhookId = newEntry.id;
+    }
+
+    localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(config));
+  }
+
+  /**
+   * Webhookを削除
+   */
+  static removeWebhook(webhookId: string): void {
+    const config = this.getConfig();
+    if (!config) return;
+
+    config.webhooks = config.webhooks.filter(w => w.id !== webhookId);
+
+    // デフォルトが削除された場合、残っているWebhookの最初をデフォルトに
+    if (config.defaultWebhookId === webhookId) {
+      config.defaultWebhookId = config.webhooks.length > 0 ? config.webhooks[0].id : undefined;
+    }
+
+    localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(config));
+  }
+
+  /**
+   * デフォルトWebhookを設定
+   */
+  static setDefaultWebhook(webhookId: string): void {
+    const config = this.getConfig();
+    if (!config) return;
+
+    // 存在するIDの場合のみ設定
+    const exists = config.webhooks.some(w => w.id === webhookId);
+    if (exists) {
+      config.defaultWebhookId = webhookId;
+      localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(config));
+    }
+  }
+
+  /**
+   * デフォルトWebhookを取得
+   */
+  static getDefaultWebhook(): LineWorksWebhookEntry | null {
+    const config = this.getConfig();
+    if (!config || !config.defaultWebhookId) return null;
+
+    return config.webhooks.find(w => w.id === config.defaultWebhookId) || null;
+  }
+
+  /**
+   * IDでWebhookを取得
+   */
+  static getWebhookById(webhookId: string): LineWorksWebhookEntry | null {
+    const config = this.getConfig();
+    if (!config) return null;
+
+    return config.webhooks.find(w => w.id === webhookId) || null;
+  }
+
+  /**
+   * Webhookの最終送信日時を更新
+   */
+  static updateWebhookLastSentAt(webhookId: string): void {
+    const config = this.getConfig();
+    if (!config) return;
+
+    const webhook = config.webhooks.find(w => w.id === webhookId);
+    if (webhook) {
+      webhook.lastSentAt = Date.now();
+      localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(config));
+    }
+  }
+
+  /**
+   * 旧形式の設定を新形式にマイグレーション
+   */
+  static migrateConfig(): void {
+    try {
+      const stored = localStorage.getItem(LINEWORKS_STORAGE_KEYS.CONFIG);
+      if (!stored) return;
+
+      const parsed = JSON.parse(stored);
+
+      // 既に新形式の場合は何もしない
+      if (Array.isArray(parsed.webhooks)) {
+        return;
+      }
+
+      // 旧形式の場合はマイグレーション
+      const legacy = parsed as LineWorksConfigLegacy;
+      if (legacy.webhookUrl) {
+        const newConfig: LineWorksConfig = {
+          webhooks: [{
+            id: crypto.randomUUID(),
+            roomName: 'デフォルト',
+            webhookUrl: legacy.webhookUrl,
+            addedAt: legacy.configuredAt || Date.now(),
+            lastSentAt: legacy.lastSentAt,
+          }],
+          configuredAt: legacy.configuredAt || Date.now(),
+        };
+        newConfig.defaultWebhookId = newConfig.webhooks[0].id;
+
+        localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(newConfig));
+      }
+    } catch {
+      // マイグレーション失敗時は何もしない
+    }
   }
 
   // ==================== メッセージ送信 ====================
 
   /**
    * メッセージを送信
+   * @param type 通知タイプ
+   * @param text メッセージ本文
+   * @param webhookId 送信先WebhookのID（省略時はデフォルトWebhook）
    */
   static async send(
     type: NotificationType,
-    text: string
+    text: string,
+    webhookId?: string
   ): Promise<LineWorksSendResult> {
-    const config = this.getConfig();
-    if (!config?.webhookUrl) {
+    // WebhookIdが指定された場合はそのWebhookを使用、なければデフォルト
+    const webhook = webhookId
+      ? this.getWebhookById(webhookId)
+      : this.getDefaultWebhook();
+
+    if (!webhook) {
       return { success: false, error: 'Webhook URLが設定されていません' };
     }
 
@@ -81,7 +244,7 @@ export class LineWorksService {
     };
 
     try {
-      const response = await fetch(config.webhookUrl, {
+      const response = await fetch(webhook.webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(message),
@@ -89,20 +252,20 @@ export class LineWorksService {
 
       const success = response.ok;
 
-      // 履歴を保存
+      // 履歴を保存（ルーム名を含む）
       this.addHistory({
         id: crypto.randomUUID(),
         type,
         sentAt: Date.now(),
         success,
         messagePreview: text.substring(0, 100),
+        roomName: webhook.roomName,
         error: success ? undefined : `HTTP ${response.status}`,
       });
 
       // 最終送信日時を更新
       if (success) {
-        const updatedConfig: LineWorksConfig = { ...config, lastSentAt: Date.now() };
-        localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(updatedConfig));
+        this.updateWebhookLastSentAt(webhook.id);
       }
 
       return { success, error: success ? undefined : `送信エラー: ${response.status}` };
@@ -115,6 +278,7 @@ export class LineWorksService {
         sentAt: Date.now(),
         success: false,
         messagePreview: text.substring(0, 100),
+        roomName: webhook.roomName,
         error: errorMsg,
       });
 

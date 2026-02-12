@@ -57,11 +57,12 @@ const LineWorksSendButton: React.FC<LineWorksSendButtonProps> = ({
     setIsSettingsOpen(true);
   };
 
+  // 他のボタン（PDF出力等）と同じサイズに統一
   const sizeClasses = size === 'sm'
-    ? 'px-2 py-1 text-xs gap-1'
-    : 'px-3 py-2 text-sm gap-2';
+    ? 'px-3 sm:px-4 py-2 text-sm gap-1.5'
+    : 'px-3 sm:px-4 py-2 text-sm gap-2';
 
-  const iconSize = size === 'sm' ? 'w-3 h-3' : 'w-4 h-4';
+  const iconSize = size === 'sm' ? 'w-4 h-4' : 'w-4 h-4';
 
   return (
     <>
