@@ -323,4 +323,128 @@ describe('AttendanceService.hasEarlyStartViolation - 申請内容の始業時刻
       expect(result).toBe(false);
     });
   });
+
+  describe('分単位境界テスト', () => {
+    it('始業8:30のケースで8:29出勤 → 違反（早出フラグなし）', () => {
+      const record = createBaseRecord({
+        applicationContent: '830-1700/1200-1300/7.75/5',
+        clockIn: new Date('2026-01-15 08:29'),
+        earlyStartFlag: false,
+      });
+      const result = AttendanceService.hasEarlyStartViolation(record, 'none');
+      expect(result).toBe(true);
+    });
+
+    it('始業8:30のケースで8:30出勤 → 違反なし', () => {
+      const record = createBaseRecord({
+        applicationContent: '830-1700/1200-1300/7.75/5',
+        clockIn: new Date('2026-01-15 08:30'),
+        earlyStartFlag: false,
+      });
+      const result = AttendanceService.hasEarlyStartViolation(record, 'none');
+      expect(result).toBe(false);
+    });
+
+    it('始業9:00のケースで8:59出勤 → 違反（早出フラグなし）', () => {
+      const record = createBaseRecord({
+        applicationContent: '900-1730/1200-1300/7.75/5',
+        clockIn: new Date('2026-01-15 08:59'),
+        earlyStartFlag: false,
+      });
+      const result = AttendanceService.hasEarlyStartViolation(record, 'none');
+      expect(result).toBe(true);
+    });
+
+    it('始業9:00のケースで9:00出勤 → 違反なし', () => {
+      const record = createBaseRecord({
+        applicationContent: '900-1730/1200-1300/7.75/5',
+        clockIn: new Date('2026-01-15 09:00'),
+        earlyStartFlag: false,
+      });
+      const result = AttendanceService.hasEarlyStartViolation(record, 'none');
+      expect(result).toBe(false);
+    });
+  });
+});
+
+describe('AttendanceService.parseScheduledStartTime - 無効時刻フォーマットテスト', () => {
+  it('"1260-1730" (分が60以上) → null', () => {
+    const result = AttendanceService.parseScheduledStartTime('1260-1730/1200-1300/7.75/5');
+    expect(result).toBeNull();
+  });
+
+  it('"2500-1730" (時が24以上) → null', () => {
+    const result = AttendanceService.parseScheduledStartTime('2500-1730/1200-1300/7.75/5');
+    expect(result).toBeNull();
+  });
+
+  it('"abc-1730" (非数値) → null', () => {
+    const result = AttendanceService.parseScheduledStartTime('abc-1730/1200-1300/7.75/5');
+    expect(result).toBeNull();
+  });
+});
+
+describe('AttendanceService.parseScheduledStartTimeFromSheetName - 無効時刻フォーマットテスト', () => {
+  it('シート名 "_2500-1630" → null', () => {
+    const result = AttendanceService.parseScheduledStartTimeFromSheetName('プロジェクト_2500-1630');
+    expect(result).toBeNull();
+  });
+
+  it('シート名 "_800-" (不完全) → null', () => {
+    const result = AttendanceService.parseScheduledStartTimeFromSheetName('プロジェクト_800-');
+    expect(result).toBeNull();
+  });
+});
+
+describe('AttendanceService - 複数スケジュール・早出キーワードテスト', () => {
+  describe('複数スケジュールから最初の始業時刻を抽出', () => {
+    it('"830-1700/930-1800/..." → 最初の830が抽出される', () => {
+      const result = AttendanceService.parseScheduledStartTime('830-1700/930-1800/1200-1300/7.75/5');
+      expect(result).toEqual({ hour: 8, minute: 30 });
+    });
+  });
+
+  describe('EARLY_START_APPLICATION_KEYWORDS の各キーワードが正しく検出される', () => {
+    it('"早出申請" を含む申請内容は早出違反にならない', () => {
+      const record = createBaseRecord({
+        applicationContent: '早出申請',
+        clockIn: new Date('2026-01-15 08:00'),
+        earlyStartFlag: false,
+      });
+      const result = AttendanceService.hasEarlyStartViolation(record, 'none');
+      expect(result).toBe(false);
+    });
+
+    it('"早出勤務申請" を含む申請内容は早出違反にならない', () => {
+      const record = createBaseRecord({
+        applicationContent: '早出勤務申請',
+        clockIn: new Date('2026-01-15 08:00'),
+        earlyStartFlag: false,
+      });
+      const result = AttendanceService.hasEarlyStartViolation(record, 'none');
+      expect(result).toBe(false);
+    });
+
+    it('"早出届" を含む申請内容は早出違反にならない', () => {
+      const record = createBaseRecord({
+        applicationContent: '早出届',
+        clockIn: new Date('2026-01-15 08:00'),
+        earlyStartFlag: false,
+      });
+      const result = AttendanceService.hasEarlyStartViolation(record, 'none');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('部分一致の誤検出防止', () => {
+    it('"早出したいです" は早出申請として検出されない（違反になる）', () => {
+      const record = createBaseRecord({
+        applicationContent: '早出したいです',
+        clockIn: new Date('2026-01-15 08:00'),
+        earlyStartFlag: false,
+      });
+      const result = AttendanceService.hasEarlyStartViolation(record, 'none');
+      expect(result).toBe(true);
+    });
+  });
 });
