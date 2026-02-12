@@ -4,9 +4,18 @@
  * @module __tests__/services/LineWorksService.test
  */
 
+// crypto.randomUUID のモック
+let uuidCounter = 0;
+Object.defineProperty(global, 'crypto', {
+  value: {
+    randomUUID: () => `test-uuid-${++uuidCounter}`,
+  },
+});
+
 import { LineWorksService } from '../../services/LineWorksService';
 import {
   LineWorksConfig,
+  LineWorksWebhookEntry,
   LINEWORKS_STORAGE_KEYS,
 } from '../../types/lineworks';
 import {
@@ -215,6 +224,8 @@ describe('LineWorksService', () => {
   beforeEach(() => {
     // 各テスト前にlocalStorageをクリア
     localStorage.clear();
+    // UUIDカウンターをリセット
+    uuidCounter = 0;
   });
 
   // ==================== 設定管理 ====================
@@ -226,7 +237,8 @@ describe('LineWorksService', () => {
       const config = LineWorksService.getConfig();
 
       expect(config).not.toBeNull();
-      expect(config?.webhookUrl).toBe(webhookUrl);
+      expect(config?.webhooks).toHaveLength(1);
+      expect(config?.webhooks[0].webhookUrl).toBe(webhookUrl);
       expect(config?.configuredAt).toBeGreaterThan(0);
     });
 
@@ -249,7 +261,7 @@ describe('LineWorksService', () => {
       expect(stored).not.toBeNull();
 
       const parsed: LineWorksConfig = JSON.parse(stored!);
-      expect(parsed.webhookUrl).toBe(webhookUrl);
+      expect(parsed.webhooks[0].webhookUrl).toBe(webhookUrl);
     });
   });
 
@@ -398,12 +410,230 @@ describe('LineWorksService', () => {
 
   describe('Webhook URLバリデーション', () => {
     it('isConfiguredは設定済みの場合trueを返す', () => {
-      LineWorksService.setConfig('https://example.com/webhook');
+      LineWorksService.addWebhook('テストルーム', 'https://example.com/webhook');
       expect(LineWorksService.isConfigured()).toBe(true);
     });
 
     it('isConfiguredは未設定の場合falseを返す', () => {
       expect(LineWorksService.isConfigured()).toBe(false);
+    });
+  });
+
+  // ==================== 複数Webhook管理 ====================
+
+  describe('複数Webhook管理', () => {
+    describe('addWebhook', () => {
+      it('新しいWebhookを追加できる', () => {
+        LineWorksService.addWebhook('リーダールーム', 'https://example.com/webhook1');
+
+        const webhooks = LineWorksService.getWebhooks();
+        expect(webhooks).toHaveLength(1);
+        expect(webhooks[0].roomName).toBe('リーダールーム');
+        expect(webhooks[0].webhookUrl).toBe('https://example.com/webhook1');
+        expect(webhooks[0].id).toBeDefined();
+        expect(webhooks[0].addedAt).toBeGreaterThan(0);
+      });
+
+      it('複数のWebhookを追加できる', () => {
+        LineWorksService.addWebhook('ルーム1', 'https://example.com/webhook1');
+        LineWorksService.addWebhook('ルーム2', 'https://example.com/webhook2');
+        LineWorksService.addWebhook('ルーム3', 'https://example.com/webhook3');
+
+        const webhooks = LineWorksService.getWebhooks();
+        expect(webhooks).toHaveLength(3);
+      });
+
+      it('最初のWebhook追加時は自動的にデフォルトに設定される', () => {
+        LineWorksService.addWebhook('デフォルトルーム', 'https://example.com/webhook1');
+
+        const defaultWebhook = LineWorksService.getDefaultWebhook();
+        expect(defaultWebhook).not.toBeNull();
+        expect(defaultWebhook?.roomName).toBe('デフォルトルーム');
+      });
+
+      it('2つ目以降のWebhook追加時はデフォルトが変わらない', () => {
+        LineWorksService.addWebhook('ルーム1', 'https://example.com/webhook1');
+        LineWorksService.addWebhook('ルーム2', 'https://example.com/webhook2');
+
+        const defaultWebhook = LineWorksService.getDefaultWebhook();
+        expect(defaultWebhook?.roomName).toBe('ルーム1');
+      });
+    });
+
+    describe('removeWebhook', () => {
+      it('Webhookを削除できる', () => {
+        LineWorksService.addWebhook('ルーム1', 'https://example.com/webhook1');
+        LineWorksService.addWebhook('ルーム2', 'https://example.com/webhook2');
+
+        const webhooks = LineWorksService.getWebhooks();
+        const webhookToRemove = webhooks.find(w => w.roomName === 'ルーム1');
+
+        LineWorksService.removeWebhook(webhookToRemove!.id);
+
+        const updatedWebhooks = LineWorksService.getWebhooks();
+        expect(updatedWebhooks).toHaveLength(1);
+        expect(updatedWebhooks[0].roomName).toBe('ルーム2');
+      });
+
+      it('デフォルトWebhookを削除すると別のWebhookがデフォルトになる', () => {
+        LineWorksService.addWebhook('ルーム1', 'https://example.com/webhook1');
+        LineWorksService.addWebhook('ルーム2', 'https://example.com/webhook2');
+
+        const defaultWebhook = LineWorksService.getDefaultWebhook();
+        LineWorksService.removeWebhook(defaultWebhook!.id);
+
+        const newDefaultWebhook = LineWorksService.getDefaultWebhook();
+        expect(newDefaultWebhook).not.toBeNull();
+        expect(newDefaultWebhook?.roomName).toBe('ルーム2');
+      });
+
+      it('全てのWebhookを削除するとデフォルトがnullになる', () => {
+        LineWorksService.addWebhook('ルーム1', 'https://example.com/webhook1');
+
+        const webhooks = LineWorksService.getWebhooks();
+        LineWorksService.removeWebhook(webhooks[0].id);
+
+        const defaultWebhook = LineWorksService.getDefaultWebhook();
+        expect(defaultWebhook).toBeNull();
+        expect(LineWorksService.getWebhooks()).toHaveLength(0);
+      });
+    });
+
+    describe('setDefaultWebhook', () => {
+      it('デフォルトWebhookを変更できる', () => {
+        LineWorksService.addWebhook('ルーム1', 'https://example.com/webhook1');
+        LineWorksService.addWebhook('ルーム2', 'https://example.com/webhook2');
+
+        const webhooks = LineWorksService.getWebhooks();
+        const room2 = webhooks.find(w => w.roomName === 'ルーム2');
+
+        LineWorksService.setDefaultWebhook(room2!.id);
+
+        const defaultWebhook = LineWorksService.getDefaultWebhook();
+        expect(defaultWebhook?.roomName).toBe('ルーム2');
+      });
+
+      it('存在しないIDを指定しても例外が発生しない', () => {
+        LineWorksService.addWebhook('ルーム1', 'https://example.com/webhook1');
+
+        expect(() => {
+          LineWorksService.setDefaultWebhook('non-existent-id');
+        }).not.toThrow();
+      });
+    });
+
+    describe('getWebhookById', () => {
+      it('IDでWebhookを取得できる', () => {
+        LineWorksService.addWebhook('ルーム1', 'https://example.com/webhook1');
+
+        const webhooks = LineWorksService.getWebhooks();
+        const webhook = LineWorksService.getWebhookById(webhooks[0].id);
+
+        expect(webhook).not.toBeNull();
+        expect(webhook?.roomName).toBe('ルーム1');
+      });
+
+      it('存在しないIDの場合はnullを返す', () => {
+        const webhook = LineWorksService.getWebhookById('non-existent-id');
+        expect(webhook).toBeNull();
+      });
+    });
+
+    describe('updateWebhookLastSentAt', () => {
+      it('最終送信日時を更新できる', () => {
+        LineWorksService.addWebhook('ルーム1', 'https://example.com/webhook1');
+
+        const webhooks = LineWorksService.getWebhooks();
+        const beforeUpdate = webhooks[0].lastSentAt;
+
+        LineWorksService.updateWebhookLastSentAt(webhooks[0].id);
+
+        const updatedWebhooks = LineWorksService.getWebhooks();
+        expect(updatedWebhooks[0].lastSentAt).toBeGreaterThan(beforeUpdate || 0);
+      });
+    });
+  });
+
+  // ==================== マイグレーション ====================
+
+  describe('マイグレーション', () => {
+    it('旧形式の設定を新形式に変換できる', () => {
+      // 旧形式のデータを直接保存
+      const legacyConfig = {
+        webhookUrl: 'https://example.com/legacy-webhook',
+        configuredAt: Date.now() - 10000,
+        lastSentAt: Date.now() - 5000,
+      };
+      localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(legacyConfig));
+
+      // マイグレーション実行
+      LineWorksService.migrateConfig();
+
+      // 新形式で取得できることを確認
+      const webhooks = LineWorksService.getWebhooks();
+      expect(webhooks).toHaveLength(1);
+      expect(webhooks[0].webhookUrl).toBe('https://example.com/legacy-webhook');
+      expect(webhooks[0].roomName).toBe('デフォルト');
+    });
+
+    it('新形式の設定はマイグレーションしない', () => {
+      LineWorksService.addWebhook('新形式ルーム', 'https://example.com/new-webhook');
+
+      const webhooksBefore = LineWorksService.getWebhooks();
+      LineWorksService.migrateConfig();
+      const webhooksAfter = LineWorksService.getWebhooks();
+
+      expect(webhooksAfter).toEqual(webhooksBefore);
+    });
+
+    it('空の設定の場合は何もしない', () => {
+      LineWorksService.migrateConfig();
+
+      const webhooks = LineWorksService.getWebhooks();
+      expect(webhooks).toHaveLength(0);
+    });
+  });
+
+  // ==================== 送信処理（webhookId対応） ====================
+
+  describe('送信処理（webhookId対応）', () => {
+    it('webhookIdを指定して送信できる（履歴にルーム名が記録される）', async () => {
+      LineWorksService.addWebhook('テストルーム', 'https://example.com/webhook');
+      const webhooks = LineWorksService.getWebhooks();
+
+      // fetchをモック
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await LineWorksService.send('custom', 'テストメッセージ', webhooks[0].id);
+
+      const history = LineWorksService.getHistory();
+      expect(history[0].roomName).toBe('テストルーム');
+    });
+
+    it('webhookIdが未指定の場合はデフォルトWebhookを使用する', async () => {
+      LineWorksService.addWebhook('デフォルトルーム', 'https://example.com/webhook');
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+      });
+
+      await LineWorksService.send('custom', 'テストメッセージ');
+
+      const history = LineWorksService.getHistory();
+      expect(history[0].roomName).toBe('デフォルトルーム');
+    });
+
+    it('存在しないwebhookIdを指定するとエラーを返す', async () => {
+      LineWorksService.addWebhook('ルーム', 'https://example.com/webhook');
+
+      const result = await LineWorksService.send('custom', 'テストメッセージ', 'non-existent-id');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Webhook');
     });
   });
 });

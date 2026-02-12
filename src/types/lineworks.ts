@@ -6,9 +6,38 @@
  */
 
 /**
- * LINE WORKS Webhook設定
+ * LINE WORKS Webhookエントリー（1つのルーム）
+ */
+export interface LineWorksWebhookEntry {
+  /** 一意識別子（UUID） */
+  id: string;
+  /** ルーム名（例: "リーダー専用", "営業部"） */
+  roomName: string;
+  /** Webhook URL */
+  webhookUrl: string;
+  /** 追加日時（Unix timestamp） */
+  addedAt: number;
+  /** 最終送信日時（Unix timestamp） */
+  lastSentAt?: number;
+}
+
+/**
+ * LINE WORKS Webhook設定（複数Webhook対応）
  */
 export interface LineWorksConfig {
+  /** Webhook一覧 */
+  webhooks: LineWorksWebhookEntry[];
+  /** デフォルトのWebhook ID */
+  defaultWebhookId?: string;
+  /** 設定日時（Unix timestamp） */
+  configuredAt: number;
+}
+
+/**
+ * LINE WORKS Webhook設定（旧形式 - マイグレーション用）
+ * @deprecated 複数Webhook対応のLineWorksConfigを使用してください
+ */
+export interface LineWorksConfigLegacy {
   /** Webhook URL */
   webhookUrl: string;
   /** 設定日時（Unix timestamp） */
@@ -59,6 +88,8 @@ export interface LineWorksSendHistory {
   success: boolean;
   /** メッセージプレビュー（先頭100文字） */
   messagePreview: string;
+  /** 送信先ルーム名 */
+  roomName: string;
   /** エラーメッセージ（失敗時） */
   error?: string;
 }
