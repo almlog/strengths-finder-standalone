@@ -9,12 +9,17 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../config/firebase';
+import { STORAGE_KEYS } from '../../constants/storage';
+import WelcomeModal from './WelcomeModal';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(
+    () => !localStorage.getItem(STORAGE_KEYS.WELCOME_SHOWN)
+  );
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -111,8 +116,22 @@ const LoginPage: React.FC = () => {
               パスワードを忘れた方
             </Link>
           </div>
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowWelcome(true)}
+              className="text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:underline transition-colors"
+            >
+              このシステムについて
+            </button>
+          </div>
         </div>
       </div>
+
+      <WelcomeModal
+        isOpen={showWelcome}
+        onClose={() => setShowWelcome(false)}
+      />
     </div>
   );
 };
