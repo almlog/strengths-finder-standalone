@@ -2,12 +2,11 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 
 const lineWorksWebhookUrl = defineSecret('LINEWORKS_WEBHOOK_URL');
-const lineWorksChannelId = defineSecret('LINEWORKS_CHANNEL_ID');
 
 export const sendLineWorksMessage = onCall(
   {
     region: 'asia-northeast1',
-    secrets: [lineWorksWebhookUrl, lineWorksChannelId],
+    secrets: [lineWorksWebhookUrl],
   },
   async (request) => {
     // 1. Firebase Auth検証
@@ -23,17 +22,15 @@ export const sendLineWorksMessage = onCall(
 
     // 3. シークレット取得
     const webhookUrl = lineWorksWebhookUrl.value();
-    const channelId = lineWorksChannelId.value();
-    if (!webhookUrl || !channelId) {
-      throw new HttpsError('failed-precondition', 'LINE WORKS設定が未設定です');
+    if (!webhookUrl) {
+      throw new HttpsError('failed-precondition', 'LINE WORKS Webhook URLが未設定です');
     }
 
-    // 4. LINE WORKS APIへプロキシ送信
-    const endpoint = `${webhookUrl.replace(/\/+$/, '')}/channels/${channelId}/messages`;
-    const response = await fetch(endpoint, {
+    // 4. Incoming Webhookに直接POST
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: { type: 'text', text } }),
+      body: JSON.stringify({ body: { text } }),
     });
 
     if (!response.ok) {

@@ -2,6 +2,28 @@
 
 ## [Unreleased] - 2026-02-13
 
+### Added
+
+#### LINE WORKS送信 Firebase Cloud Function連携（v3.6）
+- **Cloud Functionプロキシ**: LINE WORKS送信をFirebase Cloud Function経由に変更
+  - CORS問題（ブラウザからworksapis.comへの直接fetchブロック）を解決
+  - Firebase Auth検証により認証済みユーザーのみ送信可能
+  - Node.js 20ランタイム、asia-northeast1リージョン
+- **セキュリティ強化**: Webhook URLをフロントエンドJSバンドルからCloud Functionシークレットに移動
+  - `REACT_APP_LINEWORKS_WEBHOOK_URL` → Firebase Secret Manager `LINEWORKS_WEBHOOK_URL`
+  - `REACT_APP_LINEWORKS_CHANNEL_ID` → 削除（Incoming Webhook方式では不要）
+- **フロントエンド変更**: `httpsCallable` によるCloud Function呼び出しに統一
+  - `src/config/firebase.ts`: Functions初期化追加（asia-northeast1リージョン）
+  - `src/services/LineWorksService.ts`: fetch → httpsCallable に変更
+  - `REACT_APP_LINEWORKS_ENABLED` フラグで送信ボタン表示を制御
+- **開発品質スキル追加**:
+  - `/project:plan-research`: プラン策定前の調査チェックリスト
+  - `/project:pre-deploy`: デプロイ前検証の5フェーズチェックリスト
+
+#### このシステムについてタブ更新
+- 勤怠分析セクションに「サマリー表示・PDF出力」「LINE WORKS通知」の説明を追加
+- v3.6リリースノートを追加
+
 ### Changed
 
 #### LINE WORKS Webhook URL管理を環境変数ベースに移行
