@@ -368,6 +368,7 @@ export interface EmployeeMonthlySummary {
   breakViolationDays: number;    // 休憩違反日数
   missingClockDays: number;      // 出退勤時刻なし日数
   earlyStartViolationDays: number; // 早出フラグ未入力日数
+  nightWorkDays: number;           // 深夜帯勤務日数（22:00以降退勤）
   violations: AttendanceViolation[]; // 全ての違反
   // 営業日情報（予兆計算用）
   passedWeekdays: number;        // 経過営業日数（分析対象期間内の平日）
@@ -399,7 +400,24 @@ export interface ExtendedAnalysisResult {
   employeeSummaries: EmployeeMonthlySummary[];
   departmentSummaries: DepartmentSummary[];
   allViolations: AttendanceViolation[];
+  nightWorkRecords: NightWorkRecord[];
   analyzedAt: Date;
+}
+
+/**
+ * 深夜帯勤務の閾値（労基法37条4項: 22:00〜5:00）
+ * clockOut が22時以降の場合に深夜帯勤務と判定
+ */
+export const NIGHT_WORK_START_HOUR = 22 as const;
+
+/**
+ * 深夜帯勤務レコード
+ */
+export interface NightWorkRecord {
+  employeeName: string;
+  department: string;
+  date: Date;
+  clockOut: Date;
 }
 
 /**

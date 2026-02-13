@@ -44,6 +44,7 @@ jobs:
           echo "MAPBOX_TOKEN is set: ${{ secrets.REACT_APP_MAPBOX_TOKEN != '' }}"
           echo "ODPT_TOKEN is set: ${{ secrets.REACT_APP_ODPT_TOKEN != '' }}"
           echo "CHALLENGE_TOKEN is set: ${{ secrets.REACT_APP_CHALLENGE_TOKEN != '' }}"
+          echo "LINEWORKS_ENABLED will be set: true"
           echo "=========================="
 
       # .env.production ファイルを生成（より確実なトークン注入）
@@ -58,6 +59,8 @@ jobs:
           echo "REACT_APP_MAPBOX_TOKEN=${{ secrets.REACT_APP_MAPBOX_TOKEN }}" >> .env.production
           echo "REACT_APP_ODPT_TOKEN=${{ secrets.REACT_APP_ODPT_TOKEN }}" >> .env.production
           echo "REACT_APP_CHALLENGE_TOKEN=${{ secrets.REACT_APP_CHALLENGE_TOKEN }}" >> .env.production
+          echo "REACT_APP_LINEWORKS_ENABLED=true" >> .env.production
+          echo "REACT_APP_LINEWORKS_ROOM_NAME=${{ secrets.REACT_APP_LINEWORKS_ROOM_NAME }}" >> .env.production
           echo ".env.production created with $(wc -l < .env.production) lines"
 
       # 本番ビルドの実行

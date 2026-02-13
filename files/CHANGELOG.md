@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased] - 2026-02-13
+
+### Changed
+
+#### LINE WORKS Webhook URL管理を環境変数ベースに移行
+- **環境変数化**: `REACT_APP_LINEWORKS_WEBHOOK_URL` / `REACT_APP_LINEWORKS_ROOM_NAME` で管理
+- **localStorage設定管理の撤廃**: getConfig/setConfig/addWebhook/removeWebhook等を削除
+- **設定モーダル削除**: `LineWorksSettingsModal.tsx` を完全削除（UI設定不要）
+- **PreviewModal簡素化**: Webhookドロップダウン削除、環境変数から自動取得
+- **不要な型削除**: `LineWorksConfig`, `LineWorksConfigLegacy`, `LineWorksWebhookEntry` を削除
+
+#### LINE WORKS メッセージ改善
+- 「部門別平均残業時間（/人）」→「部門別平均残業時間（/所属人数）」に修正
+
 ## [Unreleased] - 2026-02-12
 
 ### Added
