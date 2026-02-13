@@ -599,6 +599,8 @@ ls -la build/
 | `/project:session-start` | プロジェクト | セッション開始チェック | ✅ 最初の発話で自動 |
 | `/project:spec-review <file>` | プロジェクト | SPEC 5観点レビュー | ✅ レビュー指示で自動 |
 | `/project:fix-issue <num>` | プロジェクト | Issue修正フロー | ✅ Issue指示で自動 |
+| `/project:plan-research <対象>` | プロジェクト | プラン策定前の調査 | ✅ プラン作成時に自動 |
+| `/project:pre-deploy <対象>` | プロジェクト | デプロイ前検証チェック | ✅ commit/push前に自動 |
 
 ---
 

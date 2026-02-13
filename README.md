@@ -178,6 +178,11 @@ npm run build
     - 申請内容 > シート名 > デフォルト9時の優先順位で判定
   - **🆕 出勤率計算の改善（v3.4.4）**: 欠勤のみが出勤率に影響（有休等は出勤扱い）
   - **🆕 従業員一覧に欠勤カラム追加（v3.4.4）**: 欠勤数を赤色ハイライトで表示
+  - **🆕 LINE WORKS通知（v3.6）**: 勤怠分析結果をLINE WORKSトークルームに直接送信
+    - 入力漏れ・申請漏れ・36協定アラートの自動送信
+    - 送信前プレビュー・編集機能
+    - Firebase Cloud Function経由の安全な送信（Webhook URLはサーバー管理）
+    - 現在は東SI1部リーダー以上ルームへの送信のみ対応
 
 ### データ管理
 - **エクスポート**: 現在のデータをJSONファイルとして保存（Context stateから直接エクスポート）
@@ -342,6 +347,7 @@ npm run build
 - @dnd-kit (ドラッグ&ドロップ)
 - Lucide React (アイコン)
 - Firebase Authentication (認証)
+- Firebase Cloud Functions (LINE WORKS送信プロキシ)
 - LocalStorage API (データ永続化)
 - Mini Tokyo 3D (3D鉄道運行可視化)
 - ODPT API (公共交通オープンデータ)

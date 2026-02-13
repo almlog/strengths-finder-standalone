@@ -22,7 +22,9 @@ import {
   Calendar,
   AlertCircle,
   History,
-  Train
+  Train,
+  Send,
+  FileText
 } from 'lucide-react';
 
 // アコーディオンセクションのProps
@@ -671,6 +673,70 @@ const AboutAnalysisTab: React.FC = () => {
           </div>
         </AccordionSection>
 
+        {/* サマリー表示・PDF出力 */}
+        <AccordionSection
+          title="サマリー表示・PDF出力"
+          icon={<FileText className="w-5 h-5" />}
+        >
+          <div className="space-y-4">
+            <p className="text-gray-700 dark:text-gray-300">
+              勤怠分析結果をサマリーダッシュボードで一覧表示し、PDF形式でエクスポートできます。
+            </p>
+
+            <div className="bg-blue-50 dark:bg-gray-850 rounded-lg p-4 border border-blue-200 dark:border-gray-700">
+              <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">サマリーダッシュボード</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li>勤怠入力漏れ・申請漏れ・休憩不足などの違反件数をカード形式で表示</li>
+                <li>緊急度別（法令違反/届出漏れ/その他）に分類して視覚的に把握</li>
+                <li>カードクリックで該当メンバー一覧をモーダル表示</li>
+                <li>部門別の平均残業時間・36協定アラート状況を集計</li>
+              </ul>
+            </div>
+
+            <div className="bg-green-50 dark:bg-gray-850 rounded-lg p-4 border border-green-200 dark:border-gray-700">
+              <h4 className="font-semibold text-green-900 dark:text-green-300 mb-2">PDF出力機能</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li><strong>サマリーPDF</strong>: 違反サマリー・残業状況・部門別集計を1ページにまとめて出力</li>
+                <li><strong>個人分析PDF</strong>: 従業員別タブから個人の詳細レポートを出力（勤務サマリー・残業アラート・申請一覧・違反事項）</li>
+                <li>印刷や報告用途にそのまま使えるフォーマット</li>
+              </ul>
+            </div>
+          </div>
+        </AccordionSection>
+
+        {/* LINE WORKS通知 */}
+        <AccordionSection
+          title="LINE WORKS通知"
+          icon={<Send className="w-5 h-5" />}
+        >
+          <div className="space-y-4">
+            <p className="text-gray-700 dark:text-gray-300">
+              勤怠分析結果をLINE WORKSのトークルームに直接送信できます。
+              月次の勤怠チェック結果をチームに共有する際に活用してください。
+            </p>
+
+            <div className="bg-blue-50 dark:bg-gray-850 rounded-lg p-4 border border-blue-200 dark:border-gray-700">
+              <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">送信できる内容</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li>勤怠入力漏れ・申請漏れの一覧</li>
+                <li>36協定残業時間アラート（注意/警告/危険の段階別）</li>
+                <li>部門別の平均残業時間</li>
+                <li>送信前にプレビューで内容を確認・編集可能</li>
+              </ul>
+            </div>
+
+            <div className="bg-amber-50 dark:bg-gray-850 rounded-lg p-4 border-l-4 border-amber-500">
+              <h4 className="font-semibold text-amber-800 dark:text-amber-400 mb-2">現在の送信先</h4>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                現時点では<strong>東SI1部リーダー以上</strong>のトークルームへの送信のみ対応しています。
+                送信先の追加・変更が必要な場合はシステム管理者にご連絡ください。
+              </p>
+            </div>
+
+
+          </div>
+        </AccordionSection>
+
       </div>{/* セクション2終了 */}
 
       {/* セクション3: 交通情報 */}
@@ -979,6 +1045,20 @@ const AboutAnalysisTab: React.FC = () => {
         defaultOpen={false}
       >
         <div className="space-y-6">
+          {/* v3.6 */}
+          <div className="border-l-4 border-teal-500 pl-4">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+              v3.6: LINE WORKS通知 Cloud Function連携
+              <span className="ml-2 text-sm font-normal text-gray-500">(2026-02-13)</span>
+            </h4>
+            <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+              <li>• LINE WORKS送信をFirebase Cloud Function経由に変更（CORS問題解決）</li>
+              <li>• Webhook URLをフロントエンドからCloud Functionシークレットに移動（セキュリティ強化）</li>
+              <li>• Firebase Auth検証により認証済みユーザーのみ送信可能に</li>
+              <li>• 開発環境での送信テストメッセージ識別機能</li>
+            </ul>
+          </div>
+
           {/* v3.4.2 */}
           <div className="border-l-4 border-blue-500 pl-4">
             <h4 className="font-semibold text-gray-900 dark:text-gray-100">
@@ -1055,7 +1135,7 @@ const AboutAnalysisTab: React.FC = () => {
       {/* フッター */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          最終更新: 2026-01-13 | バージョン: 3.4.2
+          最終更新: 2026-02-13 | バージョン: 3.6
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
           MBTI® は Myers-Briggs Type Indicator の商標です。<br />
