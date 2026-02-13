@@ -18,6 +18,9 @@
 ### Phase 3: CIビルド検証
 - [ ] `set CI=true && npm run build` (Windows) — `Compiled successfully.`
 - [ ] ESLint警告がエラーに昇格していないこと
+- [ ] ビルド成果物に変更内容が実際に含まれているか検証（`build/static/js/main.*.js` 内を検索）
+  - 日本語テキストはUnicodeエスケープされるため、英数字キーワード（バージョン番号、クラス名、固有名詞等）で検索
+  - 例: `node -e "const js=require('fs').readFileSync('build/static/js/main.*.js','utf8'); console.log(js.includes('v3.6'))"`
 
 ### Phase 4: 開発環境E2Eテスト（該当時）
 外部API連携・UI変更を含む場合は必須:
@@ -52,8 +55,17 @@
 いずれかFAIL → 修正してから再検証
 ```
 
+### Phase 6: 完了報告前の検証（必須）
+commit/push前に `/project:completion-report` の手順に従い以下を確認:
+- [ ] 変更成果物が実際に期待通りか実データで確認した
+- [ ] git status で未コミット変更を確認した
+- [ ] 完了事項と未完了事項の両方を明示した
+- [ ] デプロイ状態（commit/push/CI/CD/Cloud Function）を明示した
+
 ## 禁止事項
 - Phase 4（E2Eテスト）をスキップしてpushしない
 - 「ユニットテスト通ったから大丈夫」で済ませない
 - Cloud Function変更時、ローカルビルドだけでデプロイせずにpushしない
 - 検証結果を報告せずにcommitしない
+- ビルド成功だけ確認して成果物の中身を検証しない
+- 未完了事項（未commit/未push等）を報告から省略しない
