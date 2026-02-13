@@ -1,15 +1,16 @@
 /**
- * LINE WORKS Webhook送信サービス
+ * LINE WORKS送信サービス
  *
  * @module services/LineWorksService
- * @description LINE WORKS Webhook Bot APIを使用した通知機能
+ * @description
+ * Firebase Cloud Function経由でLINE WORKS Webhookに送信。
+ * Webhook URL/Channel IDはCloud Functionのシークレットで管理。
+ * フロントエンドにはシークレットを埋め込まない。
  */
 
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../config/firebase';
 import {
-  LineWorksConfig,
-  LineWorksConfigLegacy,
-  LineWorksWebhookEntry,
-  LineWorksMessage,
   LineWorksSendHistory,
   LineWorksSendResult,
   NotificationType,
@@ -24,251 +25,63 @@ import { StrengthsAnalysisResult, MemberStrengths, StrengthGroup } from '../mode
  */
 export class LineWorksService {
 
-  // ==================== 設定管理 ====================
+  // ==================== 設定 ====================
 
   /**
-   * Webhook設定を取得
+   * ルーム名を取得（環境変数から、デフォルト: SI1部）
    */
-  static getConfig(): LineWorksConfig | null {
-    try {
-      const stored = localStorage.getItem(LINEWORKS_STORAGE_KEYS.CONFIG);
-      if (!stored) return null;
-      const parsed = JSON.parse(stored);
-      // 新形式かどうかをwebhooks配列の有無で判定
-      if (Array.isArray(parsed.webhooks)) {
-        return parsed as LineWorksConfig;
-      }
-      return null;
-    } catch {
-      return null;
-    }
+  static getRoomName(): string {
+    return process.env.REACT_APP_LINEWORKS_ROOM_NAME || 'SI1部';
   }
 
   /**
-   * Webhook URLを設定（後方互換性のため維持、内部でaddWebhookを使用）
-   * @deprecated addWebhookを直接使用してください
-   */
-  static setConfig(webhookUrl: string): void {
-    // 既存のWebhookをクリアして新規追加
-    const config: LineWorksConfig = {
-      webhooks: [{
-        id: crypto.randomUUID(),
-        roomName: 'デフォルト',
-        webhookUrl,
-        addedAt: Date.now(),
-      }],
-      configuredAt: Date.now(),
-    };
-    config.defaultWebhookId = config.webhooks[0].id;
-    localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(config));
-  }
-
-  /**
-   * 設定をクリア
-   */
-  static clearConfig(): void {
-    localStorage.removeItem(LINEWORKS_STORAGE_KEYS.CONFIG);
-  }
-
-  /**
-   * 設定済みかどうか
+   * LINE WORKS送信が有効かどうか
+   * Cloud Function側にシークレットが設定されていることが前提。
+   * フロントエンドではREACT_APP_LINEWORKS_ENABLEDフラグで送信ボタン表示を制御。
    */
   static isConfigured(): boolean {
-    const webhooks = this.getWebhooks();
-    return webhooks.length > 0;
-  }
-
-  // ==================== 複数Webhook管理 ====================
-
-  /**
-   * 全てのWebhookを取得
-   */
-  static getWebhooks(): LineWorksWebhookEntry[] {
-    const config = this.getConfig();
-    return config?.webhooks || [];
-  }
-
-  /**
-   * Webhookを追加
-   */
-  static addWebhook(roomName: string, webhookUrl: string): void {
-    const config = this.getConfig() || {
-      webhooks: [],
-      configuredAt: Date.now(),
-    };
-
-    const newEntry: LineWorksWebhookEntry = {
-      id: crypto.randomUUID(),
-      roomName,
-      webhookUrl,
-      addedAt: Date.now(),
-    };
-
-    config.webhooks.push(newEntry);
-
-    // 最初のWebhookはデフォルトに設定
-    if (config.webhooks.length === 1) {
-      config.defaultWebhookId = newEntry.id;
-    }
-
-    localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(config));
-  }
-
-  /**
-   * Webhookを削除
-   */
-  static removeWebhook(webhookId: string): void {
-    const config = this.getConfig();
-    if (!config) return;
-
-    config.webhooks = config.webhooks.filter(w => w.id !== webhookId);
-
-    // デフォルトが削除された場合、残っているWebhookの最初をデフォルトに
-    if (config.defaultWebhookId === webhookId) {
-      config.defaultWebhookId = config.webhooks.length > 0 ? config.webhooks[0].id : undefined;
-    }
-
-    localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(config));
-  }
-
-  /**
-   * デフォルトWebhookを設定
-   */
-  static setDefaultWebhook(webhookId: string): void {
-    const config = this.getConfig();
-    if (!config) return;
-
-    // 存在するIDの場合のみ設定
-    const exists = config.webhooks.some(w => w.id === webhookId);
-    if (exists) {
-      config.defaultWebhookId = webhookId;
-      localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(config));
-    }
-  }
-
-  /**
-   * デフォルトWebhookを取得
-   */
-  static getDefaultWebhook(): LineWorksWebhookEntry | null {
-    const config = this.getConfig();
-    if (!config || !config.defaultWebhookId) return null;
-
-    return config.webhooks.find(w => w.id === config.defaultWebhookId) || null;
-  }
-
-  /**
-   * IDでWebhookを取得
-   */
-  static getWebhookById(webhookId: string): LineWorksWebhookEntry | null {
-    const config = this.getConfig();
-    if (!config) return null;
-
-    return config.webhooks.find(w => w.id === webhookId) || null;
-  }
-
-  /**
-   * Webhookの最終送信日時を更新
-   */
-  static updateWebhookLastSentAt(webhookId: string): void {
-    const config = this.getConfig();
-    if (!config) return;
-
-    const webhook = config.webhooks.find(w => w.id === webhookId);
-    if (webhook) {
-      webhook.lastSentAt = Date.now();
-      localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(config));
-    }
-  }
-
-  /**
-   * 旧形式の設定を新形式にマイグレーション
-   */
-  static migrateConfig(): void {
-    try {
-      const stored = localStorage.getItem(LINEWORKS_STORAGE_KEYS.CONFIG);
-      if (!stored) return;
-
-      const parsed = JSON.parse(stored);
-
-      // 既に新形式の場合は何もしない
-      if (Array.isArray(parsed.webhooks)) {
-        return;
-      }
-
-      // 旧形式の場合はマイグレーション
-      const legacy = parsed as LineWorksConfigLegacy;
-      if (legacy.webhookUrl) {
-        const newConfig: LineWorksConfig = {
-          webhooks: [{
-            id: crypto.randomUUID(),
-            roomName: 'デフォルト',
-            webhookUrl: legacy.webhookUrl,
-            addedAt: legacy.configuredAt || Date.now(),
-            lastSentAt: legacy.lastSentAt,
-          }],
-          configuredAt: legacy.configuredAt || Date.now(),
-        };
-        newConfig.defaultWebhookId = newConfig.webhooks[0].id;
-
-        localStorage.setItem(LINEWORKS_STORAGE_KEYS.CONFIG, JSON.stringify(newConfig));
-      }
-    } catch {
-      // マイグレーション失敗時は何もしない
-    }
+    return process.env.REACT_APP_LINEWORKS_ENABLED === 'true';
   }
 
   // ==================== メッセージ送信 ====================
 
   /**
-   * メッセージを送信
+   * メッセージを送信（Firebase Cloud Function経由）
    * @param type 通知タイプ
    * @param text メッセージ本文
-   * @param webhookId 送信先WebhookのID（省略時はデフォルトWebhook）
    */
   static async send(
     type: NotificationType,
-    text: string,
-    webhookId?: string
+    text: string
   ): Promise<LineWorksSendResult> {
-    // WebhookIdが指定された場合はそのWebhookを使用、なければデフォルト
-    const webhook = webhookId
-      ? this.getWebhookById(webhookId)
-      : this.getDefaultWebhook();
-
-    if (!webhook) {
-      return { success: false, error: 'Webhook URLが設定されていません' };
+    if (!this.isConfigured()) {
+      return { success: false, error: 'LINE WORKS送信が無効です' };
     }
 
-    const message: LineWorksMessage = {
-      content: { type: 'text', text },
-    };
+    const roomName = this.getRoomName();
+
+    // 開発環境ではテストマーカーを付与
+    const sendText = process.env.NODE_ENV === 'development'
+      ? `★★これは送信テストです★★\n${text}\n★★これは送信テストです★★`
+      : text;
 
     try {
-      const response = await fetch(webhook.webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(message),
-      });
+      const sendMessage = httpsCallable<{ text: string }, { success: boolean }>(
+        functions, 'sendLineWorksMessage'
+      );
+      await sendMessage({ text: sendText });
 
-      const success = response.ok;
-
-      // 履歴を保存（ルーム名を含む）
+      // 履歴を保存
       this.addHistory({
         id: crypto.randomUUID(),
         type,
         sentAt: Date.now(),
-        success,
+        success: true,
         messagePreview: text.substring(0, 100),
-        roomName: webhook.roomName,
-        error: success ? undefined : `HTTP ${response.status}`,
+        roomName,
       });
 
-      // 最終送信日時を更新
-      if (success) {
-        this.updateWebhookLastSentAt(webhook.id);
-      }
-
-      return { success, error: success ? undefined : `送信エラー: ${response.status}` };
+      return { success: true };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : '不明なエラー';
 
@@ -278,7 +91,7 @@ export class LineWorksService {
         sentAt: Date.now(),
         success: false,
         messagePreview: text.substring(0, 100),
-        roomName: webhook.roomName,
+        roomName,
         error: errorMsg,
       });
 
@@ -345,9 +158,29 @@ export class LineWorksService {
     const { summary, employeeSummaries, departmentSummaries, allViolations } = result;
     const dateRange = `${this.formatDate(summary.analysisDateRange.start)}〜${this.formatDate(summary.analysisDateRange.end)}`;
 
+    // 営業日情報を取得（最初の従業員から）
+    const firstEmp = employeeSummaries[0];
+    const passedWeekdays = firstEmp ? firstEmp.passedWeekdays : 0;
+    const totalWeekdays = firstEmp ? firstEmp.totalWeekdaysInMonth : 0;
+    const remainingWeekdays = totalWeekdays - passedWeekdays;
+
+    // 分析対象月の末日と現在を比較し、過去月かどうか判定
+    const endDate = summary.analysisDateRange.end;
+    const now = new Date();
+    const isPastMonth = endDate.getFullYear() < now.getFullYear() ||
+      (endDate.getFullYear() === now.getFullYear() && endDate.getMonth() < now.getMonth());
+
+    // 基準日の表示（過去月: 期間末日、当月: 分析実行日）
+    const referenceDate = isPastMonth ? endDate : now;
+    const referenceDateStr = `${referenceDate.getMonth() + 1}/${referenceDate.getDate()}`;
+    const businessDayInfo = isPastMonth
+      ? `${referenceDateStr}時点（全${totalWeekdays}営業日消化済み）`
+      : `${referenceDateStr}時点（経過${passedWeekdays}/${totalWeekdays}営業日・残り${remainingWeekdays}営業日）`;
+
     const lines: string[] = [
       '【勤怠分析サマリー】',
       `期間: ${dateRange}`,
+      businessDayInfo,
       '',
     ];
 
@@ -433,7 +266,7 @@ export class LineWorksService {
 
     // ■ 部門別平均残業時間（ID順）
     if (departmentSummaries.length > 0) {
-      lines.push('', '■ 部門別平均残業時間（/人）');
+      lines.push('', '■ 部門別平均残業時間（/所属人数）');
       const sorted = [...departmentSummaries].sort(
         (a, b) => a.department.localeCompare(b.department)
       );
@@ -468,15 +301,21 @@ export class LineWorksService {
     });
 
     if (alertMembers.length > 0) {
-      // 残り営業日数を計算（最初のメンバーから取得）
-      const firstEmp = employeeSummaries[0];
-      const remainingDays = firstEmp ? firstEmp.totalWeekdaysInMonth - firstEmp.passedWeekdays : 0;
-
-      lines.push('', `■ 残業状況（36協定・残り${remainingDays}営業日）`);
+      lines.push('', `■ 残業状況（36協定・残り${remainingWeekdays}営業日）`);
       // 月末予測でソート（降順）
       alertMembers.sort((a, b) => b.projected - a.projected);
       alertMembers.forEach((m) => {
         lines.push(`  ${m.name}  現在${this.formatMinutesToHM(m.current)} 見込${this.formatMinutesToHM(m.projected)}  ${m.level}`);
+      });
+    }
+
+    // ■ 深夜帯勤務実績（22:00超退勤）
+    if (result.nightWorkRecords && result.nightWorkRecords.length > 0) {
+      lines.push('', `■ 深夜帯勤務実績（22:00超退勤）${result.nightWorkRecords.length}件`);
+      result.nightWorkRecords.forEach((rec) => {
+        const dateStr = `${rec.date.getMonth() + 1}/${rec.date.getDate()}`;
+        const timeStr = `${rec.clockOut.getHours()}:${rec.clockOut.getMinutes().toString().padStart(2, '0')}`;
+        lines.push(`  ${rec.employeeName}  ${dateStr} ${timeStr}退勤`);
       });
     }
 

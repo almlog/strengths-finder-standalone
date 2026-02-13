@@ -16,6 +16,7 @@ import {
   FileText,
   X,
   UserCheck,
+  Moon,
 } from 'lucide-react';
 import UserFilterPanel from './UserFilterPanel';
 import html2canvas from 'html2canvas';
@@ -49,6 +50,7 @@ import {
   VIOLATION_URGENCY,
   countHighUrgencyViolations,
   countMediumUrgencyViolations,
+  NightWorkRecord,
 } from '../../models/AttendanceTypes';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
@@ -442,7 +444,7 @@ const AttendanceAnalysisPage: React.FC = () => {
             <LineWorksSendButton
               type="attendance-summary"
               buildMessage={() => LineWorksService.buildAttendanceMessage(analysisResult!)}
-              disabled={!analysisResult}
+              disabled={!analysisResult || activeTab !== 'summary'}
             />
             <button
               onClick={() => setShowUserFilter(true)}
@@ -1283,6 +1285,15 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
               </>
             )}
           </div>
+          {/* 深夜帯勤務実績（注意喚起） */}
+          {result.nightWorkRecords.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-300">深夜帯勤務実績（22:00超）</span>
+                <span className="font-medium text-gray-900 dark:text-white">{result.nightWorkRecords.length}件</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1551,6 +1562,50 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
             <p className="mt-1 text-amber-600 dark:text-amber-400">
               ※ 営業日はカレンダー種別「平日」のレコードから算出しています。
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* 深夜帯勤務実績（22:00超退勤）詳細テーブル */}
+      {result.nightWorkRecords.length > 0 && (
+        <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-6">
+          <div className="flex items-center space-x-2 mb-4">
+            <Moon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+            <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-200">
+              深夜帯勤務実績（22:00超退勤）
+            </h3>
+            <span className="text-sm text-indigo-700 dark:text-indigo-300">
+              {result.nightWorkRecords.length}件
+            </span>
+          </div>
+          <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-4">
+            以下のメンバーは22:00以降に退勤しています。法令違反ではありませんが、健康リスクや36協定超過の前兆となり得るためご確認ください。
+          </p>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="text-left text-xs font-medium text-indigo-700 dark:text-indigo-300 uppercase">
+                  <th className="px-3 py-2">氏名</th>
+                  <th className="px-3 py-2">部門</th>
+                  <th className="px-3 py-2">日付</th>
+                  <th className="px-3 py-2">退勤時間</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-indigo-200 dark:divide-indigo-800">
+                {result.nightWorkRecords.map((rec: NightWorkRecord, idx: number) => (
+                  <tr key={idx} className="text-sm">
+                    <td className="px-3 py-2 text-indigo-900 dark:text-indigo-100 font-medium">{rec.employeeName}</td>
+                    <td className="px-3 py-2 text-indigo-700 dark:text-indigo-300">{rec.department}</td>
+                    <td className="px-3 py-2 text-indigo-900 dark:text-indigo-100">
+                      {AttendanceService.formatDate(rec.date)}
+                    </td>
+                    <td className="px-3 py-2 text-indigo-900 dark:text-indigo-100 font-medium">
+                      {`${rec.clockOut.getHours()}:${String(rec.clockOut.getMinutes()).padStart(2, '0')}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

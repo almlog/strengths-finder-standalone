@@ -1,10 +1,11 @@
 /**
- * LINE WORKS送信プレビューモーダル（複数Webhook対応）
+ * LINE WORKS送信プレビューモーダル
  *
  * @module components/lineworks/LineWorksPreviewModal
+ * @description Webhook URLは環境変数で管理。UI上の設定機能は不要。
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   X,
   Send,
@@ -13,10 +14,9 @@ import {
   AlertCircle,
   Eye,
   RefreshCw,
-  ChevronDown,
 } from 'lucide-react';
 import { LineWorksService } from '../../services/LineWorksService';
-import { NotificationType, NOTIFICATION_TYPE_LABELS, LineWorksWebhookEntry } from '../../types/lineworks';
+import { NotificationType, NOTIFICATION_TYPE_LABELS } from '../../types/lineworks';
 
 interface LineWorksPreviewModalProps {
   /** モーダルが開いているか */
@@ -30,12 +30,11 @@ interface LineWorksPreviewModalProps {
 }
 
 /**
- * LINE WORKS送信プレビューモーダル（複数Webhook対応）
+ * LINE WORKS送信プレビューモーダル
  *
  * - メッセージのプレビュー表示
- * - 送信先ルームの選択
  * - クリップボードにコピー
- * - 実際に送信（設定済みの場合のみ）
+ * - 実際に送信（環境変数で設定済みの場合のみ）
  */
 const LineWorksPreviewModal: React.FC<LineWorksPreviewModalProps> = ({
   isOpen,
@@ -43,35 +42,12 @@ const LineWorksPreviewModal: React.FC<LineWorksPreviewModalProps> = ({
   type,
   message,
 }) => {
-  const [webhooks, setWebhooks] = useState<LineWorksWebhookEntry[]>([]);
-  const [selectedWebhookId, setSelectedWebhookId] = useState<string>('');
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // 初期化
-  useEffect(() => {
-    if (isOpen) {
-      // マイグレーション実行
-      LineWorksService.migrateConfig();
-
-      const loadedWebhooks = LineWorksService.getWebhooks();
-      setWebhooks(loadedWebhooks);
-
-      // デフォルトWebhookを初期選択
-      const defaultWebhook = LineWorksService.getDefaultWebhook();
-      if (defaultWebhook) {
-        setSelectedWebhookId(defaultWebhook.id);
-      } else if (loadedWebhooks.length > 0) {
-        setSelectedWebhookId(loadedWebhooks[0].id);
-      }
-
-      setSendResult(null);
-      setCopied(false);
-    }
-  }, [isOpen]);
-
-  const isConfigured = webhooks.length > 0;
+  const isConfigured = LineWorksService.isConfigured();
+  const roomName = LineWorksService.getRoomName();
 
   // クリップボードにコピー
   const handleCopy = async () => {
@@ -86,36 +62,27 @@ const LineWorksPreviewModal: React.FC<LineWorksPreviewModalProps> = ({
 
   // 送信処理
   const handleSend = async () => {
-    if (!isConfigured || !selectedWebhookId) {
-      setSendResult({ success: false, message: 'Webhook URLが設定されていません' });
+    if (!isConfigured) {
+      setSendResult({ success: false, message: 'LINE WORKS送信が無効です' });
       return;
     }
 
-    const targetWebhook = webhooks.find(w => w.id === selectedWebhookId);
-    if (!targetWebhook) {
-      setSendResult({ success: false, message: '送信先が見つかりません' });
-      return;
-    }
-
-    if (!window.confirm(`「${targetWebhook.roomName}」にメッセージを送信しますか？`)) {
+    if (!window.confirm(`「${roomName}」にメッセージを送信しますか？`)) {
       return;
     }
 
     setIsSending(true);
     setSendResult(null);
 
-    const result = await LineWorksService.send(type, message, selectedWebhookId);
+    const result = await LineWorksService.send(type, message);
 
     setIsSending(false);
     setSendResult({
       success: result.success,
       message: result.success
-        ? `「${targetWebhook.roomName}」に送信しました`
+        ? `「${roomName}」に送信しました`
         : `送信失敗: ${result.error}`,
     });
-
-    // Webhookの最終送信日時を更新するために再読み込み
-    setWebhooks(LineWorksService.getWebhooks());
   };
 
   // モーダルを閉じる
@@ -156,25 +123,10 @@ const LineWorksPreviewModal: React.FC<LineWorksPreviewModalProps> = ({
         {/* メタ情報 */}
         <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-            {/* 送信先選択 */}
             {isConfigured && (
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600 dark:text-gray-400">送信先:</span>
-                <div className="relative">
-                  <select
-                    value={selectedWebhookId}
-                    onChange={(e) => setSelectedWebhookId(e.target.value)}
-                    className="appearance-none pl-3 pr-8 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
-                  >
-                    {webhooks.map((webhook) => (
-                      <option key={webhook.id} value={webhook.id}>
-                        {webhook.roomName}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
+              <span>
+                送信先: <span className="font-medium text-gray-900 dark:text-gray-100">{roomName}</span>
+              </span>
             )}
             <span>
               種別: <span className="font-medium text-gray-900 dark:text-gray-100">{NOTIFICATION_TYPE_LABELS[type]}</span>
@@ -217,12 +169,12 @@ const LineWorksPreviewModal: React.FC<LineWorksPreviewModalProps> = ({
               {isConfigured ? (
                 <span className="flex items-center gap-1">
                   <CheckCircle className="w-3 h-3 text-green-500" />
-                  {webhooks.length}件のルームが設定済み
+                  {roomName}に投稿されます
                 </span>
               ) : (
                 <span className="flex items-center gap-1">
                   <AlertCircle className="w-3 h-3 text-amber-500" />
-                  Webhook未設定（設定ボタンから設定してください）
+                  LINE WORKS送信が無効です
                 </span>
               )}
             </div>
@@ -249,7 +201,7 @@ const LineWorksPreviewModal: React.FC<LineWorksPreviewModalProps> = ({
                 onClick={handleSend}
                 disabled={!isConfigured || isSending}
                 className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title={!isConfigured ? 'Webhook URLを設定してください' : ''}
+                title={!isConfigured ? 'LINE WORKS送信が無効です' : ''}
               >
                 {isSending ? (
                   <>

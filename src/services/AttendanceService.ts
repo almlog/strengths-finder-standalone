@@ -20,8 +20,10 @@ import {
   ExtendedAnalysisResult,
   AnalysisOptions,
   ApplicationCounts,
+  NightWorkRecord,
   XLSX_COLUMN_INDEX,
   LEAVE_KEYWORDS,
+  NIGHT_WORK_START_HOUR,
   URGENCY_THRESHOLDS,
   BREAK_TIME_REQUIREMENTS,
   TIMELY_DEPARTURE_TIME,
@@ -295,6 +297,23 @@ export class AttendanceService {
    */
   static is8HourCalendar(calendarRaw: string): boolean {
     return /^8時/.test(calendarRaw);
+  }
+
+  /**
+   * 深夜帯勤務かどうか判定
+   * 22:00は深夜加給の開始時刻なので、22:00ちょうどの退勤は含めない
+   * 22:01以降の退勤、または0:00〜4:59（翌日未明）の退勤を深夜帯勤務と判定
+   */
+  static isNightWork(record: AttendanceRecord): boolean {
+    if (!record.clockOut) return false;
+    const hour = record.clockOut.getHours();
+    const minute = record.clockOut.getMinutes();
+    // 22:01以降（22時台で1分以上、または23時台）
+    if (hour === NIGHT_WORK_START_HOUR && minute > 0) return true;
+    if (hour > NIGHT_WORK_START_HOUR) return true;
+    // 0:00〜4:59（翌日未明）
+    if (hour < 5) return true;
+    return false;
   }
 
   /**
@@ -1505,6 +1524,7 @@ export class AttendanceService {
     let breakViolationDays = 0;
     let missingClockDays = 0;
     let earlyStartViolationDays = 0;
+    let nightWorkDays = 0;
 
     // 営業日カウント（予兆計算用）
     let passedWeekdays = 0;        // 経過営業日数（分析対象期間内の平日）
@@ -1658,6 +1678,11 @@ export class AttendanceService {
         });
       }
 
+      // 深夜帯勤務（22:00以降退勤）
+      if (this.isNightWork(record)) {
+        nightWorkDays++;
+      }
+
       // 備考欄チェックは楽楽勤怠側で管理されるため無効化（2026-01-30）
       // if (analysis.violations.includes('remarks_missing')) {
       //   const remarksCheck = this.checkRemarksRequired(record);
@@ -1703,6 +1728,7 @@ export class AttendanceService {
       breakViolationDays,
       missingClockDays,
       earlyStartViolationDays,
+      nightWorkDays,
       violations,
       // 営業日情報（予兆計算用）
       passedWeekdays,
@@ -1790,6 +1816,31 @@ export class AttendanceService {
     // 日付順にソート
     allViolations.sort((a, b) => a.date.getTime() - b.date.getTime());
 
+    // 深夜帯勤務レコードを収集（22:00以降退勤）
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const nightWorkRecords: NightWorkRecord[] = [];
+    for (const record of records) {
+      // includeToday対応の日付フィルタ
+      if (options.includeToday) {
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        if (record.date >= tomorrow) continue;
+      } else {
+        if (record.date >= today) continue;
+      }
+      if (this.isNightWork(record)) {
+        nightWorkRecords.push({
+          employeeName: record.employeeName,
+          department: record.department,
+          date: record.date,
+          clockOut: record.clockOut!,
+        });
+      }
+    }
+    // 日付順にソート
+    nightWorkRecords.sort((a, b) => a.date.getTime() - b.date.getTime());
+
     // 日付範囲を取得
     const dates = records.map(r => r.date).filter(d => d !== null);
     const minDate = dates.length > 0 ? new Date(Math.min(...dates.map(d => d.getTime()))) : new Date();
@@ -1831,6 +1882,7 @@ export class AttendanceService {
       employeeSummaries,
       departmentSummaries,
       allViolations,
+      nightWorkRecords,
       analyzedAt: new Date(),
     };
   }

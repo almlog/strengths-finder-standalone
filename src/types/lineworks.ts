@@ -1,61 +1,11 @@
 /**
- * LINE WORKS Webhook連携の型定義
+ * LINE WORKS連携の型定義
  *
  * @module types/lineworks
- * @description LINE WORKS Webhook Bot APIを使用した通知機能の型定義
+ * @description
+ * Firebase Cloud Function経由でLINE WORKSに送信する通知機能の型定義。
+ * Webhook URL/Channel IDはCloud Functionのシークレットで管理。
  */
-
-/**
- * LINE WORKS Webhookエントリー（1つのルーム）
- */
-export interface LineWorksWebhookEntry {
-  /** 一意識別子（UUID） */
-  id: string;
-  /** ルーム名（例: "リーダー専用", "営業部"） */
-  roomName: string;
-  /** Webhook URL */
-  webhookUrl: string;
-  /** 追加日時（Unix timestamp） */
-  addedAt: number;
-  /** 最終送信日時（Unix timestamp） */
-  lastSentAt?: number;
-}
-
-/**
- * LINE WORKS Webhook設定（複数Webhook対応）
- */
-export interface LineWorksConfig {
-  /** Webhook一覧 */
-  webhooks: LineWorksWebhookEntry[];
-  /** デフォルトのWebhook ID */
-  defaultWebhookId?: string;
-  /** 設定日時（Unix timestamp） */
-  configuredAt: number;
-}
-
-/**
- * LINE WORKS Webhook設定（旧形式 - マイグレーション用）
- * @deprecated 複数Webhook対応のLineWorksConfigを使用してください
- */
-export interface LineWorksConfigLegacy {
-  /** Webhook URL */
-  webhookUrl: string;
-  /** 設定日時（Unix timestamp） */
-  configuredAt: number;
-  /** 最終送信日時（Unix timestamp） */
-  lastSentAt?: number;
-}
-
-/**
- * LINE WORKS Webhook メッセージ形式
- * @see https://developers.worksmobile.com/jp/docs/bot-send-text
- */
-export interface LineWorksMessage {
-  content: {
-    type: 'text';
-    text: string;
-  };
-}
 
 /**
  * 通知タイプ
@@ -108,8 +58,6 @@ export interface LineWorksSendResult {
  * LocalStorageキー
  */
 export const LINEWORKS_STORAGE_KEYS = {
-  /** Webhook設定 */
-  CONFIG: 'lineworks_config',
   /** 送信履歴 */
   HISTORY: 'lineworks_send_history',
 } as const;

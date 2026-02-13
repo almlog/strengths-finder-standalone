@@ -7,6 +7,7 @@
 
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth, connectAuthEmulator } from 'firebase/auth';
+import { getFunctions, Functions, connectFunctionsEmulator } from 'firebase/functions';
 
 // Firebase設定（環境変数から読み込み）
 const firebaseConfig = {
@@ -21,19 +22,22 @@ const firebaseConfig = {
 // Firebaseアプリの初期化
 let app: FirebaseApp;
 let auth: Auth;
+let functions: Functions;
 
 try {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
+  functions = getFunctions(app, 'asia-northeast1');
 
   // Firebase Emulatorに接続（ローカル開発時のみ）
   if (process.env.REACT_APP_USE_EMULATOR === 'true') {
     connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-    console.log('🔧 Firebase Emulator接続: http://localhost:9099');
+    connectFunctionsEmulator(functions, 'localhost', 5001);
+    console.log('🔧 Firebase Emulator接続: Auth=9099, Functions=5001');
   }
 } catch (error) {
   console.error('Firebase initialization error:', error);
   throw error;
 }
 
-export { app, auth };
+export { app, auth, functions };
