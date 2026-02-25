@@ -194,19 +194,20 @@ describe('AttendanceService - 備考欄チェック機能', () => {
   });
 
   /**
-   * 3. 統合テスト：analyzeDailyRecordで備考欄違反が検出されるか
+   * 3. 統合テスト：備考欄チェックは楽楽勤怠側で管理されるため無効化（2026-01-30）
+   *    analyzeDailyRecordでは備考欄違反を検出しない
    */
   describe('analyzeDailyRecord統合テスト', () => {
-    it('直行申請で備考欄が空の場合、remarks_missing違反が検出される', () => {
+    it('直行申請で備考欄が空の場合でも、備考欄チェック無効化により違反検出されない', () => {
       const record = createTestRecord('直行', '');
       const analysis = AttendanceService.analyzeDailyRecord(record);
-      expect(analysis.violations).toContain('remarks_missing');
+      expect(analysis.violations).not.toContain('remarks_missing');
     });
 
-    it('備考欄が短すぎる場合、remarks_format_warning違反が検出される', () => {
+    it('備考欄が短すぎる場合でも、備考欄チェック無効化により違反検出されない', () => {
       const record = createTestRecord('直行', '外出');
       const analysis = AttendanceService.analyzeDailyRecord(record);
-      expect(analysis.violations).toContain('remarks_format_warning');
+      expect(analysis.violations).not.toContain('remarks_format_warning');
     });
 
     it('正しい備考欄がある場合、備考欄関連の違反は検出されない', () => {

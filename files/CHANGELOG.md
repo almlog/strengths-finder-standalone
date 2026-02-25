@@ -2,6 +2,24 @@
 
 ## [Unreleased] - 2026-02-13
 
+### Changed
+
+#### 残業時間計算ロジック改修 — 所定超過/法定外超過の2値分離
+- **定数定義**: `STANDARD_WORK_MINUTES`(465分=7h45m) / `LEGAL_WORK_MINUTES`(480分=8h) を `AttendanceTypes.ts` に追加
+- **計算ロジック**: `calculateOvertimeDetails()` を新設 — 実働時間から所定超過(残業)と法定外超過(36協定対象)を同時算出
+  - 平日: 残業 = max(0, 実働-465分), 法定外 = max(0, 実働-480分)
+  - 休日: 両方とも実働時間全体
+- **型拡張**: `DailyAttendanceAnalysis`, `EmployeeMonthlySummary`, `DepartmentSummary` に `legalOvertimeMinutes` / `totalLegalOvertimeMinutes` 追加
+- **36協定判定**: 全箇所を `totalLegalOvertimeMinutes` ベースに切替（UI/LINE WORKS/CSV出力）
+- **UI**: 個人PDFに「法定外残業」表示行を追加、OvertimeCellで2値表示対応
+- **テスト**: 17件の新規テスト + 既存テスト期待値更新（385件PASS）
+
+### Fixed
+
+#### 備考欄チェック統合テストの不整合修正
+- `AttendanceService.Remarks.test.ts`: 統合テスト(analyzeDailyRecord)が備考欄違反の検出を期待していたが、実装は2026-01-30に楽楽勤怠側管理のため無効化済み
+- テスト期待値を「違反が検出されない」に修正（全20件PASS）
+
 ### Added
 
 #### LINE WORKS送信 Firebase Cloud Function連携（v3.6）

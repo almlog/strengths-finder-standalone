@@ -44,6 +44,8 @@ import {
   hasApplicationKeyword,
   // 36協定・残業時間管理
   OVERTIME_THRESHOLDS,
+  STANDARD_WORK_MINUTES,
+  LEGAL_WORK_MINUTES,
   OvertimeAlertLevel,
   VIOLATION_URGENCY,
 } from '../models/AttendanceTypes';
@@ -712,24 +714,38 @@ export class AttendanceService {
   }
 
   /**
-   * 残業時間を取得（分）
-   * - 平日: Excelの「平日法定外残業(36協定用)」カラムを使用
-   * - 休日出勤: 実働時間全体
-   *
-   * 注: 8時カレンダー登録者も通常通り残業時間を取得する。
-   * 8時カレンダー特殊処理は「遅刻誤検出」の防止であり、残業時間とは無関係。
+   * 残業時間と法定外残業時間を計算
+   * - 残業: max(0, 実働 - 7h45m(465分)) ← 所定労働時間超過
+   * - 法定外: max(0, 実働 - 8h(480分)) ← 法定労働時間超過（36協定用）
+   * - 休日出勤: 両方とも実働時間の全量
    */
-  static calculateOvertimeMinutes(record: AttendanceRecord): number {
-    // 休日出勤は実働時間全体が残業
+  static calculateOvertimeDetails(record: AttendanceRecord): {
+    overtimeMinutes: number;
+    legalOvertimeMinutes: number;
+  } {
+    const actualWorkMinutes = this.parseTimeToMinutes(record.actualWorkHours);
+
+    // 休日出勤は実働時間全体が残業 = 法定外残業
     if (record.calendarType !== 'weekday') {
-      const actualWorkMinutes = this.parseTimeToMinutes(record.actualWorkHours);
-      return actualWorkMinutes;
+      return {
+        overtimeMinutes: actualWorkMinutes,
+        legalOvertimeMinutes: actualWorkMinutes,
+      };
     }
 
-    // 平日はExcelの「平日法定外残業(36協定用)」カラムの値を使用
-    // このカラムは楽楽勤怠が自動計算した36協定ベースの残業時間
-    const overtimeFromExcel = this.parseTimeToMinutes(record.overtimeHours);
-    return overtimeFromExcel;
+    // 平日: 実働時間から所定/法定の閾値を引いて計算
+    return {
+      overtimeMinutes: Math.max(0, actualWorkMinutes - STANDARD_WORK_MINUTES),
+      legalOvertimeMinutes: Math.max(0, actualWorkMinutes - LEGAL_WORK_MINUTES),
+    };
+  }
+
+  /**
+   * 残業時間を取得（分）- 所定労働時間超過分
+   * 後方互換メソッド。内部でcalculateOvertimeDetails()を使用。
+   */
+  static calculateOvertimeMinutes(record: AttendanceRecord): number {
+    return this.calculateOvertimeDetails(record).overtimeMinutes;
   }
 
   /**
@@ -1142,7 +1158,7 @@ export class AttendanceService {
     const requiredBreakMinutes = this.calculateRequiredBreakMinutes(actualWorkMinutes);
 
     const isHolidayWork = record.calendarType !== 'weekday' && !!record.clockIn;
-    const overtimeMinutes = this.calculateOvertimeMinutes(record);
+    const { overtimeMinutes, legalOvertimeMinutes } = this.calculateOvertimeDetails(record);
     const rawLateMinutes = this.parseTimeToMinutes(record.lateMinutes);
     const earlyLeaveMinutes = this.parseTimeToMinutes(record.earlyLeaveMinutes);
 
@@ -1209,6 +1225,7 @@ export class AttendanceService {
       isHolidayWork,
       isTimelyDeparture: isTimelyDep,
       overtimeMinutes,
+      legalOvertimeMinutes,
       lateMinutes,
       earlyLeaveMinutes,
       actualBreakMinutes: breakMinutes,
@@ -1516,6 +1533,7 @@ export class AttendanceService {
     let totalWorkDays = 0;
     let holidayWorkDays = 0;
     let totalOvertimeMinutes = 0;
+    let totalLegalOvertimeMinutes = 0;
     let lateDays = 0;
     let earlyLeaveDays = 0;
     let timelyDepartureDays = 0;
@@ -1571,6 +1589,7 @@ export class AttendanceService {
 
       // 残業時間
       totalOvertimeMinutes += analysis.overtimeMinutes;
+      totalLegalOvertimeMinutes += analysis.legalOvertimeMinutes;
 
       // 遅刻申請漏れ
       if (analysis.violations.includes('late_application_missing')) {
@@ -1720,6 +1739,7 @@ export class AttendanceService {
       totalWorkDays,
       holidayWorkDays,
       totalOvertimeMinutes,
+      totalLegalOvertimeMinutes,
       lateDays,
       earlyLeaveDays,
       timelyDepartureDays,
@@ -1759,6 +1779,7 @@ export class AttendanceService {
 
     departmentMap.forEach((summaries, department) => {
       const totalOvertimeMinutes = summaries.reduce((sum, s) => sum + s.totalOvertimeMinutes, 0);
+      const totalLegalOvertimeMinutes = summaries.reduce((sum, s) => sum + s.totalLegalOvertimeMinutes, 0);
       const holidayWorkCount = summaries.reduce((sum, s) => sum + s.holidayWorkDays, 0);
       const breakViolations = summaries.reduce((sum, s) => sum + s.breakViolationDays, 0);
       const missingClockCount = summaries.reduce((sum, s) => sum + s.missingClockDays, 0);
@@ -1769,6 +1790,8 @@ export class AttendanceService {
         employeeCount: summaries.length,
         totalOvertimeMinutes,
         averageOvertimeMinutes: Math.round(totalOvertimeMinutes / summaries.length),
+        totalLegalOvertimeMinutes,
+        averageLegalOvertimeMinutes: Math.round(totalLegalOvertimeMinutes / summaries.length),
         holidayWorkCount,
         totalViolations,
         breakViolations,
@@ -1852,7 +1875,7 @@ export class AttendanceService {
     // 緊急度別カウント
     // 高緊急度: 残業45時間以上 OR 法令違反（休憩違反、深夜休憩申請漏れ）
     const highCount = employeeSummaries.filter(emp => {
-      const overtimeLevel = this.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+      const overtimeLevel = this.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes);
       const isOvertimeHigh = ['exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'].includes(overtimeLevel);
       const hasHighViolation = emp.violations.some(v => VIOLATION_URGENCY[v.type] === 'high');
       return isOvertimeHigh || hasHighViolation;
@@ -1895,7 +1918,7 @@ export class AttendanceService {
 
     const headers = [
       '社員番号', '氏名', '部門', 'プロジェクト',
-      '出勤日数', '休日出勤日数', '残業時間', '平均残業/日',
+      '出勤日数', '休日出勤日数', '残業時間', '法定外残業', '平均残業/日',
       '遅刻日数', '早退日数', '定時退社日数',
       '全休日数', '半休日数',
       '休憩違反日数', '出退勤なし日数', '違反総数'
@@ -1914,6 +1937,7 @@ export class AttendanceService {
         s.totalWorkDays.toString(),
         s.holidayWorkDays.toString(),
         this.formatMinutesToTime(s.totalOvertimeMinutes),
+        this.formatMinutesToTime(s.totalLegalOvertimeMinutes),
         this.formatMinutesToTime(avgOvertime),
         s.lateDays.toString(),
         s.earlyLeaveDays.toString(),

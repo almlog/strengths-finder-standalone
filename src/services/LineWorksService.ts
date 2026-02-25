@@ -285,7 +285,7 @@ export class LineWorksService {
 
     employeeSummaries.forEach((emp) => {
       const projectedMinutes = this.calculateProjectedOvertime(
-        emp.totalOvertimeMinutes,
+        emp.totalLegalOvertimeMinutes,
         emp.passedWeekdays,
         emp.totalWeekdaysInMonth
       );
@@ -293,7 +293,7 @@ export class LineWorksService {
       if (level !== 'normal') {
         alertMembers.push({
           name: emp.employeeName,
-          current: emp.totalOvertimeMinutes,
+          current: emp.totalLegalOvertimeMinutes,
           projected: projectedMinutes,
           level: this.ALERT_DISPLAY[level].label,
         });
