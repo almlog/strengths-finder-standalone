@@ -1,17 +1,15 @@
-// 残業時間取得バグのテスト
-// バグ: calculateOvertimeMinutes() がExcelの残業時間カラムを使用せず計算している
-// 期待: record.overtimeHours（平日法定外残業(36協定用)カラム）の値を使用する
+// 残業時間計算テスト
+// 新ロジック: calculateOvertimeMinutes() は実働時間 - 所定労働時間(7h45m=465分) で計算
+// Excelの「平日法定外残業(36協定用)」カラムは使用しない
 
 import { AttendanceService } from '../../services/AttendanceService';
 import { AttendanceRecord } from '../../models/AttendanceTypes';
 
 /**
- * テスト用のレコードを作成（残業時間をExcel値と計算値で別々に設定可能）
- * @param overtimeHoursFromExcel Excelの平日法定外残業(36協定用)カラムの値
- * @param actualWorkHours 実働時間カラムの値
+ * テスト用のレコードを作成
+ * @param actualWorkHours 実働時間カラムの値（新ロジックのデータソース）
  */
-const createTestRecordWithOvertime = (
-  overtimeHoursFromExcel: string,
+const createTestRecord = (
   actualWorkHours: string,
   overrides: Partial<AttendanceRecord> = {}
 ): AttendanceRecord => ({
@@ -36,8 +34,8 @@ const createTestRecordWithOvertime = (
   breakTimeMinutes: 60,
   nightBreakModification: '',
   nightWorkMinutes: '',
-  actualWorkHours, // 実働時間
-  overtimeHours: overtimeHoursFromExcel, // Excelの残業時間カラム
+  actualWorkHours,
+  overtimeHours: '', // 新ロジックでは使用しない
   lateMinutes: '',
   earlyLeaveMinutes: '',
   remarks: '',
@@ -45,147 +43,85 @@ const createTestRecordWithOvertime = (
   ...overrides,
 });
 
-describe('AttendanceService - 残業時間取得のバグ修正', () => {
-  describe('calculateOvertimeMinutes - Excelの残業時間カラムを使用', () => {
-    /**
-     * バグの再現テスト
-     * Excel: 平日法定外残業(36協定用) = 2:30 (150分)
-     * 実働時間 = 10:30
-     * 期待: 150分（Excelの値を使用）
-     * バグ: 10:30 - 8:00 = 2:30 = 150分 (たまたま一致するが計算ロジックが間違い)
-     */
-    it('Excelの残業時間カラムの値を正しく取得する（2時間30分）', () => {
-      const record = createTestRecordWithOvertime('2:30', '10:30');
-      const overtimeMinutes = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtimeMinutes).toBe(150); // 2:30 = 150分
+describe('AttendanceService - 残業時間計算（所定超過ベース）', () => {
+  describe('calculateOvertimeMinutes - 実働時間から所定超過分を計算', () => {
+    // 残業 = max(0, 実働時間 - 7h45m(465分))
+    it('実働10h30m: 残業=165分（10:30-7:45=2:45）', () => {
+      const record = createTestRecord('10:30');
+      expect(AttendanceService.calculateOvertimeMinutes(record)).toBe(165);
     });
 
-    /**
-     * バグが顕在化するケース
-     * Excel: 平日法定外残業(36協定用) = 1:00 (60分)
-     * 実働時間 = 9:00 (8時間勤務 + 1時間休憩 - 1時間残業がない計算上の実働)
-     * 期待: 60分（Excelの値を使用）
-     * バグ: 9:00 - 8:00 = 1:00 = 60分になるが、休憩引いてない等で不一致の可能性
-     */
-    it('Excelの残業時間カラムの値を正しく取得する（1時間）', () => {
-      const record = createTestRecordWithOvertime('1:00', '9:00');
-      const overtimeMinutes = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtimeMinutes).toBe(60); // 1:00 = 60分
+    it('実働9h00m: 残業=75分（9:00-7:45=1:15）', () => {
+      const record = createTestRecord('9:00');
+      expect(AttendanceService.calculateOvertimeMinutes(record)).toBe(75);
     });
 
-    /**
-     * 重要: 実働時間と残業時間が不一致のケース
-     * Excel: 平日法定外残業(36協定用) = 3:00 (180分)
-     * 実働時間 = 8:00（所定労働時間のみ）
-     * 期待: 180分（Excelの値を使用）
-     * バグ: 8:00 - 8:00 = 0分（完全に間違い）
-     */
-    it('実働時間が8時間でも残業カラムに値があれば残業として取得', () => {
-      const record = createTestRecordWithOvertime('3:00', '8:00');
-      const overtimeMinutes = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtimeMinutes).toBe(180); // 3:00 = 180分
+    it('実働8h00m: 残業=15分（法定内残業のみ）', () => {
+      const record = createTestRecord('8:00');
+      expect(AttendanceService.calculateOvertimeMinutes(record)).toBe(15);
     });
 
-    /**
-     * 残業なしのケース
-     * Excel: 残業カラムが空
-     * 実働時間 = 8:00
-     * 期待: 0分
-     */
-    it('残業カラムが空の場合は0分', () => {
-      const record = createTestRecordWithOvertime('', '8:00');
-      const overtimeMinutes = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtimeMinutes).toBe(0);
+    it('実働7h45m（所定ちょうど）: 残業=0分', () => {
+      const record = createTestRecord('7:45');
+      expect(AttendanceService.calculateOvertimeMinutes(record)).toBe(0);
     });
 
-    /**
-     * 残業カラムが0:00のケース
-     */
-    it('残業カラムが0:00の場合は0分', () => {
-      const record = createTestRecordWithOvertime('0:00', '10:00');
-      const overtimeMinutes = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtimeMinutes).toBe(0);
+    it('残業なし（実働が空）: 0分', () => {
+      const record = createTestRecord('');
+      expect(AttendanceService.calculateOvertimeMinutes(record)).toBe(0);
     });
 
-    /**
-     * 30分単位の残業
-     */
-    it('30分単位の残業を正しく取得', () => {
-      const record = createTestRecordWithOvertime('0:30', '8:30');
-      const overtimeMinutes = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtimeMinutes).toBe(30);
+    it('30分残業: 実働8h15m → 残業=30分', () => {
+      const record = createTestRecord('8:15');
+      expect(AttendanceService.calculateOvertimeMinutes(record)).toBe(30);
     });
 
-    /**
-     * 長時間残業のケース
-     */
-    it('長時間残業（5時間30分）を正しく取得', () => {
-      const record = createTestRecordWithOvertime('5:30', '13:30');
-      const overtimeMinutes = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtimeMinutes).toBe(330); // 5:30 = 330分
+    it('長時間残業: 実働13h15m → 残業=330分(5h30m)', () => {
+      const record = createTestRecord('13:15');
+      expect(AttendanceService.calculateOvertimeMinutes(record)).toBe(330);
     });
   });
 
   describe('休日出勤時の残業計算', () => {
-    /**
-     * 休日出勤は従来通り全時間を残業として扱う
-     * （36協定用カラムは平日専用なので休日は別計算）
-     */
     it('休日出勤は実働時間全体が残業', () => {
-      const record = createTestRecordWithOvertime('', '6:00', {
+      const record = createTestRecord('6:00', {
         calendarType: 'statutory_holiday',
         calendarRaw: '法定休日',
       });
-      const overtimeMinutes = AttendanceService.calculateOvertimeMinutes(record);
-      // 休日は実働時間全体が残業（6時間 = 360分）
-      expect(overtimeMinutes).toBe(360);
+      expect(AttendanceService.calculateOvertimeMinutes(record)).toBe(360);
     });
 
     it('法定外休日も実働時間全体が残業', () => {
-      const record = createTestRecordWithOvertime('', '4:00', {
+      const record = createTestRecord('4:00', {
         calendarType: 'non_statutory_holiday',
         calendarRaw: '法定外休日',
       });
-      const overtimeMinutes = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtimeMinutes).toBe(240); // 4時間 = 240分
+      expect(AttendanceService.calculateOvertimeMinutes(record)).toBe(240);
     });
   });
 
   describe('8時出社カレンダー登録者の残業計算', () => {
-    /**
-     * 8時出社カレンダー登録者も通常通りExcelの残業時間を取得する
-     * 8時カレンダー特殊処理は「遅刻誤検出」防止であり、残業時間とは無関係
-     */
-    it('8時カレンダー登録者もExcelの残業時間を正しく取得', () => {
-      const record = createTestRecordWithOvertime('2:00', '10:00', {
+    it('8時カレンダー登録者も実働時間ベースで計算', () => {
+      const record = createTestRecord('10:00', {
         sheetName: 'KDDI_日勤_800-1630_開発部',
       });
-      const overtimeMinutes = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtimeMinutes).toBe(120); // 2:00 = 120分（Excelの値を使用）
+      // 10:00 - 7:45 = 2:15 = 135分
+      expect(AttendanceService.calculateOvertimeMinutes(record)).toBe(135);
     });
   });
 
   describe('月次サマリーでの残業合計', () => {
-    /**
-     * 複数日の残業合計が正しく計算される
-     */
     it('複数日の残業が正しく合計される', () => {
       const records: AttendanceRecord[] = [
-        createTestRecordWithOvertime('2:00', '10:00', {
-          date: new Date('2025-12-01'),
-        }),
-        createTestRecordWithOvertime('1:30', '9:30', {
-          date: new Date('2025-12-02'),
-        }),
-        createTestRecordWithOvertime('3:00', '11:00', {
-          date: new Date('2025-12-03'),
-        }),
+        createTestRecord('10:00', { date: new Date('2025-12-01') }), // 135分
+        createTestRecord('9:30', { date: new Date('2025-12-02') }),  // 105分
+        createTestRecord('11:00', { date: new Date('2025-12-03') }), // 195分
       ];
 
       const summary = AttendanceService.createEmployeeMonthlySummary('TEST001', records);
 
-      // 2:00(120) + 1:30(90) + 3:00(180) = 390分
-      expect(summary.totalOvertimeMinutes).toBe(390);
+      // 135 + 105 + 195 = 435分
+      expect(summary.totalOvertimeMinutes).toBe(435);
     });
   });
 });

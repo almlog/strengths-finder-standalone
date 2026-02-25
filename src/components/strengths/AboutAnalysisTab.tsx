@@ -466,7 +466,7 @@ const AboutAnalysisTab: React.FC = () => {
               </h3>
               <p className="text-gray-700 dark:text-gray-300">
                 楽楽勤怠システムからエクスポートしたXLSXファイルをアップロードすることで、
-                入力漏れの検出、残業時間の集計、休憩時間違反のチェックなどを自動で行います。
+                入力漏れの検出、残業時間・法定外残業時間の集計、休憩時間違反のチェックなどを自動で行います。
               </p>
             </div>
           </div>
@@ -646,11 +646,21 @@ const AboutAnalysisTab: React.FC = () => {
         >
           <div className="space-y-4">
             <p className="text-gray-700 dark:text-gray-300">
-              分析システム側でアラートを出す場合の閾値設定の参考情報です。
+              本システムでは<strong>残業時間</strong>（所定労働時間7時間45分超過分）と<strong>法定外残業時間</strong>（法定労働時間8時間超過分）を区別して計算しています。
+              36協定のアラート判定には<strong>法定外残業時間</strong>を使用しています。
+              なお、これらの計算は楽楽勤怠システム上の残業カラムの値ではなく、出勤時間・退勤時間から算出される<strong>実働時間</strong>を基に本システム独自に計算しています。
             </p>
+            <div className="bg-indigo-50 dark:bg-gray-850 rounded-lg p-4 border border-indigo-200 dark:border-gray-700 mb-2">
+              <h4 className="font-semibold text-indigo-900 dark:text-indigo-300 mb-2">残業時間の計算方法</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li><strong>残業時間</strong>: 実働時間 - 所定労働時間（7時間45分） 例: 9時出勤なら17:45以降</li>
+                <li><strong>法定外残業時間</strong>: 実働時間 - 法定労働時間（8時間） 例: 9時出勤なら18:00以降</li>
+                <li><strong>休日出勤</strong>: 実働時間の全体が残業時間・法定外残業時間の両方にカウント</li>
+              </ul>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-red-50 dark:bg-gray-850 rounded-lg p-4 border border-red-200 dark:border-gray-700">
-                <h4 className="font-semibold text-red-900 dark:text-red-300 mb-2">残業上限（36協定）</h4>
+                <h4 className="font-semibold text-red-900 dark:text-red-300 mb-2">法定外残業の上限（36協定）</h4>
                 <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
                   <li><strong>月45時間</strong>が原則的な上限</li>
                   <li><strong>年360時間</strong>が原則的な上限</li>
@@ -667,7 +677,7 @@ const AboutAnalysisTab: React.FC = () => {
             <div className="bg-purple-50 dark:bg-gray-850 rounded-lg p-4 border-l-4 border-purple-500">
               <h4 className="font-semibold text-purple-900 dark:text-purple-300 mb-2">健康管理</h4>
               <p className="text-sm text-gray-700 dark:text-gray-300">
-                月80時間超の残業は脳・心臓疾患のリスクが高まるとされています（過労死ライン）。
+                月80時間超の法定外残業は脳・心臓疾患のリスクが高まるとされています（過労死ライン）。
               </p>
             </div>
           </div>
@@ -689,7 +699,7 @@ const AboutAnalysisTab: React.FC = () => {
                 <li>勤怠入力漏れ・申請漏れ・休憩不足などの違反件数をカード形式で表示</li>
                 <li>緊急度別（法令違反/届出漏れ/その他）に分類して視覚的に把握</li>
                 <li>カードクリックで該当メンバー一覧をモーダル表示</li>
-                <li>部門別の平均残業時間・36協定アラート状況を集計</li>
+                <li>部門別の平均残業時間・36協定アラート状況（法定外残業ベース）を集計</li>
               </ul>
             </div>
 
@@ -719,8 +729,8 @@ const AboutAnalysisTab: React.FC = () => {
               <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">送信できる内容</h4>
               <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
                 <li>勤怠入力漏れ・申請漏れの一覧</li>
-                <li>36協定残業時間アラート（注意/警告/危険の段階別）</li>
-                <li>部門別の平均残業時間</li>
+                <li>36協定アラート（法定外残業ベース・7段階判定）</li>
+                <li>部門別の平均残業時間・月末予測</li>
                 <li>送信前にプレビューで内容を確認・編集可能</li>
               </ul>
             </div>
@@ -1045,6 +1055,20 @@ const AboutAnalysisTab: React.FC = () => {
         defaultOpen={false}
       >
         <div className="space-y-6">
+          {/* v3.7 */}
+          <div className="border-l-4 border-rose-500 pl-4">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+              v3.7: 残業計算ロジック改修
+              <span className="ml-2 text-sm font-normal text-gray-500">(2026-02-13)</span>
+            </h4>
+            <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+              <li>• 残業時間（所定超過: 7h45m基準）と法定外残業時間（法定超過: 8h基準）を分離</li>
+              <li>• 36協定アラートを法定外残業ベースに切替</li>
+              <li>• 個人PDFに法定外残業表示を追加</li>
+              <li>• LINE WORKS通知の残業状況を法定外残業ベースに切替</li>
+            </ul>
+          </div>
+
           {/* v3.6 */}
           <div className="border-l-4 border-teal-500 pl-4">
             <h4 className="font-semibold text-gray-900 dark:text-gray-100">
@@ -1082,7 +1106,7 @@ const AboutAnalysisTab: React.FC = () => {
             <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
               <li>• 「今日を含める」トグルスイッチを追加</li>
               <li>• 従業員別タブに役職バッジを表示</li>
-              <li>• 残業時間の取得元を36協定カラムに修正</li>
+              <li>• 残業時間の計算を実働時間ベースに変更</li>
             </ul>
           </div>
 
@@ -1135,7 +1159,7 @@ const AboutAnalysisTab: React.FC = () => {
       {/* フッター */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          最終更新: 2026-02-13 | バージョン: 3.6
+          最終更新: 2026-02-13 | バージョン: 3.7
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
           MBTI® は Myers-Briggs Type Indicator の商標です。<br />

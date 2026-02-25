@@ -61,6 +61,8 @@ function createMockDepartmentSummary(): DepartmentSummary[] {
       employeeCount: 5,
       totalOvertimeMinutes: 3000, // 50時間
       averageOvertimeMinutes: 600,
+      totalLegalOvertimeMinutes: 2850, // 47.5時間（法定外）
+      averageLegalOvertimeMinutes: 570,
       holidayWorkCount: 2,
       totalViolations: 3,
       breakViolations: 1,
@@ -71,6 +73,8 @@ function createMockDepartmentSummary(): DepartmentSummary[] {
       employeeCount: 3,
       totalOvertimeMinutes: 1800, // 30時間
       averageOvertimeMinutes: 600,
+      totalLegalOvertimeMinutes: 1650, // 27.5時間（法定外）
+      averageLegalOvertimeMinutes: 550,
       holidayWorkCount: 1,
       totalViolations: 2,
       breakViolations: 0,
@@ -81,6 +85,8 @@ function createMockDepartmentSummary(): DepartmentSummary[] {
       employeeCount: 2,
       totalOvertimeMinutes: 600, // 10時間
       averageOvertimeMinutes: 300,
+      totalLegalOvertimeMinutes: 450, // 7.5時間（法定外）
+      averageLegalOvertimeMinutes: 225,
       holidayWorkCount: 0,
       totalViolations: 0,
       breakViolations: 0,
@@ -122,6 +128,7 @@ function createMockEmployeeSummaries(): EmployeeMonthlySummary[] {
       totalWorkDays: 20,
       holidayWorkDays: 1,
       totalOvertimeMinutes: 3000, // 50時間（45h超過）
+      totalLegalOvertimeMinutes: 2700, // 45時間（法定外）
       lateDays: 0,
       earlyLeaveDays: 0,
       timelyDepartureDays: 5,
@@ -145,6 +152,7 @@ function createMockEmployeeSummaries(): EmployeeMonthlySummary[] {
       totalWorkDays: 20,
       holidayWorkDays: 0,
       totalOvertimeMinutes: 1800, // 30時間
+      totalLegalOvertimeMinutes: 1500, // 25時間（法定外）
       lateDays: 1,
       earlyLeaveDays: 0,
       timelyDepartureDays: 10,
@@ -322,14 +330,14 @@ describe('LineWorksService', () => {
         expect(message).toContain('開発部(5名): 10:00');
       });
 
-      it('残業状況に氏名・現在・見込み・レベルが表示される', () => {
+      it('残業状況に氏名・現在・見込み・レベルが表示される（法定外残業ベース）', () => {
         const result = createMockExtendedAnalysisResult();
         const message = LineWorksService.buildAttendanceMessage(result);
 
-        // 田中太郎: 50h, 20/22営業日 → 残り2営業日
+        // 田中太郎: 法定外45h, 20/22営業日 → 残り2営業日
         expect(message).toContain('■ 残業状況（36協定・残り2営業日）');
-        // 田中太郎: 50h → 予測55h = 警戒
-        expect(message).toContain('田中太郎  現在50:00 見込55:00  警戒');
+        // 田中太郎: 法定外45h → 予測49:30 = 超過
+        expect(message).toContain('田中太郎  現在45:00 見込49:30  超過');
       });
     });
 

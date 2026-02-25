@@ -29,10 +29,10 @@ describe('AttendanceService - 8時スケジュール検出', () => {
     });
   });
 
-  describe('calculateOvertimeMinutes - Excelの残業時間カラムを使用', () => {
+  describe('calculateOvertimeMinutes - 実働時間ベースで所定超過を計算', () => {
     /**
-     * 残業時間はExcelの「平日法定外残業(36協定用)」カラムから取得する
-     * 楽楽勤怠が正しく計算した値を使用するため、計算ロジックは不要
+     * 残業時間は実働時間 - 所定労働時間(7h45m=465分) で計算する
+     * 8時カレンダー・9時カレンダーに関わらず同一ルール
      */
     const createMockRecord = (
       sheetName: string,
@@ -68,31 +68,32 @@ describe('AttendanceService - 8時スケジュール検出', () => {
       sheetName,
     });
 
-    it('should get overtime from Excel for 8時 schedule employee', () => {
-      // 8時カレンダー登録者も通常通りExcelの残業時間を取得
+    it('should calculate overtime for 8時 schedule employee', () => {
+      // 実働10:50 - 所定7:45 = 3:05 = 185分
       const record = createMockRecord('KDDI_日勤_800-1630～930-1800_1200', '10:50', '2:50');
       const overtime = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtime).toBe(170); // 2:50 = 170分
+      expect(overtime).toBe(185);
     });
 
-    it('should get overtime from Excel for 9時 schedule employee', () => {
+    it('should calculate overtime for 9時 schedule employee', () => {
+      // 実働10:50 - 所定7:45 = 3:05 = 185分
       const record = createMockRecord('KDDI_日勤_900-1800', '10:50', '2:50');
       const overtime = AttendanceService.calculateOvertimeMinutes(record);
-      // Excelの「平日法定外残業(36協定用)」カラムから取得: 2:50 = 170分
-      expect(overtime).toBe(170);
+      expect(overtime).toBe(185);
     });
 
-    it('should get overtime from Excel for generic sheet name', () => {
+    it('should calculate overtime for generic sheet name', () => {
+      // 実働9:00 - 所定7:45 = 1:15 = 75分
       const record = createMockRecord('開発チーム_2024年1月', '9:00', '1:00');
       const overtime = AttendanceService.calculateOvertimeMinutes(record);
-      // Excelの「平日法定外残業(36協定用)」カラムから取得: 1:00 = 60分
-      expect(overtime).toBe(60);
+      expect(overtime).toBe(75);
     });
 
-    it('should return 0 when Excel overtime column is empty', () => {
+    it('should return 15 when actual work is 8h (法定内残業)', () => {
+      // 実働8:00 - 所定7:45 = 0:15 = 15分
       const record = createMockRecord('開発チーム_2024年1月', '8:00', '');
       const overtime = AttendanceService.calculateOvertimeMinutes(record);
-      expect(overtime).toBe(0);
+      expect(overtime).toBe(15);
     });
   });
 });

@@ -300,7 +300,8 @@ export interface DailyAttendanceAnalysis {
   leaveType: LeaveType;
   isHolidayWork: boolean;        // 休日出勤
   isTimelyDeparture: boolean;    // 定時退社
-  overtimeMinutes: number;       // 残業時間（分）
+  overtimeMinutes: number;       // 残業時間（分）- 所定超過(7h45m基準)
+  legalOvertimeMinutes: number;  // 法定外残業時間（分）- 法定超過(8h基準、36協定用)
   lateMinutes: number;           // 遅刻時間（分）
   earlyLeaveMinutes: number;     // 早退時間（分）
   actualBreakMinutes: number;    // 実際の休憩時間（分）
@@ -359,7 +360,8 @@ export interface EmployeeMonthlySummary {
   sheetName: string;
   totalWorkDays: number;         // 総出勤日数
   holidayWorkDays: number;       // 休日出勤日数
-  totalOvertimeMinutes: number;  // 総残業時間（分）
+  totalOvertimeMinutes: number;  // 総残業時間（分）- 所定超過
+  totalLegalOvertimeMinutes: number; // 総法定外残業時間（分）- 法定超過(36協定用)
   lateDays: number;              // 遅刻日数
   earlyLeaveDays: number;        // 早退日数
   timelyDepartureDays: number;   // 定時退社日数
@@ -386,6 +388,8 @@ export interface DepartmentSummary {
   employeeCount: number;           // 従業員数
   totalOvertimeMinutes: number;    // 部門総残業時間（分）
   averageOvertimeMinutes: number;  // 平均残業時間（分）
+  totalLegalOvertimeMinutes: number;    // 部門総法定外残業時間（分）
+  averageLegalOvertimeMinutes: number;  // 平均法定外残業時間（分）
   holidayWorkCount: number;        // 休日出勤数
   totalViolations: number;         // 総違反数
   breakViolations: number;         // 休憩違反数
@@ -699,6 +703,12 @@ export const OVERTIME_THRESHOLDS = {
   SPECIAL_LIMIT_HOURS: 100,   // 特別条項でも超過不可
   ANNUAL_LIMIT_HOURS: 360,    // 年360時間上限
 } as const;
+
+/** 所定労働時間（分）: 7時間45分 */
+export const STANDARD_WORK_MINUTES = 465 as const;
+
+/** 法定労働時間（分）: 8時間 */
+export const LEGAL_WORK_MINUTES = 480 as const;
 
 /**
  * 残業アラートレベル（7段階）

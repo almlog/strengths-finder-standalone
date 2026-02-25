@@ -26,7 +26,7 @@
    - 結果: 未完了の作業が完了として認識され、行き違いが発生
    - 影響: ユーザーが本番環境を確認して初めて未反映に気づく → 無駄なやり取り
    - **重要**: ビルド成功 ≠ 成果物に変更が含まれている。デプロイ状態（commit/push/CI）も必ず報告
-   - **必須**: 完了報告前に `/project:completion-report` を実行
+   - **必須**: 完了報告前に `/completion-report` を実行
 
 5. **🆕 ローカルビルドのみでCI環境を検証せずにpush**
    - 結果: ローカルでは成功してもCI環境でビルド失敗
@@ -573,14 +573,14 @@ ls -la build/
 ```
 ┌─ セッション開始 ─────────────────────────────────────────┐
 │ 🟢自動: git status && git branch                          │
-│ 🟢自動: /project:session-start フローを実行                │
+│ 🟢自動: /session-start フローを実行                         │
 │   → この CLAUDE.md 確認                                    │
 │   → files/DASHBOARD.md で全体進捗を把握                    │
 │   → files/CHANGELOG.md の最新5エントリを確認               │
 │   → 現在の状態と次のアクションを報告                        │
 ├─ 作業中 ──────────────────────────────────────────────────┤
 │ 実装指示 → 🟢自動で /user:tdd-cycle フローに従う            │
-│ Issue修正 → 🟢自動で /project:fix-issue フローに従う        │
+│ Issue修正 → 🟢自動で /fix-issue フローに従う                │
 │ 設計判断 → 🟢自動で DECISIONS.md に追記                     │
 │ 罠発見 → 🟡提案: Gotchas への追記                          │
 │ SPEC未存在 → 🟡提案: docs/specs/ に作成                    │
@@ -602,12 +602,12 @@ ls -la build/
 | コマンド | 種別 | 用途 | 自動適用 |
 |---------|------|------|---------|
 | `/user:tdd-cycle <対象>` | グローバル | TDD サイクル全手順 | ✅ 実装指示で自動 |
-| `/project:session-start` | プロジェクト | セッション開始チェック | ✅ 最初の発話で自動 |
-| `/project:spec-review <file>` | プロジェクト | SPEC 5観点レビュー | ✅ レビュー指示で自動 |
-| `/project:fix-issue <num>` | プロジェクト | Issue修正フロー | ✅ Issue指示で自動 |
-| `/project:plan-research <対象>` | プロジェクト | プラン策定前の調査 | ✅ プラン作成時に自動 |
-| `/project:pre-deploy <対象>` | プロジェクト | デプロイ前検証チェック | ✅ commit/push前に自動 |
-| `/project:completion-report <対象>` | プロジェクト | 完了報告前の検証 | ✅ 完了報告時に自動 |
+| `/session-start` | プロジェクト | セッション開始チェック | ✅ 最初の発話で自動 |
+| `/spec-review <file>` | プロジェクト | SPEC 5観点レビュー | ✅ レビュー指示で自動 |
+| `/fix-issue <num>` | プロジェクト | Issue修正フロー | ✅ Issue指示で自動 |
+| `/plan-research <対象>` | プロジェクト | プラン策定前の調査 | ✅ プラン作成時に自動 |
+| `/pre-deploy <対象>` | プロジェクト | デプロイ前検証チェック | ✅ commit/push前に自動 |
+| `/completion-report <対象>` | プロジェクト | 完了報告前の検証 | ✅ 完了報告時に自動 |
 
 ---
 

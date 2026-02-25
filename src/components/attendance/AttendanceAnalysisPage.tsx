@@ -397,9 +397,9 @@ const AttendanceAnalysisPage: React.FC = () => {
     // 問題あり（違反がある従業員）
     const issues = analysisResult.employeeSummaries.filter(emp => emp.violations.length > 0);
 
-    // 高緊急度（残業45時間以上 OR 法令違反の可能性がある違反）
+    // 高緊急度（法定外残業45時間以上 OR 法令違反の可能性がある違反）
     const highUrgency = analysisResult.employeeSummaries.filter(emp => {
-      const overtimeLevel = AttendanceService.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+      const overtimeLevel = AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes);
       const isOvertimeHigh = ['exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'].includes(overtimeLevel);
       const hasHighViolation = emp.violations.some(v => VIOLATION_URGENCY[v.type] === 'high');
       return isOvertimeHigh || hasHighViolation;
@@ -887,8 +887,8 @@ const SummaryDetailModal: React.FC<{
                     violationTypeCounts[displayName] = (violationTypeCounts[displayName] || 0) + 1;
                   });
 
-                  // 残業情報（highUrgency用）
-                  const overtimeLevel = AttendanceService.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+                  // 残業情報（highUrgency用）- 36協定判定は法定外残業ベース
+                  const overtimeLevel = AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes);
                   const isOvertimeHigh = ['exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'].includes(overtimeLevel);
                   const overtimeHours = Math.round(emp.totalOvertimeMinutes / 60 * 10) / 10;
 
@@ -1063,7 +1063,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
         name: dept.department,
         value: dept.averageOvertimeMinutes,
         displayValue: AttendanceService.formatMinutesToTime(dept.averageOvertimeMinutes),
-        fill: getOvertimeBarColor(dept.averageOvertimeMinutes),
+        fill: getOvertimeBarColor(dept.averageLegalOvertimeMinutes),
       }))
       .sort((a, b) => b.value - a.value);
   }, [result.departmentSummaries]);
@@ -1088,7 +1088,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
       serious: 0, severe: 0, critical: 0, illegal: 0,
     };
     result.employeeSummaries.forEach(emp => {
-      const level = AttendanceService.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+      const level = AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes);
       counts[level]++;
     });
     // レベル順にソート（注意 → 警告 → ... → 法令違反）- 正常は除外
@@ -1108,7 +1108,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
   const alertStats = useMemo(() => {
     const total = result.employeeSummaries.length;
     const alertCount = result.employeeSummaries.filter(emp => {
-      const level = AttendanceService.getOvertimeAlertLevel(emp.totalOvertimeMinutes);
+      const level = AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes);
       return level !== 'normal';
     }).length;
     const percentage = total > 0 ? (alertCount / total) * 100 : 0;
@@ -1152,7 +1152,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
   const overtimeAlerts = result.employeeSummaries
     .map(emp => ({
       ...emp,
-      alertLevel: AttendanceService.getOvertimeAlertLevel(emp.totalOvertimeMinutes),
+      alertLevel: AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes),
     }))
     .filter(emp => emp.alertLevel !== 'normal')
     .sort((a, b) => {
@@ -1163,21 +1163,19 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
       return levelOrder[b.alertLevel] - levelOrder[a.alertLevel];
     });
 
-  // 予兆アラート（ペース超過）対象者を抽出
-  // 営業日ベースで計算
+  // 残業ペース予測（月末見込み）対象者を抽出
+  // 経過営業日から月末の法定外残業時間を予測し、35h超の全員を表示
   const paceAlerts = result.employeeSummaries
     .filter(emp => {
-      // すでに70時間超過している人は除外（重大レベル以上は36協定アラートで十分）
-      if (emp.totalOvertimeMinutes >= 70 * 60) return false;
       // 経過営業日がない場合は除外
       if (emp.passedWeekdays <= 0) return false;
-      // 営業日ベースで45時間上限に対してペース超過かチェック
-      const predictedOvertime = Math.round((emp.totalOvertimeMinutes / emp.passedWeekdays) * emp.totalWeekdaysInMonth);
-      return predictedOvertime > 45 * 60; // 45時間超過見込み
+      // 営業日ベースで月末予測が35時間超（注意レベル到達見込み）かチェック（法定外残業ベース）
+      const predictedOvertime = Math.round((emp.totalLegalOvertimeMinutes / emp.passedWeekdays) * emp.totalWeekdaysInMonth);
+      return predictedOvertime > 35 * 60; // 注意レベル到達見込み
     })
     .map(emp => {
-      // 月末予測を計算（営業日ベース）
-      const predictedOvertime = Math.round((emp.totalOvertimeMinutes / emp.passedWeekdays) * emp.totalWeekdaysInMonth);
+      // 月末予測を計算（営業日ベース・法定外残業）
+      const predictedOvertime = Math.round((emp.totalLegalOvertimeMinutes / emp.passedWeekdays) * emp.totalWeekdaysInMonth);
       // 予測レベルを判定
       const predictedLevel = AttendanceService.getOvertimeAlertLevel(predictedOvertime);
       return { ...emp, predictedOvertime, predictedLevel };
@@ -1429,7 +1427,10 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
             </div>
           </div>
           <p className="text-sm text-red-700 dark:text-red-300 mb-4">
-            以下の{alertStats.alertCount}名（{alertStats.total}名中 {alertStats.percentage.toFixed(1)}%）は月間残業時間が基準を超過しています。
+            以下の{alertStats.alertCount}名（{alertStats.total}名中 {alertStats.percentage.toFixed(1)}%）は月間法定外残業時間が基準を超過しています。
+          </p>
+          <p className="text-xs text-red-600 dark:text-red-400 mb-4">
+            ※ 法定外残業 = 実働時間 - 法定労働時間（8時間）。所定超過（7時間45分基準）とは異なります。
           </p>
           <div className="overflow-x-auto">
             <table className="min-w-full">
@@ -1437,7 +1438,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                 <tr className="text-left text-xs font-medium text-red-700 dark:text-red-300 uppercase">
                   <th className="px-3 py-2">氏名</th>
                   <th className="px-3 py-2">部門</th>
-                  <th className="px-3 py-2 text-right">残業時間</th>
+                  <th className="px-3 py-2 text-right">法定外残業</th>
                   <th className="px-3 py-2">ステータス</th>
                   <th className="px-3 py-2">必要な対応</th>
                 </tr>
@@ -1460,7 +1461,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                       <td className="px-3 py-2 text-red-900 dark:text-red-100 font-medium">{emp.employeeName}</td>
                       <td className="px-3 py-2 text-red-700 dark:text-red-300">{emp.department}</td>
                       <td className="px-3 py-2 text-right text-red-900 dark:text-red-100 font-medium">
-                        {AttendanceService.formatMinutesToTime(emp.totalOvertimeMinutes)}
+                        {AttendanceService.formatMinutesToTime(emp.totalLegalOvertimeMinutes)}
                       </td>
                       <td className="px-3 py-2">
                         <span className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium leading-none ${alertColorClass[emp.alertLevel]}`}>
@@ -1504,7 +1505,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
             </span>
           </div>
           <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
-            以下のメンバーは、現在のペースで月末まで働くと36協定基準を超過する見込みです。予測レベルに応じた早期対応をご検討ください。
+            現在のペースで月末まで働いた場合の法定外残業時間の予測です（月末予測35時間超の対象者）。予測レベルに応じた早期対応をご検討ください。
           </p>
           <div className="overflow-x-auto">
             <table className="min-w-full">
@@ -1537,7 +1538,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                       <td className="px-3 py-2 text-amber-900 dark:text-amber-100 font-medium">{emp.employeeName}</td>
                       <td className="px-3 py-2 text-amber-700 dark:text-amber-300">{emp.department}</td>
                       <td className="px-3 py-2 text-right text-amber-900 dark:text-amber-100">
-                        {AttendanceService.formatMinutesToTime(emp.totalOvertimeMinutes)}
+                        {AttendanceService.formatMinutesToTime(emp.totalLegalOvertimeMinutes)}
                       </td>
                       <td className="px-3 py-2 text-center text-amber-700 dark:text-amber-300">
                         {emp.passedWeekdays}/{emp.totalWeekdaysInMonth}日
@@ -1557,8 +1558,10 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
             </table>
           </div>
           <div className="mt-4 p-3 bg-amber-100 dark:bg-amber-900/30 rounded text-xs text-amber-800 dark:text-amber-200">
-            <p className="font-medium mb-1">予兆判定の計算方法（営業日ベース）:</p>
-            <p>月末予測 = (現在の残業時間 ÷ 経過営業日数) × 月間営業日数</p>
+            <p className="font-medium mb-1">予兆判定の計算方法（営業日ベース・法定外残業）:</p>
+            <p>月末予測 = (現在の法定外残業時間 ÷ 経過営業日数) × 月間営業日数</p>
+            <p className="mt-1">※ 法定外残業 = 実働時間 - 法定労働時間（8時間）。36協定の対象となる時間です。</p>
+            <p className="mt-1">※ 月末予測が法定外35時間超の全対象者を表示しています。</p>
             <p className="mt-1 text-amber-600 dark:text-amber-400">
               ※ 営業日はカレンダー種別「平日」のレコードから算出しています。
             </p>
@@ -1627,8 +1630,9 @@ const StatItem: React.FC<{ label: string; value: string; subLabel?: string }> = 
 );
 
 // 残業時間セル（36協定アラート付き・7段階）
-const OvertimeCell: React.FC<{ overtimeMinutes: number }> = ({ overtimeMinutes }) => {
-  const alertLevel = AttendanceService.getOvertimeAlertLevel(overtimeMinutes);
+// overtimeMinutes: 所定超過(7h45m基準), legalOvertimeMinutes: 法定外(8h基準・36協定用)
+const OvertimeCell: React.FC<{ overtimeMinutes: number; legalOvertimeMinutes: number }> = ({ overtimeMinutes, legalOvertimeMinutes }) => {
+  const alertLevel = AttendanceService.getOvertimeAlertLevel(legalOvertimeMinutes);
   const alertInfo = OVERTIME_ALERT_INFO[alertLevel];
   const formattedTime = AttendanceService.formatMinutesToTime(overtimeMinutes);
 
@@ -1650,13 +1654,13 @@ const OvertimeCell: React.FC<{ overtimeMinutes: number }> = ({ overtimeMinutes }
 
   return (
     <div className="group relative inline-flex items-center justify-end space-x-1">
-      <span className="text-gray-900 dark:text-white">{formattedTime}</span>
       <span
         className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium cursor-help ${alertColors[alertLevel]}`}
         title={alertInfo.description}
       >
         {alertInfo.label}
       </span>
+      <span className="text-gray-900 dark:text-white">{formattedTime}</span>
       {/* ツールチップ */}
       <div className="invisible group-hover:visible absolute z-10 right-0 top-full mt-1 w-56 p-2 bg-gray-800 dark:bg-gray-700 text-white text-xs rounded shadow-lg">
         <p className="font-medium">{alertInfo.label}</p>
@@ -1714,7 +1718,7 @@ const EmployeesTab: React.FC<{
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{emp.department}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">{emp.totalWorkDays}</td>
                 <td className="px-4 py-3 text-sm text-right">
-                  <OvertimeCell overtimeMinutes={emp.totalOvertimeMinutes} />
+                  <OvertimeCell overtimeMinutes={emp.totalOvertimeMinutes} legalOvertimeMinutes={emp.totalLegalOvertimeMinutes} />
                 </td>
                 <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">{emp.holidayWorkDays}</td>
                 <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">{emp.lateDays}</td>
@@ -2020,7 +2024,7 @@ const IndividualPdfContent: React.FC<{
   employee: EmployeeMonthlySummary;
   analysisResult: ExtendedAnalysisResult;
 }> = ({ employee, analysisResult }) => {
-  const alertLevel = AttendanceService.getOvertimeAlertLevel(employee.totalOvertimeMinutes);
+  const alertLevel = AttendanceService.getOvertimeAlertLevel(employee.totalLegalOvertimeMinutes);
   const alertInfo = OVERTIME_ALERT_INFO[alertLevel];
 
   // 出勤率（欠勤以外は出勤とみなす：有休・代休・特休等は出勤率に影響しない）
@@ -2038,9 +2042,9 @@ const IndividualPdfContent: React.FC<{
     ? Math.round(employee.totalOvertimeMinutes / employee.totalWorkDays)
     : 0;
 
-  // 月末予測残業時間（分）
+  // 月末予測残業時間（分）- 法定外残業ベース
   const predictedOvertime = employee.passedWeekdays > 0
-    ? Math.round((employee.totalOvertimeMinutes / employee.passedWeekdays) * employee.totalWeekdaysInMonth)
+    ? Math.round((employee.totalLegalOvertimeMinutes / employee.passedWeekdays) * employee.totalWeekdaysInMonth)
     : 0;
   const predictedLevel = AttendanceService.getOvertimeAlertLevel(predictedOvertime);
   const predictedInfo = OVERTIME_ALERT_INFO[predictedLevel];
@@ -2145,6 +2149,12 @@ const IndividualPdfContent: React.FC<{
               <span className="text-gray-600">月間残業時間</span>
               <span className="text-xl font-bold">
                 {AttendanceService.formatMinutesToTime(employee.totalOvertimeMinutes)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600">法定外残業</span>
+              <span className="text-lg font-bold text-red-600">
+                {AttendanceService.formatMinutesToTime(employee.totalLegalOvertimeMinutes)}
               </span>
             </div>
             <div className="flex justify-between items-center mb-2">
