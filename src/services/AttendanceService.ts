@@ -33,7 +33,7 @@ import {
   // 厳密な申請キーワード（偽陰性対策）
   LATE_APPLICATION_KEYWORDS,
   TRAIN_DELAY_APPLICATION_KEYWORDS,
-  FLEXTIME_APPLICATION_KEYWORDS,
+  FLEXTIME_EXACT_KEYWORDS,
   EARLY_LEAVE_APPLICATION_KEYWORDS,
   HALF_DAY_APPLICATION_KEYWORDS,
   EARLY_START_APPLICATION_KEYWORDS,
@@ -42,6 +42,7 @@ import {
   NURSING_CARE_LEAVE_KEYWORDS,
   POST_NIGHT_LEAVE_KEYWORDS,
   hasApplicationKeyword,
+  hasExactApplicationKeyword,
   // 36協定・残業時間管理
   OVERTIME_THRESHOLDS,
   STANDARD_WORK_MINUTES,
@@ -715,8 +716,11 @@ export class AttendanceService {
 
   /**
    * 残業時間と法定外残業時間を計算
-   * - 残業: max(0, 実働 - 7h45m(465分)) ← 所定労働時間超過
-   * - 法定外: max(0, 実働 - 8h(480分)) ← 法定労働時間超過（36協定用）
+   * - 休憩時間修正申請がない場合、休憩1:00固定として実働を再計算
+   *   （楽楽勤怠が自動で1:15に増加させるが、実際の休憩は1:00のため）
+   * - 半休時の自動15分休憩も無視（全額戻す）
+   * - 残業: max(0, 調整後実働 - 7h45m(465分)) ← 所定労働時間超過
+   * - 法定外: max(0, 調整後実働 - 8h(480分)) ← 法定労働時間超過（36協定用）
    * - 休日出勤: 両方とも実働時間の全量
    */
   static calculateOvertimeDetails(record: AttendanceRecord): {
@@ -733,11 +737,44 @@ export class AttendanceService {
       };
     }
 
-    // 平日: 実働時間から所定/法定の閾値を引いて計算
+    // 休憩時間調整: 楽楽勤怠の自動増加分を実働に戻す
+    const adjustedWorkMinutes = actualWorkMinutes + this.getBreakAdjustmentMinutes(record);
+
+    // 平日: 調整後実働から所定/法定の閾値を引いて計算
     return {
-      overtimeMinutes: Math.max(0, actualWorkMinutes - STANDARD_WORK_MINUTES),
-      legalOvertimeMinutes: Math.max(0, actualWorkMinutes - LEGAL_WORK_MINUTES),
+      overtimeMinutes: Math.max(0, adjustedWorkMinutes - STANDARD_WORK_MINUTES),
+      legalOvertimeMinutes: Math.max(0, adjustedWorkMinutes - LEGAL_WORK_MINUTES),
     };
+  }
+
+  /**
+   * 休憩時間の調整分（分）を返す
+   * - 休憩時間修正申請がある場合: 0（Excelの値をそのまま使用）
+   * - 休憩 > 60分: 超過分を戻す（楽楽勤怠の自動増加1:15→1:00）
+   * - 休憩 < 60分: 全額戻す（半休時の自動15分休憩を無視）
+   * - 休憩 = 60分: 0（調整不要）
+   */
+  private static getBreakAdjustmentMinutes(record: AttendanceRecord): number {
+    const applicationContent = record.applicationContent || '';
+
+    // 休憩時間修正申請がある場合は調整しない
+    if (applicationContent.includes('休憩時間修正')) {
+      return 0;
+    }
+
+    const breakMinutes = record.breakTimeMinutes;
+
+    if (breakMinutes > 60) {
+      // 自動増加分（例: 75-60=15）を実働に戻す
+      return breakMinutes - 60;
+    }
+
+    if (breakMinutes > 0 && breakMinutes < 60) {
+      // 半休時の自動付与分（例: 15分）を全額戻す
+      return breakMinutes;
+    }
+
+    return 0;
   }
 
   /**
@@ -759,9 +796,9 @@ export class AttendanceService {
       return false;
     }
 
-    // 全休は定時退社としてカウント
+    // 全休は定時退社から除外（出勤していない日は定時退社の判定対象外）
     if (leaveType === 'full_day') {
-      return true;
+      return false;
     }
 
     // 遅刻・早退がある場合は対象外
@@ -931,9 +968,10 @@ export class AttendanceService {
    * - 休日は対象外
    * - 休暇申請がある場合は対象外
    * - 早出申請がある場合も対象外
+   * - 時差出勤申請がある場合も対象外
    *
    * 【偽陰性対策】厳密なキーワードマッチングを使用
-   * 「早出したいです」等の無関係な文言を誤検出しない
+   * 「早出したいです」「時差出勤を検討中」等の無関係な文言を誤検出しない
    */
   static hasEarlyStartViolation(record: AttendanceRecord, leaveType: LeaveType): boolean {
     // 休日は対象外
@@ -951,13 +989,20 @@ export class AttendanceService {
       return false;
     }
 
+    const applicationContent = record.applicationContent || '';
+
     // 厳密な早出申請キーワードをチェック
-    if (hasApplicationKeyword(record.applicationContent || '', EARLY_START_APPLICATION_KEYWORDS)) {
+    if (hasApplicationKeyword(applicationContent, EARLY_START_APPLICATION_KEYWORDS)) {
+      return false;
+    }
+
+    // 時差出勤をチェック（完全一致: Excelデータでは「時差出勤」のみで記録される）
+    if (hasExactApplicationKeyword(applicationContent, FLEXTIME_EXACT_KEYWORDS)) {
       return false;
     }
 
     // 1. 申請内容から始業時刻を抽出（優先）
-    let scheduledStart = this.parseScheduledStartTime(record.applicationContent || '');
+    let scheduledStart = this.parseScheduledStartTime(applicationContent);
 
     // 2. 申請内容になければシート名から抽出
     if (!scheduledStart) {
@@ -1030,8 +1075,8 @@ export class AttendanceService {
       return false;
     }
 
-    // 時差出勤申請をチェック
-    if (hasApplicationKeyword(applicationContent, FLEXTIME_APPLICATION_KEYWORDS)) {
+    // 時差出勤をチェック（完全一致: Excelデータでは「時差出勤」のみで記録される）
+    if (hasExactApplicationKeyword(applicationContent, FLEXTIME_EXACT_KEYWORDS)) {
       return false;
     }
 
@@ -1155,7 +1200,6 @@ export class AttendanceService {
   static analyzeDailyRecord(record: AttendanceRecord): DailyAttendanceAnalysis {
     const leaveType = this.determineLeaveType(record.applicationContent);
     const actualWorkMinutes = this.parseTimeToMinutes(record.actualWorkHours);
-    const requiredBreakMinutes = this.calculateRequiredBreakMinutes(actualWorkMinutes);
 
     const isHolidayWork = record.calendarType !== 'weekday' && !!record.clockIn;
     const { overtimeMinutes, legalOvertimeMinutes } = this.calculateOvertimeDetails(record);
@@ -1167,12 +1211,15 @@ export class AttendanceService {
     const shouldExcludeLate = this.shouldExcludeLateFor8HourSchedule(record, rawLateMinutes);
     const lateMinutes = shouldExcludeLate ? 0 : rawLateMinutes;
 
-    // 休憩時間: レコードから取得（breakTimeMinutesカラム）
-    const breakMinutes = record.breakTimeMinutes || 0;
+    // 休憩時間: 調整後の値で判定（自動増加/自動付与を除外）
+    const breakAdjustment = this.getBreakAdjustmentMinutes(record);
+    const breakMinutes = Math.max(0, (record.breakTimeMinutes || 0) - breakAdjustment);
+    const adjustedWorkMinutes = actualWorkMinutes + breakAdjustment;
+    const adjustedRequiredBreakMinutes = this.calculateRequiredBreakMinutes(adjustedWorkMinutes);
 
-    // 休憩違反判定: 実働6時間超で休憩が必要時間未満の場合
-    const hasBreakViolation = actualWorkMinutes > BREAK_TIME_REQUIREMENTS.THRESHOLD_6H_MINUTES &&
-                             breakMinutes < requiredBreakMinutes;
+    // 休憩違反判定: 調整後実働6時間超で休憩が必要時間未満の場合
+    const hasBreakViolation = adjustedWorkMinutes > BREAK_TIME_REQUIREMENTS.THRESHOLD_6H_MINUTES &&
+                             breakMinutes < adjustedRequiredBreakMinutes;
 
     // 打刻漏れ判定: 片方でも欠落していれば違反（休暇日を除く）
     // - 出社ありで退社なし: 退社打刻漏れ
@@ -1229,7 +1276,7 @@ export class AttendanceService {
       lateMinutes,
       earlyLeaveMinutes,
       actualBreakMinutes: breakMinutes,
-      requiredBreakMinutes,
+      requiredBreakMinutes: adjustedRequiredBreakMinutes,
       hasBreakViolation,
       hasMissingClock,
       hasEarlyStartViolation,

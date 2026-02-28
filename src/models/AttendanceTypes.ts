@@ -244,8 +244,8 @@ export const VIOLATION_DISPLAY_INFO: Record<ViolationType, ViolationDisplayInfo>
   },
   early_start_application_missing: {
     displayName: '届出漏れ（早出）',
-    possibleApplications: ['早出申請', '早出フラグ入力'],
-    notes: '客先常駐者は出勤簿の「早出フラグ」に「1」を入力。内勤者は「早出申請」の提出・承認が必要です。',
+    possibleApplications: ['早出申請', '早出フラグ入力', '時差出勤申請'],
+    notes: '客先常駐者は出勤簿の「早出フラグ」に「1」を入力。内勤者は「早出申請」または「時差出勤申請」の提出・承認が必要です。時差出勤は始業・終業をセットで変更する制度です。',
   },
   time_leave_punch_missing: {
     displayName: '打刻漏れ（時間有休）',
@@ -492,12 +492,12 @@ export const TRAIN_DELAY_APPLICATION_KEYWORDS = [
 ] as const;
 
 /**
- * 時差出勤関連の申請キーワード（厳密版）
+ * 時差出勤キーワード（完全一致用）
+ * 楽楽勤怠では申請内容が「時差出勤」のみで記録される。
+ * includes()では「時差出勤を検討中」等を誤検出するため完全一致で判定する。
  */
-export const FLEXTIME_APPLICATION_KEYWORDS = [
-  '時差出勤申請',
-  '時差勤務申請',
-  '時差出勤届',
+export const FLEXTIME_EXACT_KEYWORDS = [
+  '時差出勤',
 ] as const;
 
 /**
@@ -677,6 +677,20 @@ export function hasApplicationKeyword(
 ): boolean {
   if (!applicationContent) return false;
   return keywords.some(keyword => applicationContent.includes(keyword));
+}
+
+/**
+ * 申請キーワードを完全一致で検証する関数
+ * applicationContent全体が指定キーワードと完全一致するかチェック。
+ * 「時差出勤を検討中」等の部分一致を除外するために使用。
+ */
+export function hasExactApplicationKeyword(
+  applicationContent: string,
+  keywords: readonly string[]
+): boolean {
+  if (!applicationContent) return false;
+  const trimmed = applicationContent.trim();
+  return keywords.some(keyword => trimmed === keyword);
 }
 
 // ============================================

@@ -2,8 +2,10 @@
 // 残業時間（所定超過: 7h45m基準）と法定外残業時間（法定超過: 8h基準）を分離して計算
 //
 // ルール:
-// - 残業時間 = max(0, 実働時間 - 7h45m(465分))
-// - 法定外残業時間 = max(0, 実働時間 - 8h(480分)) ← 36協定用
+// - 休憩時間は休憩時間修正申請がない限り1:00固定（楽楽勤怠の自動増加1:15を無視）
+// - 調整後実働 = Excel実働 + max(0, Excel休憩 - 60分)
+// - 残業時間 = max(0, 調整後実働 - 7h45m(465分))
+// - 法定外残業時間 = max(0, 調整後実働 - 8h(480分)) ← 36協定用
 // - 休日出勤: 両方とも実働時間の全量
 // - 半休・時間休: 閾値は変わらず（実働時間ベース）
 
@@ -160,6 +162,79 @@ describe('AttendanceService - 残業時間2値計算（所定超過 / 法定外�
       const result = AttendanceService.calculateOvertimeDetails(record);
       expect(result.overtimeMinutes).toBe(240);
       expect(result.legalOvertimeMinutes).toBe(240);
+    });
+  });
+
+  describe('休憩1:00固定ルール（楽楽勤怠の自動増加を無視）', () => {
+    it('休憩1:15（自動増加）→ 1:00として再計算、残業+15分', () => {
+      // 9:00-21:28, 楽楽勤怠: break=75, 実働=11:13(673分)
+      // 調整後: 実働=673+15=688(11:28), OT465=223, OT480=208
+      const record = createTestRecord('11:13', { breakTimeMinutes: 75 });
+      const result = AttendanceService.calculateOvertimeDetails(record);
+      expect(result.overtimeMinutes).toBe(223);       // 688-465
+      expect(result.legalOvertimeMinutes).toBe(208);   // 688-480
+    });
+
+    it('休憩1:00（通常）→ 変更なし', () => {
+      // break=60, 実働=9:00(540分) → 調整なし
+      const record = createTestRecord('9:00', { breakTimeMinutes: 60 });
+      const result = AttendanceService.calculateOvertimeDetails(record);
+      expect(result.overtimeMinutes).toBe(75);         // 540-465
+      expect(result.legalOvertimeMinutes).toBe(60);    // 540-480
+    });
+
+    it('休憩時間修正申請あり → Excelの値をそのまま使用（調整しない）', () => {
+      // break=75だが休憩時間修正申請あり → 調整なし、実働11:13のまま
+      const record = createTestRecord('11:13', {
+        breakTimeMinutes: 75,
+        applicationContent: '休憩時間修正申請',
+      });
+      const result = AttendanceService.calculateOvertimeDetails(record);
+      expect(result.overtimeMinutes).toBe(208);        // 673-465
+      expect(result.legalOvertimeMinutes).toBe(193);   // 673-480
+    });
+
+    it('半休+自動15分休憩 → 15分を全額戻す（休憩0扱い）', () => {
+      // 午前半休、13:00-17:45, break=15(自動付与), 実働=4:30(270分)
+      // 半休時は1:00固定ではなく、自動付与分を全額戻す: 270+15=285
+      // OT465=0, OT480=0
+      const record = createTestRecord('4:30', {
+        breakTimeMinutes: 15,
+        applicationContent: '午前半休',
+      });
+      const result = AttendanceService.calculateOvertimeDetails(record);
+      expect(result.overtimeMinutes).toBe(0);
+      expect(result.legalOvertimeMinutes).toBe(0);
+    });
+
+    it('半休+自動休憩で長時間勤務 → 自動休憩分を戻して再計算', () => {
+      // 午前半休、13:00-22:30, break=75(自動), 実働=8:15(495分)
+      // 調整: 75>60なので超過分15分を戻す: 495+15=510
+      // OT465=45, OT480=30
+      const record = createTestRecord('8:15', {
+        breakTimeMinutes: 75,
+        applicationContent: '午前半休',
+      });
+      const result = AttendanceService.calculateOvertimeDetails(record);
+      expect(result.overtimeMinutes).toBe(45);
+      expect(result.legalOvertimeMinutes).toBe(30);
+    });
+
+    it('休憩1:15の日が月次累積で正しく反映される', () => {
+      // 3日間: 全日 break=75(自動増加)
+      // Day1: 実働11:13(673) → 調整後688, OT465=223, OT480=208
+      // Day2: 実働8:33(513) → 調整後528, OT465=63, OT480=48
+      // Day3: 実働11:45(705) → 調整後720, OT465=255, OT480=240
+      const records: AttendanceRecord[] = [
+        createTestRecord('11:13', { date: new Date('2025-12-01'), breakTimeMinutes: 75 }),
+        createTestRecord('8:33', { date: new Date('2025-12-02'), breakTimeMinutes: 75 }),
+        createTestRecord('11:45', { date: new Date('2025-12-03'), breakTimeMinutes: 75 }),
+      ];
+
+      const summary = AttendanceService.createEmployeeMonthlySummary('TEST001', records);
+
+      expect(summary.totalOvertimeMinutes).toBe(541);         // 223+63+255
+      expect(summary.totalLegalOvertimeMinutes).toBe(496);     // 208+48+240
     });
   });
 

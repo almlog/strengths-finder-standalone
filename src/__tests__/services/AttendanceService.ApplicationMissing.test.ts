@@ -65,10 +65,10 @@ describe('AttendanceService - 申請漏れ検出', () => {
       expect(analysis.violations).not.toContain('late_application_missing');
     });
 
-    it('should NOT detect late application missing when late with 時差出勤申請', () => {
+    it('should NOT detect late application missing when late with 時差出勤', () => {
       const record = createBaseRecord({
         lateMinutes: '0:30',
-        applicationContent: '時差出勤申請',
+        applicationContent: '時差出勤',
       });
       const analysis = AttendanceService.analyzeDailyRecord(record);
       expect(analysis.violations).not.toContain('late_application_missing');
