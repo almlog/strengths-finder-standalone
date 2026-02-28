@@ -606,6 +606,69 @@ const AboutAnalysisTab: React.FC = () => {
                 </p>
               </div>
             </div>
+
+            {/* 早出と時差出勤の違い */}
+            <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-3">早出と時差出勤の違い</h4>
+              <div className="overflow-x-auto mb-3">
+                <table className="min-w-full border border-gray-200 dark:border-gray-700 text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">項目</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">早出（早出残業）</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">時差出勤</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t border-gray-200 dark:border-gray-700">
+                      <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">性質</td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300"><strong className="text-red-600 dark:text-red-400">残業申請</strong>（時間外労働）</td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300"><strong className="text-blue-600 dark:text-blue-400">勤務時間シフト</strong>（始業・終業をセットで変更）</td>
+                    </tr>
+                    <tr className="border-t border-gray-200 dark:border-gray-700">
+                      <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">承認</td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">明確な理由とともに<strong>事前の上長承認が必須</strong></td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300"><strong>管理者の指示・承認</strong>のもとで時差出勤申請を提出</td>
+                    </tr>
+                    <tr className="border-t border-gray-200 dark:border-gray-700">
+                      <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">所定労働時間</td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">変わらない（超過分が残業）</td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">変わらない（時間帯のみ変更）</td>
+                    </tr>
+                    <tr className="border-t border-gray-200 dark:border-gray-700">
+                      <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">例</td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">8:00出社 → 9:00前の1時間が早出残業</td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">8:00出社・16:45退社 → 始終業が1時間前倒し</td>
+                    </tr>
+                    <tr className="border-t border-gray-200 dark:border-gray-700">
+                      <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">残業カウント</td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300"><strong>始業前の時間が残業に加算</strong></td>
+                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">残業にならない</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="bg-red-50 dark:bg-red-900/20 rounded p-3 mb-2">
+                <p className="text-sm text-red-900 dark:text-red-200 mb-2">
+                  <strong>早出について：</strong>早出は残業（時間外労働）に該当します。業務上の明確な理由を添えて、<strong>必ず事前に上長の承認</strong>を得てください。
+                  事後申請や承認のない早出は原則として認められません。
+                </p>
+                <p className="text-sm text-red-900 dark:text-red-200">
+                  <strong>時差出勤について：</strong>時差出勤は<strong>管理者の指示・承認のもとで利用</strong>する制度です。
+                  私用や体調不良等による急な時差出勤は認められません。必ず事前に管理者へ相談のうえ、正式な申請・承認を経てから利用してください。
+                </p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded p-3">
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                  <strong>本システムでの検出：</strong>始業時刻より前の出勤で早出フラグ・早出申請がない場合、「届出漏れ（早出）」として検出されます。
+                  ただし、<strong>時差出勤申請がある場合は早出違反から除外</strong>されます（始業時刻の前倒しとして正しく処理されるため）。
+                </p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <strong>内勤者と客先就業者の違い：</strong>客先就業者は早出フラグ（「1」を入力）で早出が認められますが、<strong>内勤者は早出フラグを入力しても計算されません</strong>。
+                  内勤者は必ず「早出申請」を提出してください。申請がない場合、本システムでは届出漏れとして検出されます。
+                </p>
+              </div>
+            </div>
           </div>
         </AccordionSection>
 
@@ -648,15 +711,60 @@ const AboutAnalysisTab: React.FC = () => {
             <p className="text-gray-700 dark:text-gray-300">
               本システムでは<strong>残業時間</strong>（所定労働時間7時間45分超過分）と<strong>法定外残業時間</strong>（法定労働時間8時間超過分）を区別して計算しています。
               36協定のアラート判定には<strong>法定外残業時間</strong>を使用しています。
-              なお、これらの計算は楽楽勤怠システム上の残業カラムの値ではなく、出勤時間・退勤時間から算出される<strong>実働時間</strong>を基に本システム独自に計算しています。
+              なお、これらの計算は楽楽勤怠の実働時間を基に、<strong>休憩時間を1時間固定</strong>として本システム独自に再計算しています。
             </p>
+
+            {/* 残業時間の計算式 */}
             <div className="bg-indigo-50 dark:bg-gray-850 rounded-lg p-4 border border-indigo-200 dark:border-gray-700 mb-2">
-              <h4 className="font-semibold text-indigo-900 dark:text-indigo-300 mb-2">残業時間の計算方法</h4>
+              <h4 className="font-semibold text-indigo-900 dark:text-indigo-300 mb-2">残業時間の計算式</h4>
+              <div className="bg-white dark:bg-gray-900 rounded p-3 font-mono text-sm text-gray-800 dark:text-gray-200 mb-3">
+                <p>残業時間 = max(0, 調整後実働 - 7:45)</p>
+                <p>36協定　 = max(0, 調整後実働 - 8:00)</p>
+              </div>
+              <table className="w-full text-sm text-gray-700 dark:text-gray-300 mb-3">
+                <thead>
+                  <tr className="border-b border-indigo-200 dark:border-gray-600">
+                    <th className="text-left py-1 font-medium">調整後実働</th>
+                    <th className="text-center py-1 font-medium">残業</th>
+                    <th className="text-center py-1 font-medium">36協定</th>
+                    <th className="text-left py-1 font-medium pl-2">備考</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs">
+                  <tr className="border-b border-indigo-100 dark:border-gray-700">
+                    <td className="py-1">7:30</td><td className="text-center">0</td><td className="text-center">0</td><td className="pl-2 text-gray-500">定時退社</td>
+                  </tr>
+                  <tr className="border-b border-indigo-100 dark:border-gray-700">
+                    <td className="py-1">7:45</td><td className="text-center">0</td><td className="text-center">0</td><td className="pl-2 text-gray-500">所定ちょうど</td>
+                  </tr>
+                  <tr className="border-b border-indigo-100 dark:border-gray-700">
+                    <td className="py-1">8:00</td><td className="text-center font-medium text-orange-600 dark:text-orange-400">0:15</td><td className="text-center">0</td><td className="pl-2 text-gray-500">残業開始</td>
+                  </tr>
+                  <tr>
+                    <td className="py-1">8:15</td><td className="text-center font-medium text-orange-600 dark:text-orange-400">0:30</td><td className="text-center font-medium text-red-600 dark:text-red-400">0:15</td><td className="pl-2 text-gray-500">36協定カウント開始</td>
+                  </tr>
+                </tbody>
+              </table>
               <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
-                <li><strong>残業時間</strong>: 実働時間 - 所定労働時間（7時間45分） 例: 9時出勤なら17:45以降</li>
-                <li><strong>法定外残業時間</strong>: 実働時間 - 法定労働時間（8時間） 例: 9時出勤なら18:00以降</li>
-                <li><strong>休日出勤</strong>: 実働時間の全体が残業時間・法定外残業時間の両方にカウント</li>
+                <li><strong>休日出勤</strong>: 実働時間の全体が残業・36協定の両方にカウント</li>
+                <li>出勤時刻に関わらず、実働時間が同じなら結果も同じ（早出・時差出勤も同様）</li>
               </ul>
+            </div>
+
+            {/* 休憩時間の調整ルール */}
+            <div className="bg-amber-50 dark:bg-gray-850 rounded-lg p-4 border border-amber-200 dark:border-gray-700 mb-2">
+              <h4 className="font-semibold text-amber-900 dark:text-amber-300 mb-2">休憩時間の調整ルール</h4>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                楽楽勤怠は勤務時間に応じて休憩を自動で1:15に増加させますが、実際の昼休憩は1:00のため、本システムでは以下のルールで調整しています。
+              </p>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li><strong>通常</strong>: 休憩1:00固定（自動増加の15分は実働に戻す）</li>
+                <li><strong>休憩時間修正申請あり</strong>: 申請の休憩時間をそのまま使用</li>
+                <li><strong>午前有休時</strong>: 17:30-17:45の自動15分休憩も無視（実働にカウント）</li>
+              </ul>
+              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded text-sm text-red-800 dark:text-red-300">
+                <strong>注意:</strong> 午前有休取得時に6時間超の勤務をした場合、45分以上の休憩時間修正申請が必要です。申請がないと休憩未取得として違反検出されます。
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-red-50 dark:bg-gray-850 rounded-lg p-4 border border-red-200 dark:border-gray-700">

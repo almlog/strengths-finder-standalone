@@ -1283,6 +1283,20 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
               </>
             )}
           </div>
+          {/* 36協定超過（法定外残業45時間以上） */}
+          {(() => {
+            const exceededCount = result.employeeSummaries.filter(
+              emp => emp.totalLegalOvertimeMinutes >= 45 * 60
+            ).length;
+            return exceededCount > 0 ? (
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between text-sm">
+                  <span className="text-red-600 dark:text-red-400 font-medium">36協定超過（法定外45h以上）</span>
+                  <span className="font-bold text-red-600 dark:text-red-400">{exceededCount}名</span>
+                </div>
+              </div>
+            ) : null;
+          })()}
           {/* 深夜帯勤務実績（注意喚起） */}
           {result.nightWorkRecords.length > 0 && (
             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
@@ -1634,7 +1648,8 @@ const StatItem: React.FC<{ label: string; value: string; subLabel?: string }> = 
 const OvertimeCell: React.FC<{ overtimeMinutes: number; legalOvertimeMinutes: number }> = ({ overtimeMinutes, legalOvertimeMinutes }) => {
   const alertLevel = AttendanceService.getOvertimeAlertLevel(legalOvertimeMinutes);
   const alertInfo = OVERTIME_ALERT_INFO[alertLevel];
-  const formattedTime = AttendanceService.formatMinutesToTime(overtimeMinutes);
+  // 36協定アラートは法定外残業ベースなので、表示も法定外残業時間を使用
+  const formattedTime = AttendanceService.formatMinutesToTime(legalOvertimeMinutes);
 
   // アラートレベルに応じた色定義（7段階）
   const alertColors: Record<OvertimeAlertLevel, string> = {

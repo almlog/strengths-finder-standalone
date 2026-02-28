@@ -447,4 +447,27 @@ describe('AttendanceService - 複数スケジュール・早出キーワード�
       expect(result).toBe(true);
     });
   });
+
+  describe('時差出勤による早出違反除外', () => {
+    it('applicationContent="時差出勤" で9時前出社は早出違反にならない', () => {
+      const record = createBaseRecord({
+        applicationContent: '時差出勤',
+        clockIn: new Date('2026-01-15 08:00'),
+        earlyStartFlag: false,
+        sheetName: 'mediba_日勤_900-1730_1200-1300_7',
+      });
+      const result = AttendanceService.hasEarlyStartViolation(record, 'none');
+      expect(result).toBe(false);
+    });
+
+    it('applicationContent="時差出勤を検討中" は早出違反になる（偽陰性対策）', () => {
+      const record = createBaseRecord({
+        applicationContent: '時差出勤を検討中',
+        clockIn: new Date('2026-01-15 08:00'),
+        earlyStartFlag: false,
+      });
+      const result = AttendanceService.hasEarlyStartViolation(record, 'none');
+      expect(result).toBe(true);
+    });
+  });
 });

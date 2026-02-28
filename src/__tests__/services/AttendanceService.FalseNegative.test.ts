@@ -173,17 +173,41 @@ describe('AttendanceService - 偽陰性テスト（誤って違反なしと判�
     });
 
     /**
-     * 正しい時差出勤申請があるケース
+     * 正しい時差出勤があるケース（Excelデータの実値）
      */
-    it('FN202_正規の「時差出勤申請」あり - 違反なし（正常ケース）', () => {
+    it('FN202_正規の「時差出勤」あり - 違反なし（正常ケース）', () => {
       const record = createTestRecord('FN202', '正常テスト', {
         clockIn: new Date('2026-01-06T10:00:00'),
         lateMinutes: '1:00',
-        applicationContent: '時差出勤申請',
+        applicationContent: '時差出勤',
       });
       const analysis = AttendanceService.analyzeDailyRecord(record);
 
       expect(analysis.violations).not.toContain('late_application_missing');
+    });
+  });
+
+  describe('時差出勤申請の早出違反偽陰性検出', () => {
+    it('FN203_正規の「時差出勤」(Excelデータ実値)あり + 早出 - 早出違反なし', () => {
+      const record = createTestRecord('FN203', '正常テスト', {
+        clockIn: new Date('2026-01-06T08:00:00'),
+        earlyStartFlag: false,
+        applicationContent: '時差出勤',
+      });
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.violations).not.toContain('early_start_application_missing');
+    });
+
+    it('FN204_「時差出勤を検討中」+ 早出 - 早出違反として検出すべき', () => {
+      const record = createTestRecord('FN204', '偽陰性テスト', {
+        clockIn: new Date('2026-01-06T08:00:00'),
+        earlyStartFlag: false,
+        applicationContent: '時差出勤を検討中',
+      });
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.violations).toContain('early_start_application_missing');
     });
   });
 

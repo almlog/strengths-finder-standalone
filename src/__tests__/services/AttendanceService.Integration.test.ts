@@ -74,7 +74,7 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
       const record = createTestRecord('D002', '時差 花子', {
         clockIn: new Date('2026-01-06T10:00:00'),
         clockOut: new Date('2026-01-06T18:30:00'),
-        applicationContent: '時差出勤申請',
+        applicationContent: '時差出勤',
         lateMinutes: '',
         earlyLeaveMinutes: '',
       });
@@ -296,6 +296,20 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
       const analysis = AttendanceService.analyzeDailyRecord(record);
 
       expect(analysis.violations).not.toContain('early_start_application_missing');
+    });
+
+    it('306_時差出勤で8:00出社 - 早出違反なし', () => {
+      const record = createTestRecord('D306', '時差出勤 早出', {
+        clockIn: new Date('2026-01-06T08:00:00'),
+        clockOut: new Date('2026-01-06T17:00:00'),
+        earlyStartFlag: false,
+        applicationContent: '時差出勤',
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.violations).not.toContain('early_start_application_missing');
+      expect(analysis.hasEarlyStartViolation).toBe(false);
     });
   });
 
@@ -592,13 +606,13 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
     });
 
     /**
-     * 「時差出勤申請」で遅刻除外
-     * 【偽陰性対策】「時差出勤」だけでなく「時差出勤申請」を使用
+     * 「時差出勤」で遅刻除外
+     * Excelデータでは申請内容が「時差出勤」のみで記録される
      */
-    it('802_「時差出勤申請」で遅刻除外: ', () => {
+    it('802_「時差出勤」で遅刻除外: ', () => {
       const record = createTestRecord('D802', '時差 出勤', {
         lateMinutes: '1:00',
-        applicationContent: '時差出勤申請', // 厳密なキーワード
+        applicationContent: '時差出勤', // Excelデータの実値
       });
 
       const analysis = AttendanceService.analyzeDailyRecord(record);

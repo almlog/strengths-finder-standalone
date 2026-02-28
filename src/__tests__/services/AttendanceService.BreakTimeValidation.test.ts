@@ -164,6 +164,74 @@ describe('AttendanceService - 時間有休と休憩時間の検証', () => {
     });
   });
 
+  describe('休憩違反判定での休憩時間調整', () => {
+    it('半休+自動15分休憩 → 休憩0分として判定、実働6h超なら違反', () => {
+      // 午前半休、13:00-20:00、break=15(自動), 実働=6:45
+      // 調整後: break=0, 実働=7:00(>6h) → 必要休憩45分 → 0 < 45 → 違反
+      const record = createTestRecord('BT201', '半休自動休憩', {
+        applicationContent: '午前半休',
+        clockIn: new Date('2026-01-06T13:00:00'),
+        clockOut: new Date('2026-01-06T20:00:00'),
+        breakTimeMinutes: 15,
+        actualWorkHours: '6:45', // 拘束7h - break15min
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.hasBreakViolation).toBe(true);
+      expect(analysis.actualBreakMinutes).toBe(0);   // 自動15分は休憩ではない
+      expect(analysis.requiredBreakMinutes).toBe(45); // 調整後実働7h > 6h
+    });
+
+    it('半休+自動15分休憩 → 実働6h以下なら違反なし', () => {
+      // 午前半休、13:00-17:45、break=15(自動), 実働=4:30
+      // 調整後: break=0, 実働=4:45(<6h) → 休憩不要 → 違反なし
+      const record = createTestRecord('BT202', '半休短時間', {
+        applicationContent: '午前半休',
+        clockIn: new Date('2026-01-06T13:00:00'),
+        clockOut: new Date('2026-01-06T17:45:00'),
+        breakTimeMinutes: 15,
+        actualWorkHours: '4:30',
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.hasBreakViolation).toBe(false);
+      expect(analysis.actualBreakMinutes).toBe(0);
+    });
+
+    it('通常日+break75(自動増加) → 休憩60分として判定、違反なし', () => {
+      // 9:00-21:00、break=75(自動), 実働=10:45
+      // 調整後: break=60, 実働=11:00(>8h) → 必要休憩60分 → 60 >= 60 → 正常
+      const record = createTestRecord('BT203', '通常日自動増加', {
+        clockOut: new Date('2026-01-06T21:00:00'),
+        breakTimeMinutes: 75,
+        actualWorkHours: '10:45',
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.hasBreakViolation).toBe(false);
+      expect(analysis.actualBreakMinutes).toBe(60);
+    });
+
+    it('休憩時間修正申請あり → Excel休憩値で判定', () => {
+      // 休憩時間修正で30分に変更、実働8:30(>8h) → 必要60分 → 30 < 60 → 違反
+      const record = createTestRecord('BT204', '休憩修正申請', {
+        applicationContent: '休憩時間修正申請',
+        clockOut: new Date('2026-01-06T18:00:00'),
+        breakTimeMinutes: 30,
+        actualWorkHours: '8:30',
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.hasBreakViolation).toBe(true);
+      expect(analysis.actualBreakMinutes).toBe(30); // 申請値そのまま
+      expect(analysis.requiredBreakMinutes).toBe(60);
+    });
+  });
+
   describe('休憩時間計算のヘルパー関数テスト', () => {
     /**
      * 必要休憩時間の計算
