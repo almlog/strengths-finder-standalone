@@ -1163,6 +1163,22 @@ const AboutAnalysisTab: React.FC = () => {
         defaultOpen={false}
       >
         <div className="space-y-6">
+          {/* v3.8 */}
+          <div className="border-l-4 border-indigo-500 pl-4">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+              v3.8: 休憩1h固定ルール・時差出勤判定・UI改善
+              <span className="ml-2 text-sm font-normal text-gray-500">(2026-03-01)</span>
+            </h4>
+            <ul className="mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+              <li>• 残業計算を休憩1:00固定ベースに変更（休憩時間修正申請時はExcel値を使用）</li>
+              <li>• 半休時の自動15分休憩を無視する調整ロジック追加</li>
+              <li>• 休憩違反判定を残業計算と同じ調整ロジックに統一</li>
+              <li>• 時差出勤申請による早出誤判定を修正</li>
+              <li>• 定時退社率100%バグ修正・36協定超過カウントをサマリーに追加</li>
+              <li>• 「このシステムについて」に36協定計算式・早出/時差出勤の違い・休憩調整ルールを追記</li>
+            </ul>
+          </div>
+
           {/* v3.7 */}
           <div className="border-l-4 border-rose-500 pl-4">
             <h4 className="font-semibold text-gray-900 dark:text-gray-100">
@@ -1267,7 +1283,7 @@ const AboutAnalysisTab: React.FC = () => {
       {/* フッター */}
       <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          最終更新: 2026-02-13 | バージョン: 3.7
+          最終更新: 2026-03-01 | バージョン: 3.8
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
           MBTI® は Myers-Briggs Type Indicator の商標です。<br />
