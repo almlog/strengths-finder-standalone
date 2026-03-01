@@ -414,7 +414,7 @@ const AttendanceAnalysisPage: React.FC = () => {
   }, [analysisResult]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="attendance-page">
       {/* ヘッダー */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center space-x-3">
@@ -539,6 +539,7 @@ const AttendanceAnalysisPage: React.FC = () => {
                 onChange={handleFileSelect}
                 className="hidden"
                 id="file-upload"
+                data-testid="file-upload-input"
               />
               <label htmlFor="file-upload" className="cursor-pointer">
                 {isLoading ? (
@@ -686,7 +687,7 @@ const AttendanceAnalysisPage: React.FC = () => {
           </div>
 
           {/* タブナビゲーション */}
-          <div className="border-b border-gray-200 dark:border-gray-700">
+          <div className="border-b border-gray-200 dark:border-gray-700" data-testid="attendance-tabs">
             <nav className="flex space-x-4">
               <TabButton
                 active={activeTab === 'summary'}
@@ -1251,7 +1252,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
           {/* 使用カラム説明 */}
           <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              ※ 残業時間は「平日法定外残業(36協定用)」カラムを使用
+              ※ 残業時間は実働時間から独自計算（所定超過: 実働-7h45m、法定外超過: 実働-8h）
             </p>
           </div>
         </div>
@@ -1260,42 +1261,48 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
           <h3 className={isExportingPdf ? "text-lg font-semibold text-gray-900 mb-4" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
             違反サマリー
           </h3>
-          <div className="space-y-2">
-            {result.allViolations.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400">違反はありません</p>
-            ) : (
-              <>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  総違反数: <span className="font-bold text-red-600 dark:text-red-400">{result.allViolations.length}</span>
-                </p>
-                <div className="space-y-1">
-                  {(Object.keys(VIOLATION_DISPLAY_INFO) as ViolationType[]).map(type => {
-                    const count = result.allViolations.filter(v => v.type === type).length;
-                    if (count === 0) return null;
-                    return (
-                      <div key={type} className="flex justify-between text-sm">
-                        <span className="text-gray-600 dark:text-gray-300">{VIOLATION_DISPLAY_INFO[type].displayName}</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{count}件</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-          {/* 36協定超過（法定外残業45時間以上） */}
           {(() => {
             const exceededCount = result.employeeSummaries.filter(
               emp => emp.totalLegalOvertimeMinutes >= 45 * 60
             ).length;
-            return exceededCount > 0 ? (
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between text-sm">
-                  <span className="text-red-600 dark:text-red-400 font-medium">36協定超過（法定外45h以上）</span>
-                  <span className="font-bold text-red-600 dark:text-red-400">{exceededCount}名</span>
-                </div>
+            const hasViolations = result.allViolations.length > 0 || exceededCount > 0;
+            return (
+              <div className="space-y-2">
+                {!hasViolations ? (
+                  <p className="text-gray-500 dark:text-gray-400">違反はありません</p>
+                ) : (
+                  <>
+                    {result.allViolations.length > 0 && (
+                      <>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          総違反数: <span className="font-bold text-red-600 dark:text-red-400">{result.allViolations.length}</span>
+                        </p>
+                        <div className="space-y-1">
+                          {(Object.keys(VIOLATION_DISPLAY_INFO) as ViolationType[]).map(type => {
+                            const count = result.allViolations.filter(v => v.type === type).length;
+                            if (count === 0) return null;
+                            return (
+                              <div key={type} className="flex justify-between text-sm">
+                                <span className="text-gray-600 dark:text-gray-300">{VIOLATION_DISPLAY_INFO[type].displayName}</span>
+                                <span className="font-medium text-gray-900 dark:text-white">{count}件</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                    {exceededCount > 0 && (
+                      <div className={result.allViolations.length > 0 ? "mt-3 pt-3 border-t border-gray-200 dark:border-gray-700" : ""}>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-red-600 dark:text-red-400 font-medium">36協定超過（法定外45h以上）</span>
+                          <span className="font-bold text-red-600 dark:text-red-400">{exceededCount}名</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-            ) : null;
+            );
           })()}
           {/* 深夜帯勤務実績（注意喚起） */}
           {result.nightWorkRecords.length > 0 && (
@@ -1948,8 +1955,11 @@ const DepartmentsTab: React.FC<{ departments: DepartmentSummary[] }> = ({ depart
 // 違反タブ
 const ViolationsTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) => {
   const violations = result.allViolations;
+  const exceededEmployees = result.employeeSummaries.filter(
+    emp => emp.totalLegalOvertimeMinutes >= 45 * 60
+  );
 
-  if (violations.length === 0) {
+  if (violations.length === 0 && exceededEmployees.length === 0) {
     return (
       <div className="text-center py-12">
         <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
@@ -1983,53 +1993,74 @@ const ViolationsTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result })
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        総違反数: {violations.length}件
-      </p>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-800">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">日付</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">社員番号</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">氏名</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">種類</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">詳細</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-            {violations.map((v, idx) => (
-              <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                  {AttendanceService.formatDate(v.date)}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{v.employeeId}</td>
-                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{v.employeeName}</td>
-                <td className="px-4 py-3">
-                  <div className="group relative">
-                    <span
-                      className={`inline-flex px-2 py-1 rounded-full text-xs font-medium cursor-help ${typeColors[v.type]}`}
-                      title={`考えられる申請: ${getViolationInfo(v.type).tooltip}`}
-                    >
-                      {getViolationInfo(v.type).label}
-                    </span>
-                    {/* ツールチップ（ホバー時に表示） */}
-                    <div className="invisible group-hover:visible absolute z-10 left-0 top-full mt-1 w-64 p-2 bg-gray-800 dark:bg-gray-700 text-white text-xs rounded shadow-lg">
-                      <p className="font-medium mb-1">考えられる申請:</p>
-                      <ul className="list-disc list-inside space-y-0.5">
-                        {getViolationInfo(v.type).tooltip.split('、').map((app, i) => (
-                          <li key={i}>{app}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{v.details}</td>
-              </tr>
+      {violations.length > 0 && (
+        <>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            総違反数: {violations.length}件
+          </p>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">日付</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">社員番号</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">氏名</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">種類</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">詳細</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                {violations.map((v, idx) => (
+                  <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                      {AttendanceService.formatDate(v.date)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{v.employeeId}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{v.employeeName}</td>
+                    <td className="px-4 py-3">
+                      <div className="group relative">
+                        <span
+                          className={`inline-flex px-2 py-1 rounded-full text-xs font-medium cursor-help ${typeColors[v.type]}`}
+                          title={`考えられる申請: ${getViolationInfo(v.type).tooltip}`}
+                        >
+                          {getViolationInfo(v.type).label}
+                        </span>
+                        {/* ツールチップ（ホバー時に表示） */}
+                        <div className="invisible group-hover:visible absolute z-10 left-0 top-full mt-1 w-64 p-2 bg-gray-800 dark:bg-gray-700 text-white text-xs rounded shadow-lg">
+                          <p className="font-medium mb-1">考えられる申請:</p>
+                          <ul className="list-disc list-inside space-y-0.5">
+                            {getViolationInfo(v.type).tooltip.split('、').map((app, i) => (
+                              <li key={i}>{app}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{v.details}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      {exceededEmployees.length > 0 && (
+        <div className={violations.length > 0 ? "pt-4 border-t border-gray-200 dark:border-gray-700" : ""}>
+          <p className="text-sm font-medium text-red-600 dark:text-red-400 mb-2">
+            36協定超過（法定外45h以上）: {exceededEmployees.length}名
+          </p>
+          <div className="space-y-1">
+            {exceededEmployees.map(emp => (
+              <div key={emp.employeeId} className="flex justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-300">{emp.employeeName}（{emp.employeeId}）</span>
+                <span className="font-medium text-red-600 dark:text-red-400">
+                  {AttendanceService.formatMinutesToTime(emp.totalLegalOvertimeMinutes)}
+                </span>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
