@@ -275,5 +275,23 @@ describe('AttendanceService - 残業時間2値計算（所定超過 / 法定外�
       expect(summary.totalOvertimeMinutes).toBe(375);       // 75+300
       expect(summary.totalLegalOvertimeMinutes).toBe(360);   // 60+300
     });
+
+    it('振替出勤は平日閾値で累積される', () => {
+      const records: AttendanceRecord[] = [
+        createTestRecord('9:00', { date: new Date('2025-12-01') }),  // 平日: 残業75, 法定外60
+        createTestRecord('9:00', {                                    // 振替出勤: 平日扱い → 残業75, 法定外60
+          date: new Date('2025-12-06'),
+          calendarType: 'non_statutory_holiday',
+          calendarRaw: '法定外',
+          applicationContent: '振替出勤',
+        }),
+      ];
+
+      const summary = AttendanceService.createEmployeeMonthlySummary('TEST001', records);
+
+      // 両方とも平日閾値: 75+75=150, 60+60=120
+      expect(summary.totalOvertimeMinutes).toBe(150);
+      expect(summary.totalLegalOvertimeMinutes).toBe(120);
+    });
   });
 });

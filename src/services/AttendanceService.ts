@@ -49,12 +49,23 @@ import {
   LEGAL_WORK_MINUTES,
   OvertimeAlertLevel,
   VIOLATION_URGENCY,
+  // 振替出勤
+  SUBSTITUTE_WORK_KEYWORDS,
 } from '../models/AttendanceTypes';
 
 /**
  * 勤怠分析サービス
  */
 export class AttendanceService {
+
+  /**
+   * 振替出勤かどうかを判定
+   * applicationContent に振替出勤キーワードが含まれていれば true
+   */
+  static isSubstituteWork(record: AttendanceRecord): boolean {
+    const content = record.applicationContent || '';
+    return SUBSTITUTE_WORK_KEYWORDS.some(kw => content.includes(kw));
+  }
 
   /**
    * XLSXファイルをパースして勤怠レコードを取得
@@ -729,8 +740,8 @@ export class AttendanceService {
   } {
     const actualWorkMinutes = this.parseTimeToMinutes(record.actualWorkHours);
 
-    // 休日出勤は実働時間全体が残業 = 法定外残業
-    if (record.calendarType !== 'weekday') {
+    // 休日出勤は実働時間全体が残業 = 法定外残業（振替出勤は平日扱い）
+    if (record.calendarType !== 'weekday' && !this.isSubstituteWork(record)) {
       return {
         overtimeMinutes: actualWorkMinutes,
         legalOvertimeMinutes: actualWorkMinutes,
@@ -1201,7 +1212,7 @@ export class AttendanceService {
     const leaveType = this.determineLeaveType(record.applicationContent);
     const actualWorkMinutes = this.parseTimeToMinutes(record.actualWorkHours);
 
-    const isHolidayWork = record.calendarType !== 'weekday' && !!record.clockIn;
+    const isHolidayWork = record.calendarType !== 'weekday' && !!record.clockIn && !this.isSubstituteWork(record);
     const { overtimeMinutes, legalOvertimeMinutes } = this.calculateOvertimeDetails(record);
     const rawLateMinutes = this.parseTimeToMinutes(record.lateMinutes);
     const earlyLeaveMinutes = this.parseTimeToMinutes(record.earlyLeaveMinutes);
@@ -1936,7 +1947,9 @@ export class AttendanceService {
 
     const summary: AnalysisSummary = {
       totalEmployees: employeeSummaries.length,
-      employeesWithIssues: employeeSummaries.filter(s => s.violations.length > 0).length,
+      employeesWithIssues: employeeSummaries.filter(s =>
+        s.violations.length > 0 || s.totalLegalOvertimeMinutes >= 45 * 60
+      ).length,
       highUrgencyCount: highCount,
       mediumUrgencyCount: mediumCount,
       lowUrgencyCount: lowCount,

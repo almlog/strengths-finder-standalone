@@ -230,14 +230,26 @@ export class LineWorksService {
       }
     });
 
-    // 高緊急度（法令違反）
+    // 36協定超過者数を算出
+    const exceededCount = employeeSummaries.filter(
+      emp => emp.totalLegalOvertimeMinutes >= 45 * 60
+    ).length;
+
+    // 高緊急度（法令違反 + 36協定超過）
     lines.push(`  高緊急度: ${summary.highUrgencyCount}名`);
+    const highItems: string[] = [];
+    if (exceededCount > 0) {
+      highItems.push(`36協定超過${exceededCount}名`);
+    }
     if (highViolations.length > 0) {
-      const items = highViolations
+      highViolations
         .sort((a, b) => b[1] - a[1])
-        .map(([type, count]) => `${violationLabels[type]}${count}件`)
-        .join(' / ');
-      lines.push(`    ${items}`);
+        .forEach(([type, count]) => {
+          highItems.push(`${violationLabels[type]}${count}件`);
+        });
+    }
+    if (highItems.length > 0) {
+      lines.push(`    （${highItems.join(' / ')}）`);
     } else {
       lines.push(`    （休憩違反/深夜休憩届出漏れ）`);
     }
