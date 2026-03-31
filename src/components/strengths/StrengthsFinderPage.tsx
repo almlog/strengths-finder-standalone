@@ -1,7 +1,7 @@
 // src/components/strengths/StrengthsFinderPage.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical, BookOpen, LogOut, Clock, Train, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react';
+import { Award, Plus, Users, Building, CheckSquare, Download, Upload, Search, Settings, FlaskConical, BookOpen, LogOut, Clock, Train, Radio, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,13 +18,14 @@ import TeamSimulation from './TeamSimulation';
 import AboutAnalysisTab from './AboutAnalysisTab';
 import AttendanceAnalysisPage from '../attendance/AttendanceAnalysisPage';
 import TrafficInfoPage from '../traffic/TrafficInfoPage';
+import PodcastPlayerPage from '../podcast/PodcastPlayerPage';
 import { StageMasterSettings } from './StageMasterSettings';
 import { MemberRateSettings } from './MemberRateSettings';
 import ImportConflictDialog, { ImportConflictInfo, ImportStrategy } from './ImportConflictDialog';
 import { Tabs, Tab } from '../ui/Tabs';
 import { MigrationService } from '../../services/MigrationService';
 
-type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths' | 'simulation' | 'attendance' | 'traffic' | 'about' | 'settings';
+type AnalysisTab = 'individual' | 'department' | 'selected' | 'strengths' | 'simulation' | 'attendance' | 'traffic' | 'podcast' | 'about' | 'settings';
 
 // スクロール処理の遅延時間（ms）
 // DOMの更新を待つために必要
@@ -174,6 +175,7 @@ const ImportExportButtons: React.FC = () => {
           className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-800 text-white px-3 py-2 rounded flex items-center"
           onClick={handleImportClick}
           title="JSONファイルからデータをインポート"
+          data-testid="import-button"
         >
           <Upload className="w-4 h-4 mr-1" />
           <span>インポート</span>
@@ -186,6 +188,7 @@ const ImportExportButtons: React.FC = () => {
           onChange={handleFileChange}
           accept=".json"
           className="hidden"
+          data-testid="import-file-input"
         />
       </div>
 
@@ -497,6 +500,14 @@ const StrengthsFinderPage: React.FC = () => {
               </div>
             }>
               <TrafficInfoPage />
+            </Tab>
+            <Tab id="podcast" label={
+              <div className="flex items-center">
+                <Radio className="w-4 h-4 mr-1" />
+                <span>スタラジ</span>
+              </div>
+            }>
+              <PodcastPlayerPage />
             </Tab>
             <Tab id="about" label={
               <div className="flex items-center">
