@@ -629,5 +629,6 @@ ls -la build/
 |----|---------|------|
 | D-001 | LINE WORKS複数Webhook対応でマイグレーション自動実行 | 2026-02-12 |
 | D-003 | LINE WORKS通知PDF添付機能の見送り（Webhook技術制約） | 2026-02-13 |
+| D-004 | スタラジ: fetch-on-demand + localStorageキャッシュ方式 | 2026-03-31 |
 
 詳細は `files/DECISIONS.md` を参照。

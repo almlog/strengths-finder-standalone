@@ -1,5 +1,31 @@
 # Changelog
 
+## [v3.9] - 2026-03-31
+
+### Added
+
+#### スタラジ（Podcast）タブ
+- **PodcastService**: GitHub Pages (`almlog.github.io/starradio-feed`) からエピソード・キャスト情報を取得、localStorageに1時間キャッシュ
+- **AudioPlayer**: HTML5 `<audio>` による再生コントロール（play/pause/seek/mute）
+- **EpisodeList**: 最新エピソードをNEWバッジ付き強調表示、過去分は折りたたみ、カレンダービュー（月ナビ・配信日ドット表示）
+- **EpisodeDetail**: タイトル→再生枠→キャスト（色付きチップ）→セグメント（クリックでシーク再生）の構成
+- **PodcastPlayerPage**: レスポンシブレイアウト（PC横並び/モバイル縦積み）、スタラジとは説明ボックス（仕組み・技術スタック）
+- **StrengthsFinderPage**: 「スタラジ」タブを交通情報とこのシステムについての間に追加
+
+#### テスト
+- PodcastService: 21件（URL構築4件/キャッシュ4件/fetch5件/ユーティリティ8件）
+
+#### 新規ファイル
+- `src/types/podcast.ts` — 型定義・定数
+- `src/services/PodcastService.ts` — fetch・キャッシュ・ユーティリティ
+- `src/services/__tests__/PodcastService.test.ts` — サービス層テスト
+- `src/components/podcast/AudioPlayer.tsx` — 再生コントロール
+- `src/components/podcast/EpisodeList.tsx` — エピソード一覧+カレンダー
+- `src/components/podcast/EpisodeDetail.tsx` — 詳細表示
+- `src/components/podcast/PodcastPlayerPage.tsx` — タブ本体
+
+---
+
 ## [v3.8] - 2026-03-01
 
 ### Changed
