@@ -12,6 +12,7 @@ import {
   signInWithEmailLink,
   EmailAuthProvider,
   linkWithCredential,
+  updatePassword,
 } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 
@@ -71,8 +72,19 @@ const SetPasswordPage: React.FC = () => {
       const result = await signInWithEmailLink(auth, email, window.location.href);
 
       // パスワード認証をリンク（永続的な認証に変換）
-      const credential = EmailAuthProvider.credential(email, password);
-      await linkWithCredential(result.user, credential);
+      try {
+        const credential = EmailAuthProvider.credential(email, password);
+        await linkWithCredential(result.user, credential);
+      } catch (linkError: any) {
+        // linkWithCredential 失敗時のフォールバック
+        // provider-already-linked 等の場合、updatePassword で直接設定
+        if (linkError.code === 'auth/provider-already-linked' ||
+            linkError.code === 'auth/credential-already-in-use') {
+          await updatePassword(result.user, password);
+        } else {
+          throw linkError;
+        }
+      }
 
       // LocalStorageをクリア
       window.localStorage.removeItem('emailForSignIn');
