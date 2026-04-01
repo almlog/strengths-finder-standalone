@@ -136,7 +136,7 @@ describe('WelcomeModal', () => {
   });
 
   describe('Step 2: 機能紹介', () => {
-    it('5つの機能カードが表示される', () => {
+    it('6つの機能カードが表示される', () => {
       renderModal(true);
       fireEvent.click(screen.getByText('次へ'));
       expect(screen.getByText('個人分析')).toBeInTheDocument();
@@ -144,6 +144,7 @@ describe('WelcomeModal', () => {
       expect(screen.getByText('チームシミュレーション')).toBeInTheDocument();
       expect(screen.getByText('勤怠分析')).toBeInTheDocument();
       expect(screen.getByText('資質分析')).toBeInTheDocument();
+      expect(screen.getByText('スタラジ')).toBeInTheDocument();
     });
   });
 

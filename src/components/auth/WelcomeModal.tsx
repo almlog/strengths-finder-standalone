@@ -16,6 +16,7 @@ import {
   Shuffle,
   Clock,
   Sparkles,
+  Radio,
   UserPlus,
   KeyRound,
   LogIn,
@@ -57,6 +58,12 @@ const FEATURES = [
     description: '4カテゴリに分類された資質の分布と傾向を分析',
     image: `${process.env.PUBLIC_URL}/images/onboarding/onboarding-strengths.png`,
     Icon: Sparkles,
+  },
+  {
+    title: 'スタラジ',
+    description: '社内Podcastの配信一覧・再生・セグメント表示',
+    image: `${process.env.PUBLIC_URL}/images/onboarding/onboarding-starradio.png`,
+    Icon: Radio,
   },
 ] as const;
 
