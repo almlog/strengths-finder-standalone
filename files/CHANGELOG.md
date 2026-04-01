@@ -1,5 +1,36 @@
 # Changelog
 
+## [v3.9.1] - 2026-04-01
+
+### Added
+
+#### WelcomeModal — スタラジ機能カード追加
+- ログイン前の説明モーダル（Step2: 機能紹介）にスタラジカードを追加
+- 6項目が2列×3行グリッドで表示（個人分析/チーム分析/チームシミュレーション/勤怠分析/資質分析/スタラジ）
+- 画像: `public/images/onboarding/onboarding-starradio.png`
+
+#### テスト
+- SetPasswordPage: 4件（正常系/provider-already-linked/credential-already-in-use/その他エラー）
+- AttendanceService.EarlyLeaveValidation: 8件（早退申請違反判定の全パターン）
+- WelcomeModal: 既存テスト更新（5→6機能カード）
+
+### Fixed
+
+#### 勤怠分析 — 残業時間カード表示の数値不一致
+- 緊急度カードの残業時間表示が `totalOvertimeMinutes`（所定超過）を使用していた
+- `totalLegalOvertimeMinutes`（法定外残業）に修正し、36協定判定基準と統一
+
+#### 勤怠分析 — 早退申請違反の誤判定
+- `EARLY_LEAVE_APPLICATION_KEYWORDS` に `'早退'` を追加（単独申請のケースをカバー）
+- `HALF_DAY_APPLICATION_KEYWORDS` に `'午前有休'` `'午後有休'` を追加（有休による早退を除外）
+
+#### Firebase認証 — 初回登録後ログイン失敗
+- `SetPasswordPage` で `linkWithCredential()` が `auth/provider-already-linked` / `auth/credential-already-in-use` で失敗した場合、`updatePassword()` でフォールバック
+- Email Link認証後にパスワードプロバイダが未設定のまま残る問題を解消
+- 既存ログイン済みユーザーへの影響なし
+
+---
+
 ## [v3.9] - 2026-03-31
 
 ### Added
