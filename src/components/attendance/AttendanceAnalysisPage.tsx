@@ -891,7 +891,7 @@ const SummaryDetailModal: React.FC<{
                   // 残業情報（highUrgency用）- 36協定判定は法定外残業ベース
                   const overtimeLevel = AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes);
                   const isOvertimeHigh = ['exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'].includes(overtimeLevel);
-                  const overtimeHours = Math.round(emp.totalOvertimeMinutes / 60 * 10) / 10;
+                  const overtimeHours = Math.round(emp.totalLegalOvertimeMinutes / 60 * 10) / 10;
 
                   return (
                     <tr key={emp.employeeId} className="hover:bg-gray-50 dark:hover:bg-gray-700">

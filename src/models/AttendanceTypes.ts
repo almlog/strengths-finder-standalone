@@ -508,6 +508,7 @@ export const EARLY_LEAVE_APPLICATION_KEYWORDS = [
   '遅刻・早退申請',
   '遅刻・早退',
   '早退届',
+  '早退',
 ] as const;
 
 /**
@@ -521,6 +522,8 @@ export const HALF_DAY_APPLICATION_KEYWORDS = [
   'PM半休',
   '午前休',
   '午後休',
+  '午前有休',
+  '午後有休',
   '半休申請',
   '半日休暇',
 ] as const;
