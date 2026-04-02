@@ -169,6 +169,7 @@ export class AttendanceService {
       // 深夜労働時間
       nightWorkMinutes: String(row[XLSX_COLUMN_INDEX.NIGHT_WORK_MINUTES] || '').trim(),
       actualWorkHours: String(row[XLSX_COLUMN_INDEX.ACTUAL_WORK_HOURS] || '').trim(),
+      workHours: String(row[XLSX_COLUMN_INDEX.WORK_HOURS] || '').trim(),
       // 残業時間: 平日法定外残業(36協定用)を使用
       overtimeHours: String(row[XLSX_COLUMN_INDEX.LEGAL_OVERTIME_36] || '').trim(),
       lateMinutes: String(row[XLSX_COLUMN_INDEX.LATE_MINUTES] || '').trim(),
@@ -730,8 +731,9 @@ export class AttendanceService {
    * - 休憩時間修正申請がない場合、休憩1:00固定として実働を再計算
    *   （楽楽勤怠が自動で1:15に増加させるが、実際の休憩は1:00のため）
    * - 半休時の自動15分休憩も無視（全額戻す）
-   * - 残業: max(0, 調整後実働 - 7h45m(465分)) ← 所定労働時間超過
-   * - 法定外: max(0, 調整後実働 - 8h(480分)) ← 法定労働時間超過（36協定用）
+   * - 残業: max(0, 調整後実働 - (465分 + 有休分)) ← 所定労働時間超過
+   * - 法定外: max(0, 調整後実働 - (480分 + 有休分)) ← 法定労働時間超過（36協定用）
+   * - 有休時間取得日: 勤務時間と実働時間の差分（=有休分）だけ閾値を引き上げ
    * - 休日出勤: 両方とも実働時間の全量
    */
   static calculateOvertimeDetails(record: AttendanceRecord): {
@@ -751,11 +753,35 @@ export class AttendanceService {
     // 休憩時間調整: 楽楽勤怠の自動増加分を実働に戻す
     const adjustedWorkMinutes = actualWorkMinutes + this.getBreakAdjustmentMinutes(record);
 
+    // 有休時間の閾値引き上げ: 有休分だけ法定/所定の基準を上げる
+    const paidLeaveMinutes = this.getHourlyPaidLeaveMinutes(record);
+
     // 平日: 調整後実働から所定/法定の閾値を引いて計算
     return {
-      overtimeMinutes: Math.max(0, adjustedWorkMinutes - STANDARD_WORK_MINUTES),
-      legalOvertimeMinutes: Math.max(0, adjustedWorkMinutes - LEGAL_WORK_MINUTES),
+      overtimeMinutes: Math.max(0, adjustedWorkMinutes - STANDARD_WORK_MINUTES - paidLeaveMinutes),
+      legalOvertimeMinutes: Math.max(0, adjustedWorkMinutes - LEGAL_WORK_MINUTES - paidLeaveMinutes),
     };
+  }
+
+  /**
+   * 有休時間（時間単位年休）による法定基準の引き上げ分（分）を返す
+   * - 申請内容に「有休時間」を含み、勤務時間 > 実働時間 の場合に適用
+   * - 有休分 = 勤務時間 - 実働時間
+   * - 午前/午後有休は対象外（「有休時間」の文字列を含まないため）
+   */
+  private static getHourlyPaidLeaveMinutes(record: AttendanceRecord): number {
+    const applicationContent = record.applicationContent || '';
+    if (!applicationContent.includes('有休時間')) {
+      return 0;
+    }
+
+    const workMinutes = this.parseTimeToMinutes(record.workHours || '');
+    const actualMinutes = this.parseTimeToMinutes(record.actualWorkHours);
+
+    if (workMinutes > actualMinutes) {
+      return workMinutes - actualMinutes;
+    }
+    return 0;
   }
 
   /**

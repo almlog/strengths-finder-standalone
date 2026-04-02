@@ -55,6 +55,7 @@ export interface AttendanceRecord {
   nightBreakModification: string; // 深夜休憩修正
   nightWorkMinutes: string;      // 深夜労働時間
   actualWorkHours: string; // 実働時間
+  workHours?: string;      // 勤務時間（有休時間の法定外残業調整に使用）
   overtimeHours: string;   // 平日法定外残業(36協定用)
   lateMinutes: string;     // 遅刻
   earlyLeaveMinutes: string; // 早退
@@ -138,6 +139,7 @@ export const XLSX_COLUMN_INDEX = {
   BREAK_TIME: 36,           // 休憩時間 (Index 37)
   NIGHT_BREAK_MODIFICATION: 38, // 深夜休憩修正 (Index 39)
   ACTUAL_WORK_HOURS: 39,    // 実働時間 (Index 40)
+  WORK_HOURS: 40,            // 勤務時間 (Index 41) — 有休時間の法定外残業調整に使用
   NIGHT_WORK_MINUTES: 45,   // 深夜労働 (Index 46)
   LATE_MINUTES: 49,         // 遅刻 (Index 50)
   EARLY_LEAVE_MINUTES: 50,  // 早退 (Index 51)
