@@ -335,9 +335,9 @@ describe('LineWorksService', () => {
         const message = LineWorksService.buildAttendanceMessage(result);
 
         // 田中太郎: 法定外45h, 20/22営業日 → 残り2営業日
-        expect(message).toContain('■ 残業状況（36協定・残り2営業日）');
+        expect(message).toContain('■ 【月末予測】このペースで進むと以下の恐れがあります（残り2営業日）');
         // 田中太郎: 法定外45h → 予測49:30 = 超過
-        expect(message).toContain('田中太郎  現在45:00 見込49:30  超過');
+        expect(message).toContain('田中太郎  現在45:00 → 予測49:30  [超過]');
       });
     });
 

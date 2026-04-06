@@ -313,11 +313,11 @@ export class LineWorksService {
     });
 
     if (alertMembers.length > 0) {
-      lines.push('', `■ 残業状況（36協定・残り${remainingWeekdays}営業日）`);
+      lines.push('', `■ 【月末予測】このペースで進むと以下の恐れがあります（残り${remainingWeekdays}営業日）`);
       // 月末予測でソート（降順）
       alertMembers.sort((a, b) => b.projected - a.projected);
       alertMembers.forEach((m) => {
-        lines.push(`  ${m.name}  現在${this.formatMinutesToHM(m.current)} 見込${this.formatMinutesToHM(m.projected)}  ${m.level}`);
+        lines.push(`  ${m.name}  現在${this.formatMinutesToHM(m.current)} → 予測${this.formatMinutesToHM(m.projected)}  [${m.level}]`);
       });
     }
 
