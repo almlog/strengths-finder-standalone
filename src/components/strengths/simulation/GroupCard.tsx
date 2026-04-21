@@ -67,6 +67,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
   return (
     <div
       ref={setNodeRef}
+      data-testid={`group-card-${group.id}`}
       className={`bg-white dark:bg-gray-800 rounded-lg border-2 p-4 transition-colors ${
         isOver
           ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20'

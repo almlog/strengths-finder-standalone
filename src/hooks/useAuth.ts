@@ -41,6 +41,14 @@ export const useAuth = (): AuthState => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // デモモード: Firebase認証をバイパス
+    if (process.env.REACT_APP_DEMO_MODE === 'true') {
+      setUser({ email: 'demo@altx.co.jp', uid: 'demo-user' } as unknown as User);
+      setRole('admin');
+      setLoading(false);
+      return;
+    }
+
     // Firebase認証状態の監視
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {

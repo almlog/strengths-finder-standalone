@@ -47,6 +47,7 @@ const MemberCard: React.FC<MemberCardProps> = ({ member, isDragging }) => {
       style={style}
       {...attributes}
       {...listeners}
+      data-testid={`member-card-${member.id}`}
       className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3 mb-2 cursor-move hover:shadow-md transition-shadow"
     >
       <div className="flex items-center justify-between">

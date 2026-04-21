@@ -794,8 +794,8 @@ export class AttendanceService {
   private static getBreakAdjustmentMinutes(record: AttendanceRecord): number {
     const applicationContent = record.applicationContent || '';
 
-    // 休憩時間修正申請がある場合は調整しない
-    if (applicationContent.includes('休憩時間修正')) {
+    // 休憩時間修正申請がある場合は調整しない（短縮形'休憩修正'も含む）
+    if (applicationContent.includes('休憩時間修正') || applicationContent.includes('休憩修正')) {
       return 0;
     }
 
@@ -1221,9 +1221,9 @@ export class AttendanceService {
       return false;
     }
 
-    // 休憩時間修正申請があれば問題なし
+    // 休憩時間修正申請があれば問題なし（短縮形'休憩修正'も含む）
     const applicationContent = record.applicationContent || '';
-    if (applicationContent.includes('休憩時間修正')) {
+    if (applicationContent.includes('休憩時間修正') || applicationContent.includes('休憩修正')) {
       return false;
     }
 

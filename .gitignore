@@ -65,3 +65,5 @@ personality-analysis-implementation/
 # PR video pipeline outputs
 videos/recordings/
 videos/output/
+videos/screenshots/
+test-results/
