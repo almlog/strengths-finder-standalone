@@ -230,6 +230,39 @@ describe('AttendanceService - 時間有休と休憩時間の検証', () => {
       expect(analysis.actualBreakMinutes).toBe(30); // 申請値そのまま
       expect(analysis.requiredBreakMinutes).toBe(60);
     });
+
+    it('BT205_休憩修正(短縮形)+午前有休 → 修正後45分は自動付与扱いにしない', () => {
+      // 実データ再現: MAY THAZIN PHYO 2026-04-06
+      // applicationContent='休憩修正,午前有休', 13:00-21:00, break=45, 実働=7:15
+      // 休憩修正申請があるため break=45 はそのまま使用 → 実働7:15(>6h,≤8h) → 必要45分 → 45 >= 45 → 違反なし
+      const record = createTestRecord('BT205', '休憩修正短縮形', {
+        applicationContent: '休憩修正,午前有休',
+        clockIn: new Date('2026-01-06T13:00:00'),
+        clockOut: new Date('2026-01-06T21:00:00'),
+        breakTimeMinutes: 45,
+        actualWorkHours: '7:15',
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      // 休憩修正申請があるため自動付与扱いにせず、break=45 をそのまま使用
+      expect(analysis.actualBreakMinutes).toBe(45);
+      expect(analysis.hasBreakViolation).toBe(false); // 45 >= 45(必要) → 違反なし
+    });
+
+    it('BT206_休憩修正(短縮形)のみ → 修正後45分は自動付与扱いにしない', () => {
+      // '休憩修正' 単独での動作確認
+      const record = createTestRecord('BT206', '休憩修正単独', {
+        applicationContent: '休憩修正',
+        breakTimeMinutes: 45,
+        actualWorkHours: '7:15',
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.actualBreakMinutes).toBe(45);
+      expect(analysis.hasBreakViolation).toBe(false);
+    });
   });
 
   describe('休憩時間計算のヘルパー関数テスト', () => {

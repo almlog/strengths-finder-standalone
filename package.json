@@ -47,7 +47,11 @@
     "create:user": "node scripts/create-local-user.js",
     "create:admin": "node scripts/create-local-user.js --admin",
     "admin:set": "node scripts/set-admin-role.js",
-    "admin:list": "node scripts/list-users.js"
+    "admin:list": "node scripts/list-users.js",
+    "video:studio": "remotion studio remotion/index.ts --port 3007",
+    "video:record": "tsx scripts/video-record.ts",
+    "video:render": "tsx scripts/video-render.ts",
+    "video:all": "npm run video:record && npm run video:render"
   },
   "eslintConfig": {
     "extends": [
@@ -78,7 +82,13 @@
     }
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@remotion/cli": "^4.0.429",
+    "@remotion/renderer": "^4.0.429",
     "@types/html2canvas": "^0.5.35",
-    "firebase-admin": "^13.6.0"
+    "cross-env": "^10.1.0",
+    "firebase-admin": "^13.6.0",
+    "remotion": "^4.0.429",
+    "tsx": "^4.21.0"
   }
 }

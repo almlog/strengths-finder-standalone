@@ -48,7 +48,7 @@ export const Tabs: React.FC<TabsProps> = ({ children, activeTab, onTabChange }) 
   }, [activeTab]);
 
   return (
-    <div className="mb-4">
+    <div className="mb-4" data-testid="tabs-container">
       {/* スクロール可能なタブコンテナ */}
       <div
         ref={tabsContainerRef}
@@ -65,6 +65,7 @@ export const Tabs: React.FC<TabsProps> = ({ children, activeTab, onTabChange }) 
             <button
               key={index}
               ref={isActive ? activeTabRef : null}
+              data-testid={`tab-${tabElement.props.id}`}
               className={`px-3 py-2 font-medium whitespace-nowrap flex-shrink-0 text-sm md:text-base md:px-4 transition-colors ${
                 isActive
                   ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
