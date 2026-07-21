@@ -2,9 +2,8 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest"],
-      "disabled": true,
-      "_comment": "E2E テスト時に有効化。常時有効はコンテキスト消費に注意"
+      "args": ["@playwright/mcp@latest", "--browser", "chrome"],
+      "_comment": "e-staffingスクレイピング・E2Eテスト時に使用"
     },
     "context7": {
       "command": "npx",

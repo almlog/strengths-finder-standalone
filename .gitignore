@@ -13,6 +13,7 @@
 
 # misc
 .DS_Store
+.env
 .env.local
 .env.development.local
 .env.test.local
@@ -51,6 +52,12 @@ docs/ai-model/
 
 # rakurakukintai folder (all files)
 docs/rakurakukintai/
+
+# e-staffing data (個人名・勤怠情報を含む - NEVER push to GitHub)
+docs/e-staffing/
+
+# e-staffing Chrome profile (login session)
+.chrome-profile-estaffing/
 
 # Presentation files
 docs/slides/*.pptx

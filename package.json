@@ -51,7 +51,9 @@
     "video:studio": "remotion studio remotion/index.ts --port 3007",
     "video:record": "tsx scripts/video-record.ts",
     "video:render": "tsx scripts/video-render.ts",
-    "video:all": "npm run video:record && npm run video:render"
+    "video:all": "npm run video:record && npm run video:render",
+    "launch:estaffing": "node scripts/launch-estaffing.js",
+    "scrape:estaffing": "node scripts/scrape-estaffing.js"
   },
   "eslintConfig": {
     "extends": [
@@ -83,6 +85,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "playwright": "^1.58.2",
     "@remotion/cli": "^4.0.429",
     "@remotion/renderer": "^4.0.429",
     "@types/html2canvas": "^0.5.35",

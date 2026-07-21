@@ -56,7 +56,139 @@ import { useStrengths } from '../../contexts/StrengthsContext';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
 
-type TabType = 'summary' | 'employees' | 'departments' | 'violations';
+// ── e-staffingパートナー勤怠 ─────────────────────────────────
+interface EStaffingRecord {
+  name: string;
+  staffCode: string;
+  department: string;
+  contractStart: string;
+  contractEnd: string;
+  workDays: number;
+  absentDays: number;
+  leaveDays: number;
+  totalMinutes: number;
+  baseMinutes: number;
+  overtimeMinutes: number;
+  targetMonth: string;
+  note: string;
+}
+
+function parseCsvFields(line: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      fields.push(current); current = '';
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current);
+  return fields;
+}
+
+// 東SI{A}-{B}-{C} → 13D5{A}{B}{C}0 (XLSX側部署コードに統一)
+function normalizeEStaffingDept(dept: string): string {
+  const m = dept.trim().match(/^東SI(\d+)-(\d+)-(\d+)$/);
+  if (m) return `13D5${m[1]}${m[2]}${m[3]}0`;
+  return dept.trim();
+}
+
+function parseEStaffingCsv(text: string): EStaffingRecord[] {
+  const lines = text.replace(/^﻿/, '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length < 2) return [];
+  return lines.slice(1).map(line => {
+    const f = parseCsvFields(line);
+    return {
+      name: f[0] || '', staffCode: f[1] || '',
+      department: normalizeEStaffingDept(f[2] || ''),
+      contractStart: f[3] || '', contractEnd: f[4] || '',
+      workDays: parseInt(f[5]) || 0, absentDays: parseInt(f[6]) || 0, leaveDays: parseInt(f[7]) || 0,
+      totalMinutes: parseInt(f[8]) || 0, baseMinutes: parseInt(f[9]) || 0, overtimeMinutes: parseInt(f[10]) || 0,
+      targetMonth: f[11] || '', note: f[12] || '',
+    };
+  });
+}
+
+type TabType = 'summary' | 'employees' | 'departments' | 'violations' | 'integrated';
+
+// ── マージ関数 ────────────────────────────────────────────────
+
+function mergeXlsxRecords(
+  existing: AttendanceRecord[],
+  incoming: AttendanceRecord[],
+  mode: 'overwrite' | 'merge' | 'replace'
+): AttendanceRecord[] {
+  if (mode === 'replace') return incoming;
+
+  const incomingIds = new Set(incoming.map(r => r.employeeId));
+
+  if (mode === 'overwrite') {
+    // incoming に含まれる employeeId のレコードはすべて incoming で置換
+    const existingFiltered = existing.filter(r => !incomingIds.has(r.employeeId));
+    return [...existingFiltered, ...incoming];
+  }
+
+  // merge: 同じ employeeId+date のレコードは incoming を優先、そうでないものは両方を結合
+  const incomingKey = new Set(incoming.map(r => `${r.employeeId}_${r.date}`));
+  const existingFiltered = existing.filter(r => !incomingKey.has(`${r.employeeId}_${r.date}`));
+  return [...existingFiltered, ...incoming];
+}
+
+function mergePartnerRecords(
+  existing: EStaffingRecord[],
+  incoming: EStaffingRecord[],
+  mode: 'overwrite' | 'merge' | 'replace'
+): EStaffingRecord[] {
+  if (mode === 'replace') return incoming;
+
+  const getKey = (r: EStaffingRecord) => r.staffCode || r.name;
+  const incomingKeys = new Set(incoming.map(getKey));
+
+  if (mode === 'overwrite') {
+    const existingFiltered = existing.filter(r => !incomingKeys.has(getKey(r)));
+    return [...existingFiltered, ...incoming];
+  }
+
+  // merge: 同じキーのレコードは各フィールドを非ゼロ/非空の incoming 値で上書き
+  const existingMap = new Map(existing.map(r => [getKey(r), r]));
+  incoming.forEach(inc => {
+    const key = getKey(inc);
+    const ex = existingMap.get(key);
+    if (!ex) {
+      existingMap.set(key, inc);
+    } else {
+      existingMap.set(key, {
+        name: inc.name || ex.name,
+        staffCode: inc.staffCode || ex.staffCode,
+        department: inc.department || ex.department,
+        contractStart: inc.contractStart || ex.contractStart,
+        contractEnd: inc.contractEnd || ex.contractEnd,
+        workDays: inc.workDays !== 0 ? inc.workDays : ex.workDays,
+        absentDays: inc.absentDays !== 0 ? inc.absentDays : ex.absentDays,
+        leaveDays: inc.leaveDays !== 0 ? inc.leaveDays : ex.leaveDays,
+        totalMinutes: inc.totalMinutes !== 0 ? inc.totalMinutes : ex.totalMinutes,
+        baseMinutes: inc.baseMinutes !== 0 ? inc.baseMinutes : ex.baseMinutes,
+        overtimeMinutes: inc.overtimeMinutes !== 0 ? inc.overtimeMinutes : ex.overtimeMinutes,
+        targetMonth: inc.targetMonth || ex.targetMonth,
+        note: inc.note || ex.note,
+      });
+    }
+  });
+  // existing にいて incoming にいない人も保持
+  existing.forEach(ex => {
+    const key = getKey(ex);
+    if (!incomingKeys.has(key)) {
+      existingMap.set(key, ex);
+    }
+  });
+  return Array.from(existingMap.values());
+}
 
 // サマリーカード詳細モーダル用の型
 type SummaryModalType = 'issues' | 'highUrgency' | 'mediumUrgency' | null;
@@ -97,6 +229,13 @@ const AttendanceAnalysisPage: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [summaryModal, setSummaryModal] = useState<SummaryModalType>(null);
   const [exportingEmployeeId, setExportingEmployeeId] = useState<string | null>(null);
+  const [partnerRecords, setPartnerRecords] = useState<EStaffingRecord[]>([]);
+
+  // 確認ダイアログ用の状態
+  const [showXlsxConfirm, setShowXlsxConfirm] = useState(false);
+  const [showCsvConfirm, setShowCsvConfirm] = useState(false);
+  const [pendingXlsxFile, setPendingXlsxFile] = useState<File | null>(null);
+  const [pendingCsvFile, setPendingCsvFile] = useState<File | null>(null);
 
   // ユーザーフィルター用の状態
   const [rawRecords, setRawRecords] = useState<AttendanceRecord[]>([]);
@@ -141,7 +280,7 @@ const AttendanceAnalysisPage: React.FC = () => {
     setAnalysisResult(result);
   }, [userSelections, includeToday, filterRecordsBySelection]);
 
-  const handleFileUpload = useCallback(async (file: File) => {
+  const processXlsxFile = useCallback(async (file: File, mergeMode?: 'overwrite' | 'merge' | 'replace') => {
     setIsLoading(true);
     setError(null);
 
@@ -159,16 +298,21 @@ const AttendanceAnalysisPage: React.FC = () => {
       // パース
       const parsedRecords = await AttendanceService.parseXlsx(file);
 
+      // マージモードに応じてレコードを結合
+      const finalRecords = mergeMode
+        ? mergeXlsxRecords(rawRecords, parsedRecords, mergeMode)
+        : parsedRecords;
+
       // 生データを保存（ユーザーフィルター用）
-      setRawRecords(parsedRecords);
+      setRawRecords(finalRecords);
 
       // ユーザー選択を初期化（全員選択状態）
-      const initialSelections = initializeUserSelections(parsedRecords);
+      const initialSelections = initializeUserSelections(finalRecords);
       setUserSelections(initialSelections);
 
       // 分析実行（全員選択状態で）
-      setRecords(parsedRecords);
-      const result = AttendanceService.analyzeExtended(parsedRecords, { includeToday });
+      setRecords(finalRecords);
+      const result = AttendanceService.analyzeExtended(finalRecords, { includeToday });
       setAnalysisResult(result);
 
     } catch (err) {
@@ -176,7 +320,16 @@ const AttendanceAnalysisPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [includeToday, initializeUserSelections]);
+  }, [includeToday, initializeUserSelections, rawRecords]);
+
+  const handleFileUpload = useCallback(async (file: File) => {
+    if (rawRecords.length > 0) {
+      setPendingXlsxFile(file);
+      setShowXlsxConfirm(true);
+      return;
+    }
+    await processXlsxFile(file);
+  }, [rawRecords.length, processXlsxFile]);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -385,6 +538,28 @@ const AttendanceAnalysisPage: React.FC = () => {
     }
   }, [analysisResult]);
 
+  const processPartnerCsv = useCallback(async (file: File, mergeMode?: 'overwrite' | 'merge' | 'replace') => {
+    if (!file.name.endsWith('.csv')) {
+      alert('CSVファイルを選択してください');
+      return;
+    }
+    const text = await file.text();
+    const incoming = parseEStaffingCsv(text);
+    const finalRecords = mergeMode
+      ? mergePartnerRecords(partnerRecords, incoming, mergeMode)
+      : incoming;
+    setPartnerRecords(finalRecords);
+  }, [partnerRecords]);
+
+  const handlePartnerCsvUpload = useCallback(async (file: File) => {
+    if (partnerRecords.length > 0) {
+      setPendingCsvFile(file);
+      setShowCsvConfirm(true);
+      return;
+    }
+    await processPartnerCsv(file);
+  }, [partnerRecords.length, processPartnerCsv]);
+
   // 部門でフィルターされた従業員サマリー
   const filteredEmployees = analysisResult?.employeeSummaries.filter(
     s => filterDepartment === 'all' || s.department === filterDepartment
@@ -481,6 +656,66 @@ const AttendanceAnalysisPage: React.FC = () => {
             />
           </div>
         </div>
+      )}
+
+      {/* XLSX確認ダイアログ */}
+      {showXlsxConfirm && pendingXlsxFile && (
+        <DataConflictDialog
+          dataType="xlsx"
+          existingMonth={analysisResult ? getXlsxTargetMonth(analysisResult) : undefined}
+          onOverwrite={async () => {
+            setShowXlsxConfirm(false);
+            const file = pendingXlsxFile;
+            setPendingXlsxFile(null);
+            await processXlsxFile(file, 'overwrite');
+          }}
+          onMerge={async () => {
+            setShowXlsxConfirm(false);
+            const file = pendingXlsxFile;
+            setPendingXlsxFile(null);
+            await processXlsxFile(file, 'merge');
+          }}
+          onReplace={async () => {
+            setShowXlsxConfirm(false);
+            const file = pendingXlsxFile;
+            setPendingXlsxFile(null);
+            await processXlsxFile(file, 'replace');
+          }}
+          onCancel={() => {
+            setShowXlsxConfirm(false);
+            setPendingXlsxFile(null);
+          }}
+        />
+      )}
+
+      {/* CSV確認ダイアログ */}
+      {showCsvConfirm && pendingCsvFile && (
+        <DataConflictDialog
+          dataType="csv"
+          existingMonth={partnerRecords.length > 0 ? partnerRecords[0].targetMonth : undefined}
+          onOverwrite={async () => {
+            setShowCsvConfirm(false);
+            const file = pendingCsvFile;
+            setPendingCsvFile(null);
+            await processPartnerCsv(file, 'overwrite');
+          }}
+          onMerge={async () => {
+            setShowCsvConfirm(false);
+            const file = pendingCsvFile;
+            setPendingCsvFile(null);
+            await processPartnerCsv(file, 'merge');
+          }}
+          onReplace={async () => {
+            setShowCsvConfirm(false);
+            const file = pendingCsvFile;
+            setPendingCsvFile(null);
+            await processPartnerCsv(file, 'replace');
+          }}
+          onCancel={() => {
+            setShowCsvConfirm(false);
+            setPendingCsvFile(null);
+          }}
+        />
       )}
 
       {/* ファイルアップロード */}
@@ -713,6 +948,14 @@ const AttendanceAnalysisPage: React.FC = () => {
               >
                 違反一覧
               </TabButton>
+              {partnerRecords.length > 0 && (
+                <TabButton
+                  active={activeTab === 'integrated'}
+                  onClick={() => setActiveTab('integrated')}
+                >
+                  統合
+                </TabButton>
+              )}
             </nav>
           </div>
 
@@ -756,6 +999,12 @@ const AttendanceAnalysisPage: React.FC = () => {
             {activeTab === 'violations' && (
               <ViolationsTab result={analysisResult} />
             )}
+            {activeTab === 'integrated' && partnerRecords.length > 0 && (
+              <IntegratedTab
+                analysisResult={analysisResult}
+                partnerRecords={partnerRecords}
+              />
+            )}
           </div>
         </>
       )}
@@ -772,6 +1021,13 @@ const AttendanceAnalysisPage: React.FC = () => {
           onClose={() => setSummaryModal(null)}
         />
       )}
+
+      {/* パートナー社員勤怠（e-staffing） */}
+      <PartnerAttendanceSection
+        records={partnerRecords}
+        onUpload={handlePartnerCsvUpload}
+        onReset={() => setPartnerRecords([])}
+      />
 
       {/* 個人PDF出力用の非表示コンテンツ */}
       {exportingEmployeeId && analysisResult && (
@@ -1122,12 +1378,44 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
     totalWorkDays: result.employeeSummaries.reduce((sum, s) => sum + s.totalWorkDays, 0),
     // 残業統計
     totalOvertime: result.employeeSummaries.reduce((sum, s) => sum + s.totalOvertimeMinutes, 0),
+    totalLegalOvertime: result.employeeSummaries.reduce((sum, s) => sum + s.totalLegalOvertimeMinutes, 0),
     // その他
     totalHolidayWork: result.employeeSummaries.reduce((sum, s) => sum + s.holidayWorkDays, 0),
     totalLateDays: result.employeeSummaries.reduce((sum, s) => sum + s.lateDays, 0),
     totalEarlyLeaveDays: result.employeeSummaries.reduce((sum, s) => sum + s.earlyLeaveDays, 0),
     totalMissingClocks: result.employeeSummaries.reduce((sum, s) => sum + s.missingClockDays, 0),
   };
+
+  // 選択メンバー工数稼働率（7.5h/日基準）
+  const capacityStats = useMemo(() => {
+    const summaries = result.employeeSummaries;
+    const memberCount = summaries.length;
+    if (memberCount === 0) return null;
+
+    const STANDARD_MINUTES_PER_DAY = 450; // 7.5h
+    const totalWeekdays = summaries[0].totalWeekdaysInMonth;
+    const passedWeekdays = summaries[0].passedWeekdays;
+
+    const expectedMinutesPassed = passedWeekdays * STANDARD_MINUTES_PER_DAY * memberCount;
+    const expectedMinutesTotal = totalWeekdays * STANDARD_MINUTES_PER_DAY * memberCount;
+    const actualMinutes = summaries.reduce((sum, s) => sum + s.totalWorkMinutes, 0);
+    const leaveMinutes = summaries.reduce(
+      (sum, s) => sum + s.fullDayLeaveDays * STANDARD_MINUTES_PER_DAY + s.halfDayLeaveDays * (STANDARD_MINUTES_PER_DAY / 2),
+      0
+    );
+
+    const utilizationRate = expectedMinutesPassed > 0 ? (actualMinutes / expectedMinutesPassed) * 100 : 0;
+    const projectedMinutes = passedWeekdays > 0 ? Math.round(actualMinutes / passedWeekdays * totalWeekdays) : actualMinutes;
+    const projectedRate = expectedMinutesTotal > 0 ? (projectedMinutes / expectedMinutesTotal) * 100 : 0;
+    const deltaMinutes = actualMinutes - expectedMinutesPassed;
+
+    return {
+      memberCount, totalWeekdays, passedWeekdays,
+      expectedMinutesPassed, expectedMinutesTotal,
+      actualMinutes, leaveMinutes,
+      utilizationRate, projectedRate, deltaMinutes,
+    };
+  }, [result.employeeSummaries]);
 
   // 部署コード一覧を取得
   const departmentCodes = result.departmentSummaries.map(d => d.department);
@@ -1409,6 +1697,121 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
         )}
       </div>
 
+      {/* 選択メンバー工数稼働率 */}
+      {capacityStats && (() => {
+        const rate = capacityStats.utilizationRate;
+        const isShortfall = rate < 100;
+        const isSlightOver = rate >= 110 && rate < 120;
+        const isOver = rate >= 120;
+        const isNormal = rate >= 100 && rate < 110;
+
+        const statusLabel = isShortfall ? '工数不足' : isNormal ? '正常' : isSlightOver ? 'やや超過' : '超過稼働';
+        const statusColor = (isShortfall || isOver)
+          ? 'text-red-700 dark:text-red-300'
+          : isSlightOver
+          ? 'text-yellow-700 dark:text-yellow-300'
+          : 'text-green-700 dark:text-green-300';
+        const barColor = (isShortfall || isOver) ? 'bg-red-500' : isSlightOver ? 'bg-yellow-400' : 'bg-green-500';
+        const borderColor = (isShortfall || isOver)
+          ? 'border-red-200 dark:border-red-800'
+          : isSlightOver
+          ? 'border-yellow-200 dark:border-yellow-700'
+          : 'border-green-200 dark:border-green-800';
+        const bgColor = (isShortfall || isOver)
+          ? 'bg-red-50 dark:bg-red-900/20'
+          : isSlightOver
+          ? 'bg-yellow-50 dark:bg-yellow-900/20'
+          : 'bg-green-50 dark:bg-green-900/20';
+
+        const barWidth = Math.min(rate, 150);
+
+        return (
+          <div className={`${bgColor} border ${borderColor} rounded-lg p-5`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                選択メンバー工数稼働率
+                <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+                  （{capacityStats.memberCount}名・7.5h/日基準 ※パートナー社員除く）
+                </span>
+              </h3>
+              <span className={`text-sm font-bold ${statusColor}`}>{statusLabel}</span>
+            </div>
+
+            {/* 稼働率バー */}
+            <div className="mb-4">
+              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <span>0%</span>
+                <span className={`font-bold text-base ${statusColor}`}>{rate.toFixed(1)}%</span>
+                <span>150%</span>
+              </div>
+              <div className="relative h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                {/* 正常範囲の背景 */}
+                <div className="absolute top-0 h-full bg-green-100 dark:bg-green-900/30"
+                  style={{ left: `${(100 / 150) * 100}%`, width: `${(10 / 150) * 100}%` }} />
+                {/* 実績バー */}
+                <div className={`absolute top-0 left-0 h-full ${barColor} transition-all`}
+                  style={{ width: `${(barWidth / 150) * 100}%` }} />
+                {/* 100%マーカー */}
+                <div className="absolute top-0 h-full w-px bg-gray-500 dark:bg-gray-300"
+                  style={{ left: `${(100 / 150) * 100}%` }} />
+              </div>
+              <div className="flex justify-end mt-1">
+                <span className="text-xs text-gray-400">
+                  正常範囲: 100〜110% ／ やや超過: 110〜120% ／ 超過稼働: 120%〜
+                </span>
+              </div>
+            </div>
+
+            {/* 数値内訳 */}
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">基準工数（経過分）</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-200">
+                    {AttendanceService.formatMinutesToTime(capacityStats.expectedMinutesPassed)}
+                    <span className="text-xs text-gray-400 ml-1">
+                      ({capacityStats.passedWeekdays}日×7.5h×{capacityStats.memberCount}名)
+                    </span>
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">実稼働工数</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">
+                    {AttendanceService.formatMinutesToTime(capacityStats.actualMinutes)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-1">
+                  <span className="text-gray-600 dark:text-gray-400">差異</span>
+                  <span className={`font-semibold ${capacityStats.deltaMinutes >= 0 ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {capacityStats.deltaMinutes >= 0 ? '+' : ''}{AttendanceService.formatMinutesToTime(Math.abs(capacityStats.deltaMinutes))}
+                    {capacityStats.deltaMinutes < 0 ? '（不足）' : '（超過）'}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                {capacityStats.leaveMinutes > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">有休等による欠損</span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      -{AttendanceService.formatMinutesToTime(capacityStats.leaveMinutes)}
+                    </span>
+                  </div>
+                )}
+                {capacityStats.passedWeekdays < capacityStats.totalWeekdays && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">月末予測稼働率</span>
+                    <span className={`font-medium ${capacityStats.projectedRate < 100 ? 'text-red-600 dark:text-red-400' : capacityStats.projectedRate < 110 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                      {capacityStats.projectedRate.toFixed(1)}%
+                      <span className="text-xs text-gray-400 ml-1">（{capacityStats.totalWeekdays}日で試算）</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 36協定 残業状況（統合版） */}
       {alertStats.alertCount === 0 ? (
         /* 全員正常 */
@@ -1421,6 +1824,15 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
               </h3>
               <p className="text-sm text-green-600 dark:text-green-400">
                 {alertStats.total}名全員が月間残業時間の基準内です
+              </p>
+              <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                選択メンバー合計: 法定外残業{' '}
+                <span className="font-semibold">{AttendanceService.formatMinutesToTime(stats.totalLegalOvertime)}</span>
+                {alertStats.total > 0 && (
+                  <span className="ml-2 text-green-600 dark:text-green-400">
+                    （平均 {AttendanceService.formatMinutesToTime(Math.round(stats.totalLegalOvertime / alertStats.total))} / 名）
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -1447,9 +1859,21 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
               ))}
             </div>
           </div>
-          <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+          <p className="text-sm text-red-700 dark:text-red-300 mb-3">
             以下の{alertStats.alertCount}名（{alertStats.total}名中 {alertStats.percentage.toFixed(1)}%）は月間法定外残業時間が基準を超過しています。
           </p>
+          <div className="flex items-center gap-6 bg-red-100 dark:bg-red-900/30 rounded-lg px-4 py-2 mb-3 text-sm">
+            <span className="text-red-800 dark:text-red-200">
+              選択メンバー合計（{alertStats.total}名）:{' '}
+              <span className="font-semibold">{AttendanceService.formatMinutesToTime(stats.totalLegalOvertime)}</span>
+            </span>
+            {alertStats.total > 0 && (
+              <span className="text-red-700 dark:text-red-300">
+                平均:{' '}
+                <span className="font-semibold">{AttendanceService.formatMinutesToTime(Math.round(stats.totalLegalOvertime / alertStats.total))}</span> / 名
+              </span>
+            )}
+          </div>
           <p className="text-xs text-red-600 dark:text-red-400 mb-4">
             ※ 法定外残業 = 実働時間 - 法定労働時間（8時間）。所定超過（7時間45分基準）とは異なります。
           </p>
@@ -2427,6 +2851,594 @@ const IndividualPdfContent: React.FC<{
           </>
         )}
       </div>
+    </div>
+  );
+};
+
+// ── XLSX対象年月ヘルパー ──────────────────────────────────────
+function getXlsxTargetMonth(result: ExtendedAnalysisResult): string {
+  const d = result.summary.analysisDateRange.start;
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// ── 確認ダイアログ ────────────────────────────────────────────
+const DataConflictDialog: React.FC<{
+  dataType: 'xlsx' | 'csv';
+  onOverwrite: () => void;
+  onMerge: () => void;
+  onReplace: () => void;
+  onCancel: () => void;
+  existingMonth?: string;
+  incomingMonth?: string;
+}> = ({ dataType, onOverwrite, onMerge, onReplace, onCancel, existingMonth, incomingMonth }) => {
+  const label = dataType === 'xlsx' ? '正社員（XLSX）' : 'パートナー（CSV）';
+  const monthMismatch = existingMonth && incomingMonth && existingMonth !== incomingMonth;
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full border border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-amber-500" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              既存データがあります
+            </h3>
+          </div>
+          <button
+            onClick={onCancel}
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+            aria-label="キャンセル"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {label}のデータがすでに読み込まれています。新しいファイルをどのように処理しますか？
+          </p>
+          {(existingMonth || incomingMonth) && (
+            <div className="text-xs bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 space-y-1">
+              {existingMonth && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">既存データの対象年月:</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-200">{existingMonth}</span>
+                </div>
+              )}
+              {incomingMonth && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">新規ファイルの対象年月:</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-200">{incomingMonth}</span>
+                </div>
+              )}
+              {monthMismatch && (
+                <p className="text-amber-600 dark:text-amber-400 font-medium pt-1">
+                  ⚠ 対象年月が異なります
+                </p>
+              )}
+            </div>
+          )}
+          <div className="space-y-2">
+            <button
+              onClick={onOverwrite}
+              className="w-full text-left px-4 py-3 rounded-lg border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+            >
+              <p className="font-medium text-blue-800 dark:text-blue-200">上書き</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                同じ人のデータは新データで置換。新データにいない人のデータは既存を残す。
+              </p>
+            </button>
+            <button
+              onClick={onMerge}
+              className="w-full text-left px-4 py-3 rounded-lg border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+            >
+              <p className="font-medium text-green-800 dark:text-green-200">マージ</p>
+              <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                同じ人のデータは新データが非ゼロのフィールドを優先。新データにいない人は既存を残す。
+              </p>
+            </button>
+            <button
+              onClick={onReplace}
+              className="w-full text-left px-4 py-3 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+            >
+              <p className="font-medium text-red-800 dark:text-red-200">置き換え</p>
+              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                既存データをすべて削除して新データだけにする。
+              </p>
+            </button>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          >
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── 統合タブ ────────────────────────────────────────────────────
+const IntegratedTab: React.FC<{
+  analysisResult: ExtendedAnalysisResult;
+  partnerRecords: EStaffingRecord[];
+}> = ({ analysisResult, partnerRecords }) => {
+  const MINUTES_PER_DAY = 465; // 7h45m 基準
+
+  const fmt = (min: number) => {
+    if (min === 0) return '-';
+    return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}m`;
+  };
+
+  const fmtPct = (n: number) => `${Math.round(n)}%`;
+
+  // パートナー残業: 実働 - 出勤日数×465分（メンバー交代があっても正確に算出）
+  const computePartnerOT = (p: EStaffingRecord) =>
+    Math.max(0, p.totalMinutes - p.workDays * MINUTES_PER_DAY);
+
+  // 対象年月の整合性チェック
+  const xlsxMonth = getXlsxTargetMonth(analysisResult);
+  const csvMonth = partnerRecords[0]?.targetMonth || '';
+  const monthsMatch = xlsxMonth === csvMonth;
+
+  // 対象年月が不一致の場合は警告を表示
+  if (!monthsMatch) {
+    const employeeCount = analysisResult.summary.totalEmployees;
+    const partnerCount = partnerRecords.length;
+    const employeeTotalOvertime = analysisResult.employeeSummaries.reduce(
+      (sum, e) => sum + e.totalOvertimeMinutes, 0
+    );
+    const partnerTotalOvertime = partnerRecords.reduce(
+      (sum, r) => sum + computePartnerOT(r), 0
+    );
+    return (
+      <div className="space-y-4">
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-5">
+          <div className="flex items-center space-x-2 mb-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <h3 className="font-semibold text-amber-900 dark:text-amber-200">
+              対象年月が異なるため統合分析はできません
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+            <div className="bg-white dark:bg-gray-800 rounded-lg px-3 py-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">楽楽勤怠 XLSX</p>
+              <p className="font-medium text-gray-900 dark:text-white">{xlsxMonth}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg px-3 py-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">e-staffing CSV</p>
+              <p className="font-medium text-gray-900 dark:text-white">{csvMonth || '（不明）'}</p>
+            </div>
+          </div>
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            同じ対象年月のファイルを読み込み直してください。
+          </p>
+        </div>
+
+        {/* 各データセットの単独サマリー */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">
+              楽楽勤怠 XLSX（対象: {xlsxMonth}）
+            </p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              正社員: <span className="font-bold">{employeeCount}名</span>
+            </p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              総残業: <span className="font-bold">{fmt(employeeTotalOvertime)}</span>
+            </p>
+          </div>
+          <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-700 rounded-lg p-4">
+            <p className="text-xs font-semibold text-teal-600 dark:text-teal-400 mb-2">
+              e-staffing CSV（対象: {csvMonth || '不明'}）
+            </p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              パートナー: <span className="font-bold">{partnerCount}名</span>
+            </p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              総残業: <span className="font-bold">{fmt(partnerTotalOvertime)}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // セクション1: 全体サマリー計算
+  const employeeCount = analysisResult.summary.totalEmployees;
+  const partnerCount = partnerRecords.length;
+  const totalCount = employeeCount + partnerCount;
+
+  const activePartners = partnerRecords.filter(r => r.workDays > 0).length;
+
+  const employeeOvertimeCount = analysisResult.employeeSummaries.filter(
+    e => e.totalOvertimeMinutes > 0
+  ).length;
+  const partnerOvertimeCount = partnerRecords.filter(r => computePartnerOT(r) > 0).length;
+  const totalOvertimeCount = employeeOvertimeCount + partnerOvertimeCount;
+
+  const employeeTotalOvertime = analysisResult.employeeSummaries.reduce(
+    (sum, e) => sum + e.totalOvertimeMinutes, 0
+  );
+  const partnerTotalOvertime = partnerRecords.reduce(
+    (sum, r) => sum + computePartnerOT(r), 0
+  );
+  const totalOvertimeMinutes = employeeTotalOvertime + partnerTotalOvertime;
+
+  // セクション2: 部署別グループ化（XLSX基準）
+  type RowItem =
+    | { type: 'employee'; data: typeof analysisResult.employeeSummaries[0] }
+    | { type: 'partner'; data: EStaffingRecord };
+
+  // XLSX の部署リスト（順序付き）
+  const xlsxDepts = analysisResult.departmentSummaries.map(d => d.department);
+
+  // パートナーの部署を XLSX 基準に正規化（trim で照合）
+  const normalizeDept = (dept: string): string => {
+    const trimmed = dept.trim();
+    return xlsxDepts.find(d => d.trim() === trimmed) || trimmed;
+  };
+
+  const departmentMap = new Map<string, RowItem[]>();
+
+  // XLSX の部署を順序通りに初期化
+  xlsxDepts.forEach(dept => {
+    if (!departmentMap.has(dept)) departmentMap.set(dept, []);
+  });
+
+  analysisResult.employeeSummaries.forEach(emp => {
+    const dept = emp.department || '未設定';
+    if (!departmentMap.has(dept)) departmentMap.set(dept, []);
+    departmentMap.get(dept)!.push({ type: 'employee', data: emp });
+  });
+
+  partnerRecords.forEach(partner => {
+    const dept = normalizeDept(partner.department || '未設定');
+    if (!departmentMap.has(dept)) departmentMap.set(dept, []);
+    departmentMap.get(dept)!.push({ type: 'partner', data: partner });
+  });
+
+  // 空のXLSX部署を除外しつつ、XLSX順を維持し、パートナーのみ部署を末尾に追加
+  const orderedDepts: [string, RowItem[]][] = [];
+  xlsxDepts.forEach(dept => {
+    const rows = departmentMap.get(dept);
+    if (rows && rows.length > 0) orderedDepts.push([dept, rows]);
+  });
+  departmentMap.forEach((rows, dept) => {
+    if (!xlsxDepts.includes(dept) && rows.length > 0) {
+      orderedDepts.push([dept, rows]);
+    }
+  });
+
+  // 稼働率: Σ実働 ÷ Σ想定稼働（workDays×465）
+  // — メンバー交代（前半A・後半B）は workDays が合算されるため
+  //   自動的に「1ポジション分」として扱われる
+  const empActualMin   = analysisResult.employeeSummaries.reduce((s, e) => s + e.totalWorkMinutes, 0);
+  const empCapacityMin = analysisResult.employeeSummaries.reduce((s, e) => s + e.totalWorkDays * MINUTES_PER_DAY, 0);
+  const ptnActualMin   = partnerRecords.reduce((s, r) => s + r.totalMinutes, 0);
+  const ptnCapacityMin = partnerRecords.reduce((s, r) => s + r.workDays * MINUTES_PER_DAY, 0);
+  const totalActualMin   = empActualMin + ptnActualMin;
+  const totalCapacityMin = empCapacityMin + ptnCapacityMin;
+  const totalUtilPct = totalCapacityMin > 0 ? (totalActualMin / totalCapacityMin) * 100 : 0;
+
+  const deptUtil = orderedDepts.map(([dept, rows]) => {
+    const actual   = rows.reduce((s, row) => s + (row.type === 'employee' ? row.data.totalWorkMinutes : row.data.totalMinutes), 0);
+    const capacity = rows.reduce((s, row) => s + (row.type === 'employee' ? row.data.totalWorkDays * MINUTES_PER_DAY : row.data.workDays * MINUTES_PER_DAY), 0);
+    return { dept, headcount: rows.length, actual, capacity, pct: capacity > 0 ? (actual / capacity) * 100 : 0 };
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* 対象年月 */}
+      <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center space-x-1">
+        <span>対象年月:</span>
+        <span className="font-medium text-gray-700 dark:text-gray-200">{xlsxMonth}</span>
+        <span className="text-green-600 dark:text-green-400 text-xs ml-2">（XLSX・CSV 一致）</span>
+      </div>
+
+      {/* セクション1: 全体サマリーカード */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+          <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">総メンバー数</p>
+          <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{totalCount}名</p>
+          <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
+            正社員 {employeeCount}名 + パートナー {partnerCount}名
+          </p>
+        </div>
+        <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-4">
+          <p className="text-xs text-teal-600 dark:text-teal-400 mb-1">稼働パートナー数</p>
+          <p className="text-2xl font-bold text-teal-800 dark:text-teal-200">{activePartners}名</p>
+          <p className="text-xs text-teal-500 dark:text-teal-400 mt-1">
+            出勤日数 &gt; 0
+          </p>
+        </div>
+        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
+          <p className="text-xs text-orange-600 dark:text-orange-400 mb-1">残業あり合計</p>
+          <p className={`text-2xl font-bold ${totalOvertimeCount > 0 ? 'text-orange-700 dark:text-orange-300' : 'text-gray-400'}`}>
+            {totalOvertimeCount}名
+          </p>
+          <p className="text-xs text-orange-500 dark:text-orange-400 mt-1">
+            正社員 {employeeOvertimeCount}名 + パートナー {partnerOvertimeCount}名
+          </p>
+        </div>
+        <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+          <p className="text-xs text-red-600 dark:text-red-400 mb-1">総残業時間合計</p>
+          <p className={`text-2xl font-bold ${totalOvertimeMinutes > 0 ? 'text-red-700 dark:text-red-300' : 'text-gray-400'}`}>
+            {fmt(totalOvertimeMinutes)}
+          </p>
+          <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+            正社員 {fmt(employeeTotalOvertime)} + パートナー {fmt(partnerTotalOvertime)}
+          </p>
+        </div>
+      </div>
+
+      {/* セクション2: 稼働率 */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-medium text-gray-900 dark:text-white">稼働率</h3>
+          <span className="text-xs text-gray-400 dark:text-gray-500">実働時間 ÷ 想定稼働（7h45m/出勤日）</span>
+        </div>
+
+        {/* 全体 */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              全体（正社員 {employeeCount}名 + パートナー {partnerCount}名）
+            </span>
+            <span className={`text-xl font-bold ${totalUtilPct >= 90 ? 'text-green-600 dark:text-green-400' : totalUtilPct >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+              {fmtPct(totalUtilPct)}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-1">
+            <div
+              className={`h-2.5 rounded-full transition-all ${totalUtilPct >= 90 ? 'bg-green-500' : totalUtilPct >= 70 ? 'bg-yellow-500' : 'bg-red-500'}`}
+              style={{ width: `${Math.min(totalUtilPct, 100)}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            {fmt(totalActualMin)} / {fmt(totalCapacityMin)}
+          </p>
+        </div>
+
+        {/* 部署別 */}
+        <div className="space-y-3">
+          {deptUtil.map(({ dept, headcount, actual, capacity, pct }) => (
+            <div key={dept}>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-xs text-gray-600 dark:text-gray-300">
+                  {dept}
+                  <span className="text-gray-400 dark:text-gray-500 ml-1">（{headcount}名）</span>
+                </span>
+                <span className={`text-sm font-semibold ${pct >= 90 ? 'text-green-600 dark:text-green-400' : pct >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {fmtPct(pct)}
+                </span>
+              </div>
+              <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                <div
+                  className={`h-1.5 rounded-full ${pct >= 90 ? 'bg-green-400' : pct >= 70 ? 'bg-yellow-400' : 'bg-red-400'}`}
+                  style={{ width: `${Math.min(pct, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                {fmt(actual)} / {fmt(capacity)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* セクション3: 部署別メンバー一覧テーブル */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="font-medium text-gray-900 dark:text-white">部署別メンバー一覧</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400 uppercase sticky top-0">
+              <tr>
+                <th className="px-3 py-2 text-left">部署</th>
+                <th className="px-3 py-2 text-center">種別</th>
+                <th className="px-3 py-2 text-left">氏名</th>
+                <th className="px-3 py-2 text-center">出勤日数</th>
+                <th className="px-3 py-2 text-right">総就業時間</th>
+                <th className="px-3 py-2 text-right">残業</th>
+                <th className="px-3 py-2 text-left">備考</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {orderedDepts.map(([dept, rows]) => (
+                <React.Fragment key={dept}>
+                  {/* 部署ヘッダー行 */}
+                  <tr className="bg-gray-100 dark:bg-gray-700">
+                    <td colSpan={7} className="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 text-xs uppercase tracking-wider">
+                      {dept}（{rows.length}名）
+                    </td>
+                  </tr>
+                  {rows.map((row, idx) => {
+                    if (row.type === 'employee') {
+                      const emp = row.data;
+                      const overtimeMin = emp.totalOvertimeMinutes;
+                      return (
+                        <tr key={`emp-${emp.employeeId}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-3 py-2 text-gray-400 dark:text-gray-500 text-xs"></td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                              正社員
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">{emp.employeeName}</td>
+                          <td className="px-3 py-2 text-center text-gray-700 dark:text-gray-300">{emp.totalWorkDays}日</td>
+                          <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">
+                            {AttendanceService.formatMinutesToTime(emp.totalWorkMinutes)}
+                          </td>
+                          <td className={`px-3 py-2 text-right font-medium ${overtimeMin > 0 ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/10' : 'text-gray-400'}`}>
+                            {overtimeMin > 0 ? AttendanceService.formatMinutesToTime(overtimeMin) : '-'}
+                          </td>
+                          <td className="px-3 py-2 text-gray-400 text-xs"></td>
+                        </tr>
+                      );
+                    } else {
+                      const partner = row.data;
+                      return (
+                        <tr key={`partner-${partner.staffCode || partner.name}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-3 py-2 text-gray-400 dark:text-gray-500 text-xs"></td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                              パートナー
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">{partner.name}</td>
+                          <td className="px-3 py-2 text-center text-gray-700 dark:text-gray-300">{partner.workDays}日</td>
+                          <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">
+                            {fmt(partner.totalMinutes)}
+                          </td>
+                          <td className={`px-3 py-2 text-right font-medium ${computePartnerOT(partner) > 0 ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/10' : 'text-gray-400'}`}>
+                            {computePartnerOT(partner) > 0 ? fmt(computePartnerOT(partner)) : '-'}
+                          </td>
+                          <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{partner.note}</td>
+                        </tr>
+                      );
+                    }
+                  })}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── パートナー社員勤怠セクション（e-staffing CSV） ──────────────
+const PartnerAttendanceSection: React.FC<{
+  records: EStaffingRecord[];
+  onUpload: (file: File) => void;
+  onReset: () => void;
+}> = ({ records, onUpload, onReset }) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onUpload(file);
+    e.target.value = '';
+  };
+
+  const PARTNER_MINUTES_PER_DAY = 465; // 7h45m
+  const partnerOT = (r: EStaffingRecord) =>
+    Math.max(0, r.totalMinutes - r.workDays * PARTNER_MINUTES_PER_DAY);
+
+  const targetMonth = records.length > 0 ? records[0].targetMonth : '';
+  const activeMembers = records.filter(r => r.workDays > 0 || r.totalMinutes > 0);
+  const totalOvertimeMinutes = records.reduce((sum, r) => sum + partnerOT(r), 0);
+
+  const fmt = (min: number) => {
+    if (min === 0) return '-';
+    return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}m`;
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="px-4 py-3 bg-teal-50 dark:bg-teal-900/20 border-b border-teal-200 dark:border-teal-800 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Users className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+          <span className="font-medium text-teal-800 dark:text-teal-200">
+            パートナー社員勤怠（e-staffing）
+            {targetMonth && (
+              <span className="ml-2 text-sm font-normal text-teal-600 dark:text-teal-400">{targetMonth}</span>
+            )}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleFileSelect}
+            className="hidden"
+            id="partner-csv-upload"
+          />
+          <label
+            htmlFor="partner-csv-upload"
+            className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 cursor-pointer transition-colors"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>CSVインポート</span>
+          </label>
+          {records.length > 0 && (
+            <button
+              onClick={onReset}
+              className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>クリア</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {records.length === 0 ? (
+        <div className="p-6 text-center text-sm text-gray-400 dark:text-gray-500">
+          <p>e-staffingから取得したCSVをインポートすると、パートナー社員の勤怠サマリーを表示します</p>
+          <p className="text-xs mt-1">（docs/e-staffing/attendance_YYYYMM.csv）</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 divide-x divide-gray-200 dark:divide-gray-700 border-b border-gray-200 dark:border-gray-700 text-center">
+            <div className="p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">対象メンバー</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white">{records.length}名</p>
+            </div>
+            <div className="p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">稼働メンバー</p>
+              <p className="text-xl font-bold text-teal-700 dark:text-teal-400">{activeMembers.length}名</p>
+            </div>
+            <div className="p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">残業合計（7h45m超過分）</p>
+              <p className={`text-xl font-bold ${totalOvertimeMinutes > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400'}`}>
+                {fmt(totalOvertimeMinutes)}
+              </p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400 uppercase">
+                <tr>
+                  <th className="px-3 py-2 text-left">氏名</th>
+                  <th className="px-3 py-2 text-left">部署</th>
+                  <th className="px-3 py-2 text-center">出勤</th>
+                  <th className="px-3 py-2 text-center">欠勤</th>
+                  <th className="px-3 py-2 text-center">年休</th>
+                  <th className="px-3 py-2 text-right">総就業</th>
+                  <th className="px-3 py-2 text-right">基準外（残業）</th>
+                  <th className="px-3 py-2 text-left">備考</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {records.map((r, idx) => (
+                  <tr
+                    key={idx}
+                    className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${r.workDays === 0 && r.totalMinutes === 0 ? 'opacity-50' : ''}`}
+                  >
+                    <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">{r.name}</td>
+                    <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{r.department}</td>
+                    <td className="px-3 py-2 text-center text-gray-900 dark:text-white">{r.workDays}日</td>
+                    <td className="px-3 py-2 text-center text-gray-500 dark:text-gray-400">{r.absentDays > 0 ? `${r.absentDays}日` : '-'}</td>
+                    <td className="px-3 py-2 text-center text-gray-500 dark:text-gray-400">{r.leaveDays > 0 ? `${r.leaveDays}日` : '-'}</td>
+                    <td className="px-3 py-2 text-right text-gray-900 dark:text-white">{fmt(r.totalMinutes)}</td>
+                    <td className="px-3 py-2 text-right">
+                      {partnerOT(r) > 0 ? (
+                        <span className="font-medium text-orange-600 dark:text-orange-400">{fmt(partnerOT(r))}</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{r.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 };
