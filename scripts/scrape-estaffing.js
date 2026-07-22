@@ -6,11 +6,10 @@
  *   node scripts/scrape-estaffing.js               # 前月データを取得
  *   node scripts/scrape-estaffing.js --year 2026 --month 07
  *
- * 設定 (.env):
- *   ESTAFFING_COMPANY=your-company-code   # 会社コード
- *   ESTAFFING_USER=your-user-id       # ユーザーID
- *   ESTAFFING_PASS=YOUR_PASSWORD      # パスワード
- *   ESTAFFING_DEPT=SI1           # 部署フィルターキーワード
+ * 設定（2通り）:
+ *   [汎用] scripts/estaffing.config.js を作成（テンプレート: estaffing.config.example.js）
+ *   [個人] プロジェクトルートの .env に ESTAFFING_COMPANY / USER / PASS / DEPT を記述
+ *   ※ config.js が存在する場合は .env より優先
  *
  * 検索ロジック:
  *   1. 就業先部署モーダルで ESTAFFING_DEPT を検索 → 全部署選択
@@ -29,8 +28,19 @@ const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
 
-// ── .env 読み込み ─────────────────────────────────────────────────
-(function loadEnv() {
+// ── 設定読み込み ──────────────────────────────────────────────────
+// 優先順位: scripts/estaffing.config.js（汎用）> .env（個人）
+(function loadConfig() {
+  const configPath = path.join(__dirname, 'estaffing.config.js');
+  if (fs.existsSync(configPath)) {
+    const cfg = require(configPath);
+    if (cfg.company) process.env.ESTAFFING_COMPANY = cfg.company;
+    if (cfg.user)    process.env.ESTAFFING_USER    = cfg.user;
+    if (cfg.pass)    process.env.ESTAFFING_PASS    = cfg.pass;
+    if (cfg.dept)    process.env.ESTAFFING_DEPT    = cfg.dept;
+    console.log('設定読み込み: scripts/estaffing.config.js');
+    return;
+  }
   const envPath = path.join(__dirname, '..', '.env');
   if (!fs.existsSync(envPath)) return;
   for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
@@ -42,6 +52,7 @@ const os   = require('os');
     const val = trimmed.slice(eq + 1).trim();
     if (key && !(key in process.env)) process.env[key] = val;
   }
+  console.log('設定読み込み: .env');
 })();
 
 // ── 引数解析 ──────────────────────────────────────────────────────

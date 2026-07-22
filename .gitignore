@@ -59,6 +59,9 @@ docs/e-staffing/
 # e-staffing Chrome profile (login session)
 .chrome-profile-estaffing/
 
+# e-staffing 認証設定（個人情報を含む - NEVER push to GitHub）
+scripts/estaffing.config.js
+
 # Presentation files
 docs/slides/*.pptx
 docs/slides/*.ppt
