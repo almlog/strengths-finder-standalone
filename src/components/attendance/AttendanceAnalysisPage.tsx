@@ -99,6 +99,41 @@ function normalizeEStaffingDept(dept: string): string {
   return dept.trim();
 }
 
+type PartnerStatusTag = '月途中入場' | '月途中退場' | 'データなし' | '退職・退場';
+
+function detectPartnerTags(r: EStaffingRecord): PartnerStatusTag[] {
+  const tags: PartnerStatusTag[] = [];
+  if (r.workDays === 0 && r.totalMinutes === 0) tags.push('データなし');
+  if (r.note?.includes('退場') || r.note?.includes('退職')) tags.push('退職・退場');
+  if (r.targetMonth && r.contractStart) {
+    const [ty, tm] = r.targetMonth.split('/').map(Number);
+    const monthFirstDay = `${r.targetMonth}/01`;
+    if (r.contractStart > monthFirstDay) tags.push('月途中入場');
+    if (r.contractEnd) {
+      const lastDate = new Date(ty, tm, 0).getDate();
+      const lastDayStr = `${r.targetMonth}/${String(lastDate).padStart(2, '0')}`;
+      if (r.contractEnd < lastDayStr) tags.push('月途中退場');
+    }
+  }
+  return tags;
+}
+
+// 7.5h/日を基準に、年休＋出勤日の稼働不足（時間休・半休）を合算した休暇時間（分）
+const PARTNER_LEAVE_BASE_MIN = 450; // 7.5h
+
+function computeLeaveMinutes(r: EStaffingRecord): number {
+  const fullDayLeave = r.leaveDays * PARTNER_LEAVE_BASE_MIN;
+  const workDayShortfall = Math.max(0, r.workDays * PARTNER_LEAVE_BASE_MIN - r.baseMinutes);
+  return fullDayLeave + workDayShortfall;
+}
+
+const TAG_STYLES: Record<string, string> = {
+  'データなし': 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+  '退職・退場': 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
+  '月途中入場': 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+  '月途中退場': 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
+};
+
 function parseEStaffingCsv(text: string): EStaffingRecord[] {
   const lines = text.replace(/^﻿/, '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
   if (lines.length < 2) return [];
@@ -230,6 +265,9 @@ const AttendanceAnalysisPage: React.FC = () => {
   const [summaryModal, setSummaryModal] = useState<SummaryModalType>(null);
   const [exportingEmployeeId, setExportingEmployeeId] = useState<string | null>(null);
   const [partnerRecords, setPartnerRecords] = useState<EStaffingRecord[]>([]);
+  const [rawPartnerRecords, setRawPartnerRecords] = useState<EStaffingRecord[]>([]);
+  const [partnerSelections, setPartnerSelections] = useState<Map<string, boolean>>(new Map());
+  const [showPartnerFilter, setShowPartnerFilter] = useState(false);
 
   // 確認ダイアログ用の状態
   const [showXlsxConfirm, setShowXlsxConfirm] = useState(false);
@@ -459,11 +497,15 @@ const AttendanceAnalysisPage: React.FC = () => {
     });
   }, []);
 
-  // ユーザー選択確定（再分析）
+  // ユーザー選択確定（再分析 + パートナーフィルター適用）
   const handleConfirmUserSelection = useCallback(() => {
-    executeAnalysis(rawRecords);
+    if (rawRecords.length > 0) executeAnalysis(rawRecords);
+    if (rawPartnerRecords.length > 0) {
+      const selected = rawPartnerRecords.filter(r => partnerSelections.get(r.staffCode || r.name) === true);
+      setPartnerRecords(selected);
+    }
     setShowUserFilter(false);
-  }, [executeAnalysis, rawRecords]);
+  }, [executeAnalysis, rawRecords, rawPartnerRecords, partnerSelections]);
 
   // ユーザー選択キャンセル
   const handleCancelUserSelection = useCallback(() => {
@@ -545,11 +587,45 @@ const AttendanceAnalysisPage: React.FC = () => {
     }
     const text = await file.text();
     const incoming = parseEStaffingCsv(text);
-    const finalRecords = mergeMode
+    const merged = mergeMode
       ? mergePartnerRecords(partnerRecords, incoming, mergeMode)
       : incoming;
-    setPartnerRecords(finalRecords);
+    setRawPartnerRecords(merged);
+    const sels = new Map<string, boolean>();
+    merged.forEach(r => {
+      const key = r.staffCode || r.name;
+      const tags = detectPartnerTags(r);
+      sels.set(key, !tags.includes('データなし') && !tags.includes('退職・退場'));
+    });
+    setPartnerSelections(sels);
+    setShowPartnerFilter(true);
   }, [partnerRecords]);
+
+  const handleConfirmPartnerSelection = useCallback(() => {
+    const selected = rawPartnerRecords.filter(r => partnerSelections.get(r.staffCode || r.name) === true);
+    setPartnerRecords(selected);
+    setShowPartnerFilter(false);
+  }, [rawPartnerRecords, partnerSelections]);
+
+  const handlePartnerSelectionChange = useCallback((key: string, checked: boolean) => {
+    setPartnerSelections(prev => new Map(prev).set(key, checked));
+  }, []);
+
+  const handleSelectAllPartners = useCallback(() => {
+    setPartnerSelections(prev => {
+      const next = new Map<string, boolean>();
+      prev.forEach((_, k) => next.set(k, true));
+      return next;
+    });
+  }, []);
+
+  const handleDeselectAllPartners = useCallback(() => {
+    setPartnerSelections(prev => {
+      const next = new Map<string, boolean>();
+      prev.forEach((_, k) => next.set(k, false));
+      return next;
+    });
+  }, []);
 
   const handlePartnerCsvUpload = useCallback(async (file: File) => {
     if (partnerRecords.length > 0) {
@@ -624,7 +700,7 @@ const AttendanceAnalysisPage: React.FC = () => {
             <button
               onClick={() => setShowUserFilter(true)}
               className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
-              title="分析対象ユーザーを選択"
+              title="分析対象ユーザー・パートナーを選択"
             >
               <UserCheck className="w-4 h-4" />
               <span className="hidden sm:inline">ユーザー選択</span>
@@ -642,18 +718,58 @@ const AttendanceAnalysisPage: React.FC = () => {
       </div>
 
       {/* ユーザー選択パネル（モーダル） */}
-      {showUserFilter && rawRecords.length > 0 && (
+      {showUserFilter && (rawRecords.length > 0 || rawPartnerRecords.length > 0) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="max-w-2xl w-full max-h-[90vh] overflow-auto">
-            <UserFilterPanel
-              records={rawRecords}
-              userSelections={userSelections}
-              onSelectionChange={handleUserSelectionChange}
-              onSelectAll={handleSelectAllUsers}
-              onDeselectAll={handleDeselectAllUsers}
-              onConfirm={handleConfirmUserSelection}
-              onCancel={handleCancelUserSelection}
-            />
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-auto space-y-3">
+            {rawRecords.length > 0 && (
+              <UserFilterPanel
+                records={rawRecords}
+                userSelections={userSelections}
+                onSelectionChange={handleUserSelectionChange}
+                onSelectAll={handleSelectAllUsers}
+                onDeselectAll={handleDeselectAllUsers}
+                onConfirm={handleConfirmUserSelection}
+                onCancel={handleCancelUserSelection}
+              />
+            )}
+            {rawPartnerRecords.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <div className="flex items-center mb-4">
+                  <Users className="w-5 h-5 mr-2 text-teal-600 dark:text-teal-400" />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">パートナーメンバー</h3>
+                </div>
+                <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex gap-2">
+                    <button onClick={handleSelectAllPartners} className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-teal-50 text-teal-700 hover:bg-teal-100 dark:bg-teal-900/30 dark:text-teal-300 transition-colors">全選択</button>
+                    <button onClick={handleDeselectAllPartners} className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-gray-50 text-gray-700 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 transition-colors">全解除</button>
+                  </div>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    選択中: <span className="font-semibold text-teal-600 dark:text-teal-400">{Array.from(partnerSelections.values()).filter(Boolean).length}</span> / {rawPartnerRecords.length}名
+                  </span>
+                </div>
+                <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700 mb-4">
+                  {rawPartnerRecords.map(r => {
+                    const key = r.staffCode || r.name;
+                    const checked = partnerSelections.get(key) ?? true;
+                    const tags = detectPartnerTags(r);
+                    return (
+                      <label key={key} className={`flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!checked ? 'opacity-50' : ''}`}>
+                        <input type="checkbox" checked={checked} onChange={e => handlePartnerSelectionChange(key, e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-teal-600 accent-teal-600" />
+                        <span className="font-medium text-sm text-gray-900 dark:text-white">{r.name}</span>
+                        {tags.map(tag => <span key={tag} className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${TAG_STYLES[tag]}`}>{tag}</span>)}
+                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">{r.department}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {rawRecords.length === 0 && (
+                  <div className="flex justify-end gap-3">
+                    <button onClick={handleCancelUserSelection} className="px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors">キャンセル</button>
+                    <button onClick={handleConfirmUserSelection} className="px-4 py-2 text-sm font-medium rounded-md bg-teal-600 text-white hover:bg-teal-700 transition-colors">確定</button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -892,7 +1008,7 @@ const AttendanceAnalysisPage: React.FC = () => {
             <SummaryCard
               icon={<Users className="w-6 h-6" />}
               label="総従業員数"
-              value={analysisResult.summary.totalEmployees}
+              value={analysisResult.summary.totalEmployees + partnerRecords.length}
               color="blue"
             />
             <SummaryCard
@@ -982,7 +1098,7 @@ const AttendanceAnalysisPage: React.FC = () => {
           <div className="min-h-[400px]">
             {activeTab === 'summary' && (
               <div ref={summaryRef}>
-                <SummaryTab result={analysisResult} isExportingPdf={isExportingPdf} />
+                <SummaryTab result={analysisResult} partnerRecords={partnerRecords} isExportingPdf={isExportingPdf} />
               </div>
             )}
             {activeTab === 'employees' && (
@@ -1022,11 +1138,25 @@ const AttendanceAnalysisPage: React.FC = () => {
         />
       )}
 
+      {/* パートナー選択モーダル */}
+      {showPartnerFilter && (
+        <PartnerFilterModal
+          records={rawPartnerRecords}
+          selections={partnerSelections}
+          onSelectionChange={handlePartnerSelectionChange}
+          onSelectAll={handleSelectAllPartners}
+          onDeselectAll={handleDeselectAllPartners}
+          onConfirm={handleConfirmPartnerSelection}
+          onCancel={() => setShowPartnerFilter(false)}
+        />
+      )}
+
       {/* パートナー社員勤怠（e-staffing） */}
       <PartnerAttendanceSection
         records={partnerRecords}
         onUpload={handlePartnerCsvUpload}
-        onReset={() => setPartnerRecords([])}
+        onReset={() => { setPartnerRecords([]); setRawPartnerRecords([]); setPartnerSelections(new Map()); }}
+        onFilterEdit={rawPartnerRecords.length > 0 ? () => setShowPartnerFilter(true) : undefined}
       />
 
       {/* 個人PDF出力用の非表示コンテンツ */}
@@ -1312,7 +1442,7 @@ const ChartTooltip: React.FC<{
   return null;
 };
 
-const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: boolean }> = ({ result, isExportingPdf = false }) => {
+const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: EStaffingRecord[]; isExportingPdf?: boolean }> = ({ result, partnerRecords = [], isExportingPdf = false }) => {
   // 部門別残業データ（横棒グラフ用）
   const departmentOvertimeData = useMemo(() => {
     return result.departmentSummaries
@@ -1372,14 +1502,22 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
     return { total, alertCount, percentage };
   }, [result.employeeSummaries]);
 
+  // パートナー残業（7h45m超過分）
+  const partnerOtMinutes = (r: EStaffingRecord) => Math.max(0, r.totalMinutes - r.workDays * 465);
+  const partnerTotalWorkDays = partnerRecords.reduce((sum, r) => sum + r.workDays, 0);
+  const partnerTotalOvertime = partnerRecords.reduce((sum, r) => sum + partnerOtMinutes(r), 0);
+
   const stats = {
-    // 基本情報
-    totalEmployees: result.summary.totalEmployees,
-    totalWorkDays: result.employeeSummaries.reduce((sum, s) => sum + s.totalWorkDays, 0),
-    // 残業統計
-    totalOvertime: result.employeeSummaries.reduce((sum, s) => sum + s.totalOvertimeMinutes, 0),
+    // 基本情報（正社員 + パートナー）
+    totalEmployees: result.summary.totalEmployees + partnerRecords.length,
+    employeeOnlyCount: result.summary.totalEmployees,
+    partnerCount: partnerRecords.length,
+    totalWorkDays: result.employeeSummaries.reduce((sum, s) => sum + s.totalWorkDays, 0) + partnerTotalWorkDays,
+    // 残業統計（正社員 + パートナー）
+    totalOvertime: result.employeeSummaries.reduce((sum, s) => sum + s.totalOvertimeMinutes, 0) + partnerTotalOvertime,
     totalLegalOvertime: result.employeeSummaries.reduce((sum, s) => sum + s.totalLegalOvertimeMinutes, 0),
-    // その他
+    partnerTotalOvertime,
+    // 正社員のみの統計（違反系）
     totalHolidayWork: result.employeeSummaries.reduce((sum, s) => sum + s.holidayWorkDays, 0),
     totalLateDays: result.employeeSummaries.reduce((sum, s) => sum + s.lateDays, 0),
     totalEarlyLeaveDays: result.employeeSummaries.reduce((sum, s) => sum + s.earlyLeaveDays, 0),
@@ -1397,23 +1535,25 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
     const passedWeekdays = summaries[0].passedWeekdays;
 
     const expectedMinutesPassed = passedWeekdays * STANDARD_MINUTES_PER_DAY * memberCount;
-    const expectedMinutesTotal = totalWeekdays * STANDARD_MINUTES_PER_DAY * memberCount;
     const actualMinutes = summaries.reduce((sum, s) => sum + s.totalWorkMinutes, 0);
     const leaveMinutes = summaries.reduce(
       (sum, s) => sum + s.fullDayLeaveDays * STANDARD_MINUTES_PER_DAY + s.halfDayLeaveDays * (STANDARD_MINUTES_PER_DAY / 2),
       0
     );
 
-    const utilizationRate = expectedMinutesPassed > 0 ? (actualMinutes / expectedMinutesPassed) * 100 : 0;
-    const projectedMinutes = passedWeekdays > 0 ? Math.round(actualMinutes / passedWeekdays * totalWeekdays) : actualMinutes;
-    const projectedRate = expectedMinutesTotal > 0 ? (projectedMinutes / expectedMinutesTotal) * 100 : 0;
-    const deltaMinutes = actualMinutes - expectedMinutesPassed;
+    // 有休調整済み基準工数（有休分を差し引いた、純粋な就業義務時間）
+    const adjustedExpected = Math.max(1, expectedMinutesPassed - leaveMinutes);
+    // 有休調整済み稼働率（主指標）
+    const adjustedRate = (actualMinutes / adjustedExpected) * 100;
+    // 有休調整済み差異
+    const adjustedDelta = actualMinutes - adjustedExpected;
+    // 生差異（参考：有休込み）
+    const rawDelta = actualMinutes - expectedMinutesPassed;
 
     return {
       memberCount, totalWeekdays, passedWeekdays,
-      expectedMinutesPassed, expectedMinutesTotal,
-      actualMinutes, leaveMinutes,
-      utilizationRate, projectedRate, deltaMinutes,
+      expectedMinutesPassed, actualMinutes, leaveMinutes,
+      adjustedExpected, adjustedRate, adjustedDelta, rawDelta,
     };
   }, [result.employeeSummaries]);
 
@@ -1492,7 +1632,12 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
               </p>
               <p>
                 <span className="font-medium text-white">対象人数:</span>{' '}
-                {result.summary.totalEmployees}名
+                {result.summary.totalEmployees + partnerRecords.length}名
+                {partnerRecords.length > 0 && (
+                  <span className="text-blue-200 text-sm ml-1">
+                    （正社員{result.summary.totalEmployees}名 + パートナー{partnerRecords.length}名）
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -1510,7 +1655,11 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
           </h3>
           <dl className="space-y-3">
             {/* 基本情報 */}
-            <StatItem label="対象従業員数" value={`${stats.totalEmployees}名`} />
+            <StatItem
+              label="対象人数"
+              value={`${stats.totalEmployees}名`}
+              subLabel={stats.partnerCount > 0 ? `（正社員${stats.employeeOnlyCount}名 + パートナー${stats.partnerCount}名）` : undefined}
+            />
             <StatItem label="総出勤日数" value={`${stats.totalWorkDays}日`} />
             <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3" />
 
@@ -1518,7 +1667,9 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
             <StatItem
               label="総残業時間"
               value={AttendanceService.formatMinutesToTime(stats.totalOvertime)}
-              subLabel={`（${stats.totalEmployees}名 × ${stats.totalWorkDays}日分）`}
+              subLabel={stats.partnerCount > 0
+                ? `（正社員: ${AttendanceService.formatMinutesToTime(stats.totalOvertime - stats.partnerTotalOvertime)} + パートナー: ${AttendanceService.formatMinutesToTime(stats.partnerTotalOvertime)}）`
+                : `（${stats.totalEmployees}名 × ${stats.totalWorkDays}日分）`}
             />
             <StatItem
               label="平均残業（月/人）"
@@ -1530,7 +1681,10 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
             />
             <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3" />
 
-            {/* その他 */}
+            {/* 正社員のみの統計 */}
+            {stats.partnerCount > 0 && (
+              <p className="text-xs text-gray-400 dark:text-gray-500">以下は正社員のみ（詳細データが必要なため）</p>
+            )}
             <StatItem label="休日出勤" value={`${stats.totalHolidayWork}日`} />
             <StatItem label="遅刻" value={`${stats.totalLateDays}日`} />
             <StatItem label="早退" value={`${stats.totalEarlyLeaveDays}日`} />
@@ -1699,7 +1853,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
 
       {/* 選択メンバー工数稼働率 */}
       {capacityStats && (() => {
-        const rate = capacityStats.utilizationRate;
+        const rate = capacityStats.adjustedRate;
         const isShortfall = rate < 100;
         const isSlightOver = rate >= 110 && rate < 120;
         const isOver = rate >= 120;
@@ -1731,7 +1885,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
               <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">
                 選択メンバー工数稼働率
                 <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-                  （{capacityStats.memberCount}名・7.5h/日基準 ※パートナー社員除く）
+                  （{capacityStats.memberCount}名・7.5h/日基準・有休調整済み ※パートナー社員除く）
                 </span>
               </h3>
               <span className={`text-sm font-bold ${statusColor}`}>{statusLabel}</span>
@@ -1745,13 +1899,10 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                 <span>150%</span>
               </div>
               <div className="relative h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                {/* 正常範囲の背景 */}
                 <div className="absolute top-0 h-full bg-green-100 dark:bg-green-900/30"
                   style={{ left: `${(100 / 150) * 100}%`, width: `${(10 / 150) * 100}%` }} />
-                {/* 実績バー */}
                 <div className={`absolute top-0 left-0 h-full ${barColor} transition-all`}
                   style={{ width: `${(barWidth / 150) * 100}%` }} />
-                {/* 100%マーカー */}
                 <div className="absolute top-0 h-full w-px bg-gray-500 dark:bg-gray-300"
                   style={{ left: `${(100 / 150) * 100}%` }} />
               </div>
@@ -1774,6 +1925,22 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                     </span>
                   </span>
                 </div>
+                {capacityStats.leaveMinutes > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">うち有休・休暇</span>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      -{AttendanceService.formatMinutesToTime(capacityStats.leaveMinutes)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-1">
+                  <span className="text-gray-600 dark:text-gray-400">実質基準工数</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-200">
+                    {AttendanceService.formatMinutesToTime(capacityStats.adjustedExpected)}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-1">
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">実稼働工数</span>
                   <span className="font-semibold text-gray-800 dark:text-gray-200">
@@ -1781,28 +1948,17 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; isExportingPdf?: bo
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-1">
-                  <span className="text-gray-600 dark:text-gray-400">差異</span>
-                  <span className={`font-semibold ${capacityStats.deltaMinutes >= 0 ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {capacityStats.deltaMinutes >= 0 ? '+' : ''}{AttendanceService.formatMinutesToTime(Math.abs(capacityStats.deltaMinutes))}
-                    {capacityStats.deltaMinutes < 0 ? '（不足）' : '（超過）'}
+                  <span className="text-gray-600 dark:text-gray-400">差異（有休調整後）</span>
+                  <span className={`font-semibold ${capacityStats.adjustedDelta >= 0 ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {capacityStats.adjustedDelta >= 0 ? '+' : ''}{AttendanceService.formatMinutesToTime(Math.abs(capacityStats.adjustedDelta))}
+                    {capacityStats.adjustedDelta < 0 ? '（不足）' : '（超過）'}
                   </span>
                 </div>
-              </div>
-              <div className="space-y-1">
-                {capacityStats.leaveMinutes > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">有休等による欠損</span>
-                    <span className="text-gray-700 dark:text-gray-300">
-                      -{AttendanceService.formatMinutesToTime(capacityStats.leaveMinutes)}
-                    </span>
-                  </div>
-                )}
-                {capacityStats.passedWeekdays < capacityStats.totalWeekdays && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">月末予測稼働率</span>
-                    <span className={`font-medium ${capacityStats.projectedRate < 100 ? 'text-red-600 dark:text-red-400' : capacityStats.projectedRate < 110 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
-                      {capacityStats.projectedRate.toFixed(1)}%
-                      <span className="text-xs text-gray-400 ml-1">（{capacityStats.totalWeekdays}日で試算）</span>
+                {capacityStats.rawDelta !== capacityStats.adjustedDelta && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400 dark:text-gray-500">参考：有休込み差異</span>
+                    <span className="text-gray-400 dark:text-gray-500">
+                      {capacityStats.rawDelta >= 0 ? '+' : ''}{AttendanceService.formatMinutesToTime(Math.abs(capacityStats.rawDelta))}
                     </span>
                   </div>
                 )}
@@ -3291,10 +3447,10 @@ const IntegratedTab: React.FC<{
                           <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">{partner.name}</td>
                           <td className="px-3 py-2 text-center text-gray-700 dark:text-gray-300">{partner.workDays}日</td>
                           <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">
-                            {fmt(partner.totalMinutes)}
+                            {AttendanceService.formatMinutesToTime(partner.totalMinutes)}
                           </td>
                           <td className={`px-3 py-2 text-right font-medium ${computePartnerOT(partner) > 0 ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/10' : 'text-gray-400'}`}>
-                            {computePartnerOT(partner) > 0 ? fmt(computePartnerOT(partner)) : '-'}
+                            {computePartnerOT(partner) > 0 ? AttendanceService.formatMinutesToTime(computePartnerOT(partner)) : '-'}
                           </td>
                           <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{partner.note}</td>
                         </tr>
@@ -3311,21 +3467,107 @@ const IntegratedTab: React.FC<{
   );
 };
 
+// ── パートナーメンバー選択モーダル ──────────────────────────────
+const PartnerFilterModal: React.FC<{
+  records: EStaffingRecord[];
+  selections: Map<string, boolean>;
+  onSelectionChange: (key: string, checked: boolean) => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}> = ({ records, selections, onSelectionChange, onSelectAll, onDeselectAll, onConfirm, onCancel }) => {
+  const selectedCount = Array.from(selections.values()).filter(Boolean).length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-xl mx-4 flex flex-col max-h-[80vh]">
+        {/* header */}
+        <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">分析対象メンバーを選択</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">除外したいメンバーのチェックを外してください</p>
+        </div>
+        {/* toolbar */}
+        <div className="px-5 py-2 flex items-center justify-between border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
+          <span className="text-sm text-gray-600 dark:text-gray-300">
+            <span className="font-semibold text-gray-900 dark:text-white">{selectedCount}</span>
+            <span className="text-gray-400"> / {records.length}名 選択中</span>
+          </span>
+          <div className="flex gap-2">
+            <button onClick={onSelectAll} className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-300 transition-colors">全選択</button>
+            <button onClick={onDeselectAll} className="text-xs px-2 py-1 rounded bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 transition-colors">全解除</button>
+          </div>
+        </div>
+        {/* list */}
+        <div className="overflow-y-auto flex-1 divide-y divide-gray-100 dark:divide-gray-700">
+          {records.map(r => {
+            const key = r.staffCode || r.name;
+            const checked = selections.get(key) ?? true;
+            const tags = detectPartnerTags(r);
+            return (
+              <label
+                key={key}
+                className={`flex items-start gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${!checked ? 'opacity-50' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={e => onSelectionChange(key, e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 accent-teal-600"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm text-gray-900 dark:text-white">{r.name}</span>
+                    {tags.map(tag => (
+                      <span key={tag} className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${TAG_STYLES[tag]}`}>{tag}</span>
+                    ))}
+                  </div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex gap-3 flex-wrap">
+                    <span>{r.department}</span>
+                    {r.contractStart && <span>{r.contractStart}〜{r.contractEnd}</span>}
+                    <span>出勤{r.workDays}日</span>
+                    {r.note && <span className="truncate">{r.note}</span>}
+                  </div>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+        {/* footer */}
+        <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 text-sm rounded-lg bg-teal-600 text-white hover:bg-teal-700 transition-colors font-medium"
+          >
+            {selectedCount}名を分析対象に設定
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── パートナー社員勤怠セクション（e-staffing CSV） ──────────────
 const PartnerAttendanceSection: React.FC<{
   records: EStaffingRecord[];
   onUpload: (file: File) => void;
   onReset: () => void;
-}> = ({ records, onUpload, onReset }) => {
+  onFilterEdit?: () => void;
+}> = ({ records, onUpload, onReset, onFilterEdit }) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) onUpload(file);
     e.target.value = '';
   };
 
-  const PARTNER_MINUTES_PER_DAY = 465; // 7h45m
   const partnerOT = (r: EStaffingRecord) =>
-    Math.max(0, r.totalMinutes - r.workDays * PARTNER_MINUTES_PER_DAY);
+    Math.max(0, r.totalMinutes - r.workDays * 465); // 7h45m超過分
 
   const targetMonth = records.length > 0 ? records[0].targetMonth : '';
   const activeMembers = records.filter(r => r.workDays > 0 || r.totalMinutes > 0);
@@ -3363,6 +3605,14 @@ const PartnerAttendanceSection: React.FC<{
             <FileSpreadsheet className="w-4 h-4" />
             <span>CSVインポート</span>
           </label>
+          {onFilterEdit && (
+            <button
+              onClick={onFilterEdit}
+              className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 rounded-lg hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors"
+            >
+              <span>選択を変更</span>
+            </button>
+          )}
           {records.length > 0 && (
             <button
               onClick={onReset}
@@ -3406,7 +3656,7 @@ const PartnerAttendanceSection: React.FC<{
                   <th className="px-3 py-2 text-left">部署</th>
                   <th className="px-3 py-2 text-center">出勤</th>
                   <th className="px-3 py-2 text-center">欠勤</th>
-                  <th className="px-3 py-2 text-center">年休</th>
+                  <th className="px-3 py-2 text-right">休暇時間</th>
                   <th className="px-3 py-2 text-right">総就業</th>
                   <th className="px-3 py-2 text-right">基準外（残業）</th>
                   <th className="px-3 py-2 text-left">備考</th>
@@ -3422,7 +3672,24 @@ const PartnerAttendanceSection: React.FC<{
                     <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{r.department}</td>
                     <td className="px-3 py-2 text-center text-gray-900 dark:text-white">{r.workDays}日</td>
                     <td className="px-3 py-2 text-center text-gray-500 dark:text-gray-400">{r.absentDays > 0 ? `${r.absentDays}日` : '-'}</td>
-                    <td className="px-3 py-2 text-center text-gray-500 dark:text-gray-400">{r.leaveDays > 0 ? `${r.leaveDays}日` : '-'}</td>
+                    <td className="px-3 py-2 text-right">
+                      {(() => {
+                        const lv = computeLeaveMinutes(r);
+                        if (lv === 0) return <span className="text-gray-400">-</span>;
+                        const fullDay = r.leaveDays * PARTNER_LEAVE_BASE_MIN;
+                        const shortfall = lv - fullDay;
+                        return (
+                          <span className="text-blue-600 dark:text-blue-400 font-medium" title={
+                            [
+                              r.leaveDays > 0 ? `年休 ${r.leaveDays}日（${Math.floor(fullDay/60)}:${String(fullDay%60).padStart(2,'0')}）` : '',
+                              shortfall > 0 ? `時間休等 ${Math.floor(shortfall/60)}:${String(shortfall%60).padStart(2,'0')}` : '',
+                            ].filter(Boolean).join(' + ')
+                          }>
+                            {Math.floor(lv/60)}:{String(lv%60).padStart(2,'0')}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-3 py-2 text-right text-gray-900 dark:text-white">{fmt(r.totalMinutes)}</td>
                     <td className="px-3 py-2 text-right">
                       {partnerOT(r) > 0 ? (
