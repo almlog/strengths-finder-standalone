@@ -56,6 +56,9 @@ docs/rakurakukintai/
 # e-staffing data (個人名・勤怠情報を含む - NEVER push to GitHub)
 docs/e-staffing/
 
+# 一時出力ファイル（個人情報を含む可能性 - NEVER push to GitHub）
+docs/tmp/
+
 # e-staffing Chrome profile (login session)
 .chrome-profile-estaffing/
 

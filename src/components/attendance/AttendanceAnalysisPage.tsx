@@ -1507,10 +1507,9 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
     return { total, alertCount, percentage };
   }, [result.employeeSummaries, partnerRecords]);
 
-  // パートナー残業（7h45m超過分）
-  const partnerOtMinutes = (r: EStaffingRecord) => Math.max(0, r.totalMinutes - r.workDays * 465);
+  // パートナー残業（CSVの基準外時間をそのまま法定外残業として使用）
   const partnerTotalWorkDays = partnerRecords.reduce((sum, r) => sum + r.workDays, 0);
-  const partnerTotalOvertime = partnerRecords.reduce((sum, r) => sum + partnerOtMinutes(r), 0);
+  const partnerTotalOvertime = partnerRecords.reduce((sum, r) => sum + r.overtimeMinutes, 0);
 
   const stats = {
     // 基本情報（正社員 + パートナー）
@@ -1550,7 +1549,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
       (sum, s) => sum + s.fullDayLeaveDays * STANDARD_MINUTES_PER_DAY + s.halfDayLeaveDays * (STANDARD_MINUTES_PER_DAY / 2),
       0
     );
-    const partnerLeaveMinutes = partnerRecords.reduce((sum, r) => sum + computeLeaveMinutes(r), 0);
+    const partnerLeaveMinutes = partnerRecords.reduce((sum, r) => sum + r.leaveDays * STANDARD_MINUTES_PER_DAY, 0);
     const leaveMinutes = empLeaveMinutes + partnerLeaveMinutes;
 
     // 有休調整済み基準工数（有休分を差し引いた、純粋な就業義務時間）
