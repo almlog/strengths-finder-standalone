@@ -1491,16 +1491,21 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
       }));
   }, [result.employeeSummaries]);
 
-  // アラート対象者の割合を計算
+  // アラート対象者の割合を計算（正社員＋パートナー）
   const alertStats = useMemo(() => {
-    const total = result.employeeSummaries.length;
-    const alertCount = result.employeeSummaries.filter(emp => {
-      const level = AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes);
-      return level !== 'normal';
-    }).length;
+    const empTotal = result.employeeSummaries.length;
+    const partnerTotal = partnerRecords.length;
+    const total = empTotal + partnerTotal;
+    const empAlertCount = result.employeeSummaries.filter(emp =>
+      AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes) !== 'normal'
+    ).length;
+    const partnerAlertCount = partnerRecords.filter(r =>
+      AttendanceService.getOvertimeAlertLevel(r.overtimeMinutes) !== 'normal'
+    ).length;
+    const alertCount = empAlertCount + partnerAlertCount;
     const percentage = total > 0 ? (alertCount / total) * 100 : 0;
     return { total, alertCount, percentage };
-  }, [result.employeeSummaries]);
+  }, [result.employeeSummaries, partnerRecords]);
 
   // パートナー残業（7h45m超過分）
   const partnerOtMinutes = (r: EStaffingRecord) => Math.max(0, r.totalMinutes - r.workDays * 465);
@@ -1515,7 +1520,8 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
     totalWorkDays: result.employeeSummaries.reduce((sum, s) => sum + s.totalWorkDays, 0) + partnerTotalWorkDays,
     // 残業統計（正社員 + パートナー）
     totalOvertime: result.employeeSummaries.reduce((sum, s) => sum + s.totalOvertimeMinutes, 0) + partnerTotalOvertime,
-    totalLegalOvertime: result.employeeSummaries.reduce((sum, s) => sum + s.totalLegalOvertimeMinutes, 0),
+    totalLegalOvertime: result.employeeSummaries.reduce((sum, s) => sum + s.totalLegalOvertimeMinutes, 0)
+      + partnerRecords.reduce((sum, r) => sum + r.overtimeMinutes, 0),
     partnerTotalOvertime,
     // 正社員のみの統計（違反系）
     totalHolidayWork: result.employeeSummaries.reduce((sum, s) => sum + s.holidayWorkDays, 0),
@@ -1524,22 +1530,28 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
     totalMissingClocks: result.employeeSummaries.reduce((sum, s) => sum + s.missingClockDays, 0),
   };
 
-  // 選択メンバー工数稼働率（7.5h/日基準）
+  // 選択メンバー工数稼働率（7.5h/日基準・正社員＋パートナー）
   const capacityStats = useMemo(() => {
     const summaries = result.employeeSummaries;
-    const memberCount = summaries.length;
+    const memberCount = summaries.length + partnerRecords.length;
     if (memberCount === 0) return null;
+    // passedWeekdays はカレンダー値なので正社員データがない場合は算出不能
+    if (summaries.length === 0) return null;
 
     const STANDARD_MINUTES_PER_DAY = 450; // 7.5h
     const totalWeekdays = summaries[0].totalWeekdaysInMonth;
     const passedWeekdays = summaries[0].passedWeekdays;
 
     const expectedMinutesPassed = passedWeekdays * STANDARD_MINUTES_PER_DAY * memberCount;
-    const actualMinutes = summaries.reduce((sum, s) => sum + s.totalWorkMinutes, 0);
-    const leaveMinutes = summaries.reduce(
+    const empActualMinutes = summaries.reduce((sum, s) => sum + s.totalWorkMinutes, 0);
+    const partnerActualMinutes = partnerRecords.reduce((sum, r) => sum + r.totalMinutes, 0);
+    const actualMinutes = empActualMinutes + partnerActualMinutes;
+    const empLeaveMinutes = summaries.reduce(
       (sum, s) => sum + s.fullDayLeaveDays * STANDARD_MINUTES_PER_DAY + s.halfDayLeaveDays * (STANDARD_MINUTES_PER_DAY / 2),
       0
     );
+    const partnerLeaveMinutes = partnerRecords.reduce((sum, r) => sum + computeLeaveMinutes(r), 0);
+    const leaveMinutes = empLeaveMinutes + partnerLeaveMinutes;
 
     // 有休調整済み基準工数（有休分を差し引いた、純粋な就業義務時間）
     const adjustedExpected = Math.max(1, expectedMinutesPassed - leaveMinutes);
@@ -1555,7 +1567,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
       expectedMinutesPassed, actualMinutes, leaveMinutes,
       adjustedExpected, adjustedRate, adjustedDelta, rawDelta,
     };
-  }, [result.employeeSummaries]);
+  }, [result.employeeSummaries, partnerRecords]);
 
   // 部署コード一覧を取得
   const departmentCodes = result.departmentSummaries.map(d => d.department);
@@ -1577,38 +1589,75 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
     ? Math.round(stats.totalOvertime / stats.totalWorkDays)
     : 0;
 
-  // 36協定アラート対象者を抽出
-  const overtimeAlerts = result.employeeSummaries
+  // 36協定アラート対象者を抽出（正社員＋パートナー）
+  type OvertimeAlertEntry = {
+    employeeId: string; employeeName: string; department: string;
+    totalLegalOvertimeMinutes: number; alertLevel: OvertimeAlertLevel;
+  };
+  const levelOrder: Record<OvertimeAlertLevel, number> = {
+    illegal: 7, critical: 6, severe: 5, serious: 4, caution: 3, exceeded: 2, warning: 1, normal: 0
+  };
+  const empOvertimeAlerts: OvertimeAlertEntry[] = result.employeeSummaries
     .map(emp => ({
-      ...emp,
+      employeeId: emp.employeeId,
+      employeeName: emp.employeeName,
+      department: emp.department,
+      totalLegalOvertimeMinutes: emp.totalLegalOvertimeMinutes,
       alertLevel: AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes),
     }))
-    .filter(emp => emp.alertLevel !== 'normal')
-    .sort((a, b) => {
-      // アラートレベル順（7段階: illegal > critical > severe > serious > caution > exceeded > warning）
-      const levelOrder: Record<OvertimeAlertLevel, number> = {
-        illegal: 7, critical: 6, severe: 5, serious: 4, caution: 3, exceeded: 2, warning: 1, normal: 0
-      };
-      return levelOrder[b.alertLevel] - levelOrder[a.alertLevel];
-    });
+    .filter(e => e.alertLevel !== 'normal');
+  const partnerOvertimeAlerts: OvertimeAlertEntry[] = partnerRecords
+    .map(r => ({
+      employeeId: r.staffCode,
+      employeeName: r.name,
+      department: r.department,
+      totalLegalOvertimeMinutes: r.overtimeMinutes,
+      alertLevel: AttendanceService.getOvertimeAlertLevel(r.overtimeMinutes),
+    }))
+    .filter(e => e.alertLevel !== 'normal');
+  const overtimeAlerts = [...empOvertimeAlerts, ...partnerOvertimeAlerts]
+    .sort((a, b) => levelOrder[b.alertLevel] - levelOrder[a.alertLevel]);
 
-  // 残業ペース予測（月末見込み）対象者を抽出
-  // 経過営業日から月末の法定外残業時間を予測し、35h超の全員を表示
-  const paceAlerts = result.employeeSummaries
+  // 残業ペース予測（月末見込み）対象者を抽出（正社員＋パートナー）
+  type PaceAlertEntry = {
+    employeeId: string; employeeName: string; department: string;
+    totalLegalOvertimeMinutes: number; passedWeekdays: number; totalWeekdaysInMonth: number;
+    predictedOvertime: number; predictedLevel: OvertimeAlertLevel;
+  };
+  const calPassedWeekdays = result.employeeSummaries[0]?.passedWeekdays ?? 0;
+  const calTotalWeekdays = result.employeeSummaries[0]?.totalWeekdaysInMonth ?? 0;
+  const empPaceAlerts: PaceAlertEntry[] = result.employeeSummaries
     .filter(emp => {
-      // 経過営業日がない場合は除外
       if (emp.passedWeekdays <= 0) return false;
-      // 営業日ベースで月末予測が35時間超（注意レベル到達見込み）かチェック（法定外残業ベース）
-      const predictedOvertime = Math.round((emp.totalLegalOvertimeMinutes / emp.passedWeekdays) * emp.totalWeekdaysInMonth);
-      return predictedOvertime > 35 * 60; // 注意レベル到達見込み
+      const p = Math.round((emp.totalLegalOvertimeMinutes / emp.passedWeekdays) * emp.totalWeekdaysInMonth);
+      return p > 35 * 60;
     })
     .map(emp => {
-      // 月末予測を計算（営業日ベース・法定外残業）
       const predictedOvertime = Math.round((emp.totalLegalOvertimeMinutes / emp.passedWeekdays) * emp.totalWeekdaysInMonth);
-      // 予測レベルを判定
-      const predictedLevel = AttendanceService.getOvertimeAlertLevel(predictedOvertime);
-      return { ...emp, predictedOvertime, predictedLevel };
-    })
+      return {
+        employeeId: emp.employeeId, employeeName: emp.employeeName, department: emp.department,
+        totalLegalOvertimeMinutes: emp.totalLegalOvertimeMinutes,
+        passedWeekdays: emp.passedWeekdays, totalWeekdaysInMonth: emp.totalWeekdaysInMonth,
+        predictedOvertime, predictedLevel: AttendanceService.getOvertimeAlertLevel(predictedOvertime),
+      };
+    });
+  const partnerPaceAlerts: PaceAlertEntry[] = calPassedWeekdays > 0
+    ? partnerRecords
+        .filter(r => {
+          const p = Math.round((r.overtimeMinutes / calPassedWeekdays) * calTotalWeekdays);
+          return p > 35 * 60;
+        })
+        .map(r => {
+          const predictedOvertime = Math.round((r.overtimeMinutes / calPassedWeekdays) * calTotalWeekdays);
+          return {
+            employeeId: r.staffCode, employeeName: r.name, department: r.department,
+            totalLegalOvertimeMinutes: r.overtimeMinutes,
+            passedWeekdays: calPassedWeekdays, totalWeekdaysInMonth: calTotalWeekdays,
+            predictedOvertime, predictedLevel: AttendanceService.getOvertimeAlertLevel(predictedOvertime),
+          };
+        })
+    : [];
+  const paceAlerts = [...empPaceAlerts, ...partnerPaceAlerts]
     .sort((a, b) => b.predictedOvertime - a.predictedOvertime);
 
   return (
@@ -1750,7 +1799,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
           {result.nightWorkRecords.length > 0 && (
             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-300">深夜帯勤務実績（22:00超）</span>
+                <span className="text-gray-600 dark:text-gray-300">深夜帯勤務実績（22:01以降）</span>
                 <span className="font-medium text-gray-900 dark:text-white">{result.nightWorkRecords.length}件</span>
               </div>
             </div>
@@ -1885,7 +1934,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
               <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">
                 選択メンバー工数稼働率
                 <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-                  （{capacityStats.memberCount}名・7.5h/日基準・有休調整済み ※パートナー社員除く）
+                  （{capacityStats.memberCount}名・7.5h/日基準・有休調整済み）
                 </span>
               </h3>
               <span className={`text-sm font-bold ${statusColor}`}>{statusLabel}</span>
@@ -2170,20 +2219,20 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
         </div>
       )}
 
-      {/* 深夜帯勤務実績（22:00超退勤）詳細テーブル */}
+      {/* 深夜帯勤務実績（22:01以降退勤）詳細テーブル */}
       {result.nightWorkRecords.length > 0 && (
         <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-6">
           <div className="flex items-center space-x-2 mb-4">
             <Moon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             <h3 className="text-lg font-semibold text-indigo-900 dark:text-indigo-200">
-              深夜帯勤務実績（22:00超退勤）
+              深夜帯勤務実績（22:01以降退勤）
             </h3>
             <span className="text-sm text-indigo-700 dark:text-indigo-300">
               {result.nightWorkRecords.length}件
             </span>
           </div>
           <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-4">
-            以下のメンバーは22:00以降に退勤しています。法令違反ではありませんが、健康リスクや36協定超過の前兆となり得るためご確認ください。
+            以下のメンバーは22:01以降に退勤しています。法令違反ではありませんが、健康リスクや36協定超過の前兆となり得るためご確認ください。※パートナーは除く（退勤時間を管理していないため）
           </p>
           <div className="overflow-x-auto">
             <table className="min-w-full">

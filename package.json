@@ -53,7 +53,8 @@
     "video:render": "tsx scripts/video-render.ts",
     "video:all": "npm run video:record && npm run video:render",
     "launch:estaffing": "node scripts/launch-estaffing.js",
-    "scrape:estaffing": "node scripts/scrape-estaffing.js"
+    "scrape:estaffing": "node scripts/scrape-estaffing.js",
+    "scrape:estaffing:batch": "node scripts/scrape-estaffing-batch.js"
   },
   "eslintConfig": {
     "extends": [

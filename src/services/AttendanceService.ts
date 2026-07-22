@@ -1781,7 +1781,7 @@ export class AttendanceService {
         });
       }
 
-      // 深夜帯勤務（22:00以降退勤）
+      // 深夜帯勤務（22:01以降退勤）
       if (this.isNightWork(record)) {
         nightWorkDays++;
       }
@@ -1923,7 +1923,7 @@ export class AttendanceService {
     // 日付順にソート
     allViolations.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // 深夜帯勤務レコードを収集（22:00以降退勤）
+    // 深夜帯勤務レコードを収集（22:01以降退勤）
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const nightWorkRecords: NightWorkRecord[] = [];

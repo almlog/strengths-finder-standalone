@@ -372,7 +372,7 @@ export interface EmployeeMonthlySummary {
   breakViolationDays: number;    // 休憩違反日数
   missingClockDays: number;      // 出退勤時刻なし日数
   earlyStartViolationDays: number; // 早出フラグ未入力日数
-  nightWorkDays: number;           // 深夜帯勤務日数（22:00以降退勤）
+  nightWorkDays: number;           // 深夜帯勤務日数（22:01以降退勤）
   violations: AttendanceViolation[]; // 全ての違反
   // 営業日情報（予兆計算用）
   passedWeekdays: number;        // 経過営業日数（分析対象期間内の平日）
