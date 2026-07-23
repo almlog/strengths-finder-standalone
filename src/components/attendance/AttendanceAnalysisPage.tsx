@@ -53,6 +53,7 @@ import {
   NightWorkRecord,
 } from '../../models/AttendanceTypes';
 import { useStrengths } from '../../contexts/StrengthsContext';
+import { getPartnerOvertimeMinutes } from '../../utils/partnerOvertime';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
 
@@ -3177,10 +3178,6 @@ const IntegratedTab: React.FC<{
 
   const fmtPct = (n: number) => `${Math.round(n)}%`;
 
-  // パートナー残業: 実働 - 出勤日数×465分（メンバー交代があっても正確に算出）
-  const computePartnerOT = (p: EStaffingRecord) =>
-    Math.max(0, p.totalMinutes - p.workDays * MINUTES_PER_DAY);
-
   // 対象年月の整合性チェック
   const xlsxMonth = getXlsxTargetMonth(analysisResult);
   const csvMonth = partnerRecords[0]?.targetMonth || '';
@@ -3194,7 +3191,7 @@ const IntegratedTab: React.FC<{
       (sum, e) => sum + e.totalOvertimeMinutes, 0
     );
     const partnerTotalOvertime = partnerRecords.reduce(
-      (sum, r) => sum + computePartnerOT(r), 0
+      (sum, r) => sum + getPartnerOvertimeMinutes(r), 0
     );
     return (
       <div className="space-y-4">
@@ -3259,14 +3256,14 @@ const IntegratedTab: React.FC<{
   const employeeOvertimeCount = analysisResult.employeeSummaries.filter(
     e => e.totalOvertimeMinutes > 0
   ).length;
-  const partnerOvertimeCount = partnerRecords.filter(r => computePartnerOT(r) > 0).length;
+  const partnerOvertimeCount = partnerRecords.filter(r => getPartnerOvertimeMinutes(r) > 0).length;
   const totalOvertimeCount = employeeOvertimeCount + partnerOvertimeCount;
 
   const employeeTotalOvertime = analysisResult.employeeSummaries.reduce(
     (sum, e) => sum + e.totalOvertimeMinutes, 0
   );
   const partnerTotalOvertime = partnerRecords.reduce(
-    (sum, r) => sum + computePartnerOT(r), 0
+    (sum, r) => sum + getPartnerOvertimeMinutes(r), 0
   );
   const totalOvertimeMinutes = employeeTotalOvertime + partnerTotalOvertime;
 
@@ -3497,8 +3494,8 @@ const IntegratedTab: React.FC<{
                           <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">
                             {AttendanceService.formatMinutesToTime(partner.totalMinutes)}
                           </td>
-                          <td className={`px-3 py-2 text-right font-medium ${computePartnerOT(partner) > 0 ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/10' : 'text-gray-400'}`}>
-                            {computePartnerOT(partner) > 0 ? AttendanceService.formatMinutesToTime(computePartnerOT(partner)) : '-'}
+                          <td className={`px-3 py-2 text-right font-medium ${getPartnerOvertimeMinutes(partner) > 0 ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/10' : 'text-gray-400'}`}>
+                            {getPartnerOvertimeMinutes(partner) > 0 ? AttendanceService.formatMinutesToTime(getPartnerOvertimeMinutes(partner)) : '-'}
                           </td>
                           <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{partner.note}</td>
                         </tr>
