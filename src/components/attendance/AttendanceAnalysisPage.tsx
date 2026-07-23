@@ -54,52 +54,11 @@ import {
 } from '../../models/AttendanceTypes';
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { getPartnerOvertimeMinutes } from '../../utils/partnerOvertime';
+import { EStaffingRecord, parseEStaffingCsv } from '../../utils/eStaffingCsv';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
 
 // ── e-staffingパートナー勤怠 ─────────────────────────────────
-interface EStaffingRecord {
-  name: string;
-  staffCode: string;
-  department: string;
-  contractStart: string;
-  contractEnd: string;
-  workDays: number;
-  absentDays: number;
-  leaveDays: number;
-  totalMinutes: number;
-  baseMinutes: number;
-  overtimeMinutes: number;
-  targetMonth: string;
-  note: string;
-}
-
-function parseCsvFields(line: string): string[] {
-  const fields: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-      else inQuotes = !inQuotes;
-    } else if (ch === ',' && !inQuotes) {
-      fields.push(current); current = '';
-    } else {
-      current += ch;
-    }
-  }
-  fields.push(current);
-  return fields;
-}
-
-// 東SI{A}-{B}-{C} → 13D5{A}{B}{C}0 (XLSX側部署コードに統一)
-function normalizeEStaffingDept(dept: string): string {
-  const m = dept.trim().match(/^東SI(\d+)-(\d+)-(\d+)$/);
-  if (m) return `13D5${m[1]}${m[2]}${m[3]}0`;
-  return dept.trim();
-}
-
 type PartnerStatusTag = '月途中入場' | '月途中退場' | 'データなし' | '退職・退場';
 
 function detectPartnerTags(r: EStaffingRecord): PartnerStatusTag[] {
@@ -134,22 +93,6 @@ const TAG_STYLES: Record<string, string> = {
   '月途中入場': 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
   '月途中退場': 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
 };
-
-function parseEStaffingCsv(text: string): EStaffingRecord[] {
-  const lines = text.replace(/^﻿/, '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  if (lines.length < 2) return [];
-  return lines.slice(1).map(line => {
-    const f = parseCsvFields(line);
-    return {
-      name: f[0] || '', staffCode: f[1] || '',
-      department: normalizeEStaffingDept(f[2] || ''),
-      contractStart: f[3] || '', contractEnd: f[4] || '',
-      workDays: parseInt(f[5]) || 0, absentDays: parseInt(f[6]) || 0, leaveDays: parseInt(f[7]) || 0,
-      totalMinutes: parseInt(f[8]) || 0, baseMinutes: parseInt(f[9]) || 0, overtimeMinutes: parseInt(f[10]) || 0,
-      targetMonth: f[11] || '', note: f[12] || '',
-    };
-  });
-}
 
 type TabType = 'summary' | 'employees' | 'departments' | 'violations' | 'integrated';
 
@@ -3611,12 +3554,9 @@ const PartnerAttendanceSection: React.FC<{
     e.target.value = '';
   };
 
-  const partnerOT = (r: EStaffingRecord) =>
-    Math.max(0, r.totalMinutes - r.workDays * 465); // 7h45m超過分
-
   const targetMonth = records.length > 0 ? records[0].targetMonth : '';
   const activeMembers = records.filter(r => r.workDays > 0 || r.totalMinutes > 0);
-  const totalOvertimeMinutes = records.reduce((sum, r) => sum + partnerOT(r), 0);
+  const totalOvertimeMinutes = records.reduce((sum, r) => sum + getPartnerOvertimeMinutes(r), 0);
 
   const fmt = (min: number) => {
     if (min === 0) return '-';
@@ -3737,8 +3677,8 @@ const PartnerAttendanceSection: React.FC<{
                     </td>
                     <td className="px-3 py-2 text-right text-gray-900 dark:text-white">{fmt(r.totalMinutes)}</td>
                     <td className="px-3 py-2 text-right">
-                      {partnerOT(r) > 0 ? (
-                        <span className="font-medium text-orange-600 dark:text-orange-400">{fmt(partnerOT(r))}</span>
+                      {getPartnerOvertimeMinutes(r) > 0 ? (
+                        <span className="font-medium text-orange-600 dark:text-orange-400">{fmt(getPartnerOvertimeMinutes(r))}</span>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
