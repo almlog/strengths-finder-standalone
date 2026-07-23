@@ -55,6 +55,7 @@ import {
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { getPartnerOvertimeMinutes } from '../../utils/partnerOvertime';
 import { EStaffingRecord, parseEStaffingCsv } from '../../utils/eStaffingCsv';
+import { calculateCapacityUtilization } from '../../utils/capacityUtilization';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
 
@@ -1489,26 +1490,12 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
     const empActualMinutes = summaries.reduce((sum, s) => sum + s.totalWorkMinutes, 0);
     const partnerActualMinutes = partnerRecords.reduce((sum, r) => sum + r.totalMinutes, 0);
     const actualMinutes = empActualMinutes + partnerActualMinutes;
-    const empLeaveMinutes = summaries.reduce(
-      (sum, s) => sum + s.fullDayLeaveDays * STANDARD_MINUTES_PER_DAY + s.halfDayLeaveDays * (STANDARD_MINUTES_PER_DAY / 2),
-      0
-    );
-    const partnerLeaveMinutes = partnerRecords.reduce((sum, r) => sum + r.leaveDays * STANDARD_MINUTES_PER_DAY, 0);
-    const leaveMinutes = empLeaveMinutes + partnerLeaveMinutes;
 
-    // 有休調整済み基準工数（有休分を差し引いた、純粋な就業義務時間）
-    const adjustedExpected = Math.max(1, expectedMinutesPassed - leaveMinutes);
-    // 有休調整済み稼働率（主指標）
-    const adjustedRate = (actualMinutes / adjustedExpected) * 100;
-    // 有休調整済み差異
-    const adjustedDelta = actualMinutes - adjustedExpected;
-    // 生差異（参考：有休込み）
-    const rawDelta = actualMinutes - expectedMinutesPassed;
+    const { rate, delta } = calculateCapacityUtilization({ expectedMinutesPassed, actualMinutes });
 
     return {
       memberCount, totalWeekdays, passedWeekdays,
-      expectedMinutesPassed, actualMinutes, leaveMinutes,
-      adjustedExpected, adjustedRate, adjustedDelta, rawDelta,
+      expectedMinutesPassed, actualMinutes, rate, delta,
     };
   }, [result.employeeSummaries, partnerRecords]);
 
@@ -1845,7 +1832,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
 
       {/* 選択メンバー工数稼働率 */}
       {capacityStats && (() => {
-        const rate = capacityStats.adjustedRate;
+        const rate = capacityStats.rate;
         const isShortfall = rate < 100;
         const isSlightOver = rate >= 110 && rate < 120;
         const isOver = rate >= 120;
@@ -1877,7 +1864,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
               <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">
                 選択メンバー工数稼働率
                 <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-                  （{capacityStats.memberCount}名・7.5h/日基準・有休調整済み）
+                  （{capacityStats.memberCount}名・7.5h/日基準）
                 </span>
               </h3>
               <span className={`text-sm font-bold ${statusColor}`}>{statusLabel}</span>
@@ -1917,20 +1904,6 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
                     </span>
                   </span>
                 </div>
-                {capacityStats.leaveMinutes > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">うち有休・休暇</span>
-                    <span className="text-gray-500 dark:text-gray-400">
-                      -{AttendanceService.formatMinutesToTime(capacityStats.leaveMinutes)}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-1">
-                  <span className="text-gray-600 dark:text-gray-400">実質基準工数</span>
-                  <span className="font-medium text-gray-800 dark:text-gray-200">
-                    {AttendanceService.formatMinutesToTime(capacityStats.adjustedExpected)}
-                  </span>
-                </div>
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between">
@@ -1940,20 +1913,12 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-1">
-                  <span className="text-gray-600 dark:text-gray-400">差異（有休調整後）</span>
-                  <span className={`font-semibold ${capacityStats.adjustedDelta >= 0 ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {capacityStats.adjustedDelta >= 0 ? '+' : ''}{AttendanceService.formatMinutesToTime(Math.abs(capacityStats.adjustedDelta))}
-                    {capacityStats.adjustedDelta < 0 ? '（不足）' : '（超過）'}
+                  <span className="text-gray-600 dark:text-gray-400">差異</span>
+                  <span className={`font-semibold ${capacityStats.delta >= 0 ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {capacityStats.delta >= 0 ? '+' : ''}{AttendanceService.formatMinutesToTime(Math.abs(capacityStats.delta))}
+                    {capacityStats.delta < 0 ? '（不足）' : '（超過）'}
                   </span>
                 </div>
-                {capacityStats.rawDelta !== capacityStats.adjustedDelta && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-400 dark:text-gray-500">参考：有休込み差異</span>
-                    <span className="text-gray-400 dark:text-gray-500">
-                      {capacityStats.rawDelta >= 0 ? '+' : ''}{AttendanceService.formatMinutesToTime(Math.abs(capacityStats.rawDelta))}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
