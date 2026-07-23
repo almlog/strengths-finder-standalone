@@ -56,6 +56,7 @@ import { useStrengths } from '../../contexts/StrengthsContext';
 import { getPartnerOvertimeMinutes } from '../../utils/partnerOvertime';
 import { EStaffingRecord, parseEStaffingCsv } from '../../utils/eStaffingCsv';
 import { calculateCapacityUtilization } from '../../utils/capacityUtilization';
+import { mergePartnerRecords } from '../../utils/mergePartnerRecords';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
 
@@ -120,58 +121,18 @@ function mergeXlsxRecords(
   return [...existingFiltered, ...incoming];
 }
 
-function mergePartnerRecords(
-  existing: EStaffingRecord[],
-  incoming: EStaffingRecord[],
-  mode: 'overwrite' | 'merge' | 'replace'
-): EStaffingRecord[] {
-  if (mode === 'replace') return incoming;
-
-  const getKey = (r: EStaffingRecord) => r.staffCode || r.name;
-  const incomingKeys = new Set(incoming.map(getKey));
-
-  if (mode === 'overwrite') {
-    const existingFiltered = existing.filter(r => !incomingKeys.has(getKey(r)));
-    return [...existingFiltered, ...incoming];
-  }
-
-  // merge: 同じキーのレコードは各フィールドを非ゼロ/非空の incoming 値で上書き
-  const existingMap = new Map(existing.map(r => [getKey(r), r]));
-  incoming.forEach(inc => {
-    const key = getKey(inc);
-    const ex = existingMap.get(key);
-    if (!ex) {
-      existingMap.set(key, inc);
-    } else {
-      existingMap.set(key, {
-        name: inc.name || ex.name,
-        staffCode: inc.staffCode || ex.staffCode,
-        department: inc.department || ex.department,
-        contractStart: inc.contractStart || ex.contractStart,
-        contractEnd: inc.contractEnd || ex.contractEnd,
-        workDays: inc.workDays !== 0 ? inc.workDays : ex.workDays,
-        absentDays: inc.absentDays !== 0 ? inc.absentDays : ex.absentDays,
-        leaveDays: inc.leaveDays !== 0 ? inc.leaveDays : ex.leaveDays,
-        totalMinutes: inc.totalMinutes !== 0 ? inc.totalMinutes : ex.totalMinutes,
-        baseMinutes: inc.baseMinutes !== 0 ? inc.baseMinutes : ex.baseMinutes,
-        overtimeMinutes: inc.overtimeMinutes !== 0 ? inc.overtimeMinutes : ex.overtimeMinutes,
-        targetMonth: inc.targetMonth || ex.targetMonth,
-        note: inc.note || ex.note,
-      });
-    }
-  });
-  // existing にいて incoming にいない人も保持
-  existing.forEach(ex => {
-    const key = getKey(ex);
-    if (!incomingKeys.has(key)) {
-      existingMap.set(key, ex);
-    }
-  });
-  return Array.from(existingMap.values());
-}
-
 // サマリーカード詳細モーダル用の型
 type SummaryModalType = 'issues' | 'highUrgency' | 'mediumUrgency' | null;
+
+// サマリーカード詳細モーダルの表示対象（正社員・パートナー共通の最小項目）
+type SummaryModalMember = Pick<
+  EmployeeMonthlySummary,
+  'employeeId' | 'employeeName' | 'department' | 'violations' | 'totalLegalOvertimeMinutes'
+>;
+
+// 36協定「高緊急度」に相当する残業アラートレベル
+const HIGH_URGENCY_OVERTIME_LEVELS: OvertimeAlertLevel[] =
+  ['exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'];
 
 // チャート用カラー定数
 const ALERT_CHART_COLORS: Record<OvertimeAlertLevel, string> = {
@@ -586,28 +547,41 @@ const AttendanceAnalysisPage: React.FC = () => {
     s => filterDepartment === 'all' || s.department === filterDepartment
   ) ?? [];
 
-  // サマリーカード用: 各カテゴリの該当者リスト
+  // サマリーカード用: 各カテゴリの該当者リスト（正社員＋パートナー）
   const summaryDetails = useMemo(() => {
     if (!analysisResult) return { issues: [], highUrgency: [], mediumUrgency: [] };
 
-    // 問題あり（違反がある従業員）
-    const issues = analysisResult.employeeSummaries.filter(emp => emp.violations.length > 0);
+    // 問題あり（違反がある従業員）※日次データがないパートナーは対象外
+    const issues: SummaryModalMember[] = analysisResult.employeeSummaries.filter(emp => emp.violations.length > 0);
 
     // 高緊急度（法定外残業45時間以上 OR 法令違反の可能性がある違反）
-    const highUrgency = analysisResult.employeeSummaries.filter(emp => {
+    const empHighUrgency: SummaryModalMember[] = analysisResult.employeeSummaries.filter(emp => {
       const overtimeLevel = AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes);
-      const isOvertimeHigh = ['exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'].includes(overtimeLevel);
+      const isOvertimeHigh = HIGH_URGENCY_OVERTIME_LEVELS.includes(overtimeLevel);
       const hasHighViolation = emp.violations.some(v => VIOLATION_URGENCY[v.type] === 'high');
       return isOvertimeHigh || hasHighViolation;
     });
+    // パートナーは日次違反を持たないため、残業45時間以上のみで判定
+    const partnerHighUrgency: SummaryModalMember[] = partnerRecords
+      .filter(r => HIGH_URGENCY_OVERTIME_LEVELS.includes(
+        AttendanceService.getOvertimeAlertLevel(getPartnerOvertimeMinutes(r))
+      ))
+      .map(r => ({
+        employeeId: r.staffCode || r.name,
+        employeeName: r.name,
+        department: r.department,
+        violations: [],
+        totalLegalOvertimeMinutes: getPartnerOvertimeMinutes(r),
+      }));
+    const highUrgency: SummaryModalMember[] = [...empHighUrgency, ...partnerHighUrgency];
 
-    // 中緊急度（VIOLATION_URGENCYで 'medium' に分類される違反がある従業員）
-    const mediumUrgency = analysisResult.employeeSummaries.filter(emp =>
+    // 中緊急度（VIOLATION_URGENCYで 'medium' に分類される違反がある従業員）※パートナーは対象外
+    const mediumUrgency: SummaryModalMember[] = analysisResult.employeeSummaries.filter(emp =>
       emp.violations.some(v => VIOLATION_URGENCY[v.type] === 'medium')
     );
 
     return { issues, highUrgency, mediumUrgency };
-  }, [analysisResult]);
+  }, [analysisResult, partnerRecords]);
 
   return (
     <div className="space-y-6" data-testid="attendance-page">
@@ -1058,7 +1032,7 @@ const AttendanceAnalysisPage: React.FC = () => {
               <DepartmentsTab departments={analysisResult.departmentSummaries} />
             )}
             {activeTab === 'violations' && (
-              <ViolationsTab result={analysisResult} />
+              <ViolationsTab result={analysisResult} partnerRecords={partnerRecords} />
             )}
             {activeTab === 'integrated' && partnerRecords.length > 0 && (
               <IntegratedTab
@@ -1124,7 +1098,7 @@ const AttendanceAnalysisPage: React.FC = () => {
 // サマリーカード詳細モーダル
 const SummaryDetailModal: React.FC<{
   type: 'issues' | 'highUrgency' | 'mediumUrgency';
-  employees: EmployeeMonthlySummary[];
+  employees: SummaryModalMember[];
   onClose: () => void;
 }> = ({ type, employees, onClose }) => {
   const modalConfig = {
@@ -1423,6 +1397,10 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
       const level = AttendanceService.getOvertimeAlertLevel(emp.totalLegalOvertimeMinutes);
       counts[level]++;
     });
+    partnerRecords.forEach(r => {
+      const level = AttendanceService.getOvertimeAlertLevel(getPartnerOvertimeMinutes(r));
+      counts[level]++;
+    });
     // レベル順にソート（注意 → 警告 → ... → 法令違反）- 正常は除外
     const orderedLevels: OvertimeAlertLevel[] = [
       'warning', 'exceeded', 'caution', 'serious', 'severe', 'critical', 'illegal'
@@ -1434,7 +1412,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
         value: counts[level],
         fill: ALERT_CHART_COLORS[level],
       }));
-  }, [result.employeeSummaries]);
+  }, [result.employeeSummaries, partnerRecords]);
 
   // アラート対象者の割合を計算（正社員＋パートナー）
   const alertStats = useMemo(() => {
@@ -1683,9 +1661,13 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
             違反サマリー
           </h3>
           {(() => {
-            const exceededCount = result.employeeSummaries.filter(
+            const empExceededCount = result.employeeSummaries.filter(
               emp => emp.totalLegalOvertimeMinutes >= 45 * 60
             ).length;
+            const partnerExceededCount = partnerRecords.filter(
+              r => getPartnerOvertimeMinutes(r) >= 45 * 60
+            ).length;
+            const exceededCount = empExceededCount + partnerExceededCount;
             const hasViolations = result.allViolations.length > 0 || exceededCount > 0;
             return (
               <div className="space-y-2">
@@ -2490,11 +2472,19 @@ const DepartmentsTab: React.FC<{ departments: DepartmentSummary[] }> = ({ depart
 };
 
 // 違反タブ
-const ViolationsTab: React.FC<{ result: ExtendedAnalysisResult }> = ({ result }) => {
+const ViolationsTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: EStaffingRecord[] }> = ({ result, partnerRecords = [] }) => {
   const violations = result.allViolations;
-  const exceededEmployees = result.employeeSummaries.filter(
+  const empExceeded = result.employeeSummaries.filter(
     emp => emp.totalLegalOvertimeMinutes >= 45 * 60
   );
+  const partnerExceeded = partnerRecords
+    .filter(r => getPartnerOvertimeMinutes(r) >= 45 * 60)
+    .map(r => ({
+      employeeId: r.staffCode || r.name,
+      employeeName: r.name,
+      totalLegalOvertimeMinutes: getPartnerOvertimeMinutes(r),
+    }));
+  const exceededEmployees = [...empExceeded, ...partnerExceeded];
 
   if (violations.length === 0 && exceededEmployees.length === 0) {
     return (
@@ -3077,8 +3067,6 @@ const IntegratedTab: React.FC<{
   analysisResult: ExtendedAnalysisResult;
   partnerRecords: EStaffingRecord[];
 }> = ({ analysisResult, partnerRecords }) => {
-  const MINUTES_PER_DAY = 465; // 7h45m 基準
-
   const fmt = (min: number) => {
     if (min === 0) return '-';
     return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}m`;
@@ -3220,21 +3208,25 @@ const IntegratedTab: React.FC<{
     }
   });
 
-  // 稼働率: Σ実働 ÷ Σ想定稼働（workDays×465）
-  // — メンバー交代（前半A・後半B）は workDays が合算されるため
-  //   自動的に「1ポジション分」として扱われる
-  const empActualMin   = analysisResult.employeeSummaries.reduce((s, e) => s + e.totalWorkMinutes, 0);
-  const empCapacityMin = analysisResult.employeeSummaries.reduce((s, e) => s + e.totalWorkDays * MINUTES_PER_DAY, 0);
-  const ptnActualMin   = partnerRecords.reduce((s, r) => s + r.totalMinutes, 0);
-  const ptnCapacityMin = partnerRecords.reduce((s, r) => s + r.workDays * MINUTES_PER_DAY, 0);
-  const totalActualMin   = empActualMin + ptnActualMin;
-  const totalCapacityMin = empCapacityMin + ptnCapacityMin;
-  const totalUtilPct = totalCapacityMin > 0 ? (totalActualMin / totalCapacityMin) * 100 : 0;
+  // 稼働率: Σ実働 ÷ 想定稼働（経過営業日×7.5h×人数）
+  // SummaryTabのcapacityStatsと同じ基準（就業すべき人数×時間×営業日を100%とする）に統一
+  const CAPACITY_STANDARD_MINUTES_PER_DAY = 450; // 7.5h
+  const passedWeekdays = analysisResult.employeeSummaries[0]?.passedWeekdays ?? 0;
+
+  const empActualMin = analysisResult.employeeSummaries.reduce((s, e) => s + e.totalWorkMinutes, 0);
+  const ptnActualMin = partnerRecords.reduce((s, r) => s + r.totalMinutes, 0);
+  const totalActualMin = empActualMin + ptnActualMin;
+  const totalCapacityMin = passedWeekdays * CAPACITY_STANDARD_MINUTES_PER_DAY * totalCount;
+  const { rate: totalUtilPct } = calculateCapacityUtilization({
+    expectedMinutesPassed: totalCapacityMin,
+    actualMinutes: totalActualMin,
+  });
 
   const deptUtil = orderedDepts.map(([dept, rows]) => {
-    const actual   = rows.reduce((s, row) => s + (row.type === 'employee' ? row.data.totalWorkMinutes : row.data.totalMinutes), 0);
-    const capacity = rows.reduce((s, row) => s + (row.type === 'employee' ? row.data.totalWorkDays * MINUTES_PER_DAY : row.data.workDays * MINUTES_PER_DAY), 0);
-    return { dept, headcount: rows.length, actual, capacity, pct: capacity > 0 ? (actual / capacity) * 100 : 0 };
+    const actual = rows.reduce((s, row) => s + (row.type === 'employee' ? row.data.totalWorkMinutes : row.data.totalMinutes), 0);
+    const capacity = passedWeekdays * CAPACITY_STANDARD_MINUTES_PER_DAY * rows.length;
+    const { rate: pct } = calculateCapacityUtilization({ expectedMinutesPassed: capacity, actualMinutes: actual });
+    return { dept, headcount: rows.length, actual, capacity, pct };
   });
 
   return (
@@ -3286,7 +3278,7 @@ const IntegratedTab: React.FC<{
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-medium text-gray-900 dark:text-white">稼働率</h3>
-          <span className="text-xs text-gray-400 dark:text-gray-500">実働時間 ÷ 想定稼働（7h45m/出勤日）</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">実働時間 ÷ 想定稼働（経過営業日×7.5h×人数）</span>
         </div>
 
         {/* 全体 */}
