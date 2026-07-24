@@ -57,7 +57,7 @@ import { getPartnerOvertimeMinutes } from '../../utils/partnerOvertime';
 import { EStaffingRecord, parseEStaffingCsv } from '../../utils/eStaffingCsv';
 import { calculateCapacityUtilization, sumExpectedCapacityMinutes } from '../../utils/capacityUtilization';
 import { mergePartnerRecords } from '../../utils/mergePartnerRecords';
-import { EmployeeActivityPeriod, resolveEmployeePassedWeekdays } from '../../utils/employeeActivityPeriod';
+import { EmployeeActivityPeriod, resolveEmployeePassedWeekdays, resolvePartnerElapsedDays } from '../../utils/employeeActivityPeriod';
 import { countDistinctPositions, summarizePositionGroups } from '../../utils/positionGrouping';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
@@ -1613,14 +1613,15 @@ const SummaryTab: React.FC<{
         elapsedEnd
       ),
     }));
-    // パートナーは日次データを持たないため、workDays+absentDays+leaveDaysの合計を
-    // 本人の経過営業日数のデフォルト値として使う（契約開始日からの実際の対象日数を
-    // 反映する）。CSVに契約期間が無い/古い場合は、手動設定された活動期間で補正する
+    // パートナーは正社員と同じ「カレンダー計算」を優先する（契約開始日がある場合）。
+    // workDays+absentDays+leaveDaysの実績合計は、時間休など3項目に当てはまらない
+    // 区分があるとカレンダー営業日数より少なく出ることがあるため、契約開始日が
+    // 無い場合のみのフォールバックとする。手動設定された活動期間があれば最優先する
     const partnerElapsedDays = partnerRecords.map(r => {
       const key = r.staffCode || r.name;
       return {
-        passedWeekdays: resolveEmployeePassedWeekdays(
-          r.workDays + r.absentDays + r.leaveDays,
+        passedWeekdays: resolvePartnerElapsedDays(
+          r,
           partnerActivityPeriods?.get(key),
           analysisStart,
           elapsedEnd
@@ -3405,8 +3406,8 @@ const IntegratedTab: React.FC<{
           capacityAnalysisStart,
           capacityElapsedEnd
         )
-      : resolveEmployeePassedWeekdays(
-          row.data.workDays + row.data.absentDays + row.data.leaveDays,
+      : resolvePartnerElapsedDays(
+          row.data,
           partnerActivityPeriods?.get(row.data.staffCode || row.data.name),
           capacityAnalysisStart,
           capacityElapsedEnd
@@ -3426,8 +3427,8 @@ const IntegratedTab: React.FC<{
         ),
       })),
       ...partnerRecords.map(r => ({
-        passedWeekdays: resolveEmployeePassedWeekdays(
-          r.workDays + r.absentDays + r.leaveDays,
+        passedWeekdays: resolvePartnerElapsedDays(
+          r,
           partnerActivityPeriods?.get(r.staffCode || r.name),
           capacityAnalysisStart,
           capacityElapsedEnd

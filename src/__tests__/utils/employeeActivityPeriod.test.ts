@@ -6,6 +6,7 @@
 import {
   countWeekdaysInRange,
   resolveEmployeePassedWeekdays,
+  resolvePartnerElapsedDays,
 } from '../../utils/employeeActivityPeriod';
 
 describe('countWeekdaysInRange', () => {
@@ -93,5 +94,81 @@ describe('resolveEmployeePassedWeekdays', () => {
       elapsedEnd
     );
     expect(result).toBe(21);
+  });
+});
+
+describe('resolvePartnerElapsedDays', () => {
+  // パートナーの経過営業日数は、実績(workDays+absentDays+leaveDays)ではなく
+  // 契約開始日があればカレンダー計算を優先する。実績合計は、時間休など
+  // workDays/absentDays/leaveDaysのどれにも当てはまらない区分があると
+  // 本来のカレンダー営業日数より少なく出てしまうことがあるため。
+  const analysisStart = new Date('2026-07-01');
+  const elapsedEnd = new Date('2026-07-23'); // 経過時点
+
+  it('契約開始日が無ければ、従来通りworkDays+absentDays+leaveDaysを使う', () => {
+    const result = resolvePartnerElapsedDays(
+      { workDays: 15, absentDays: 1, leaveDays: 2, contractStart: '', contractEnd: '' },
+      undefined,
+      analysisStart,
+      elapsedEnd
+    );
+    expect(result).toBe(18); // 15+1+2
+  });
+
+  it('契約開始日が分析期間より前（フル在籍）なら、実績合計が少なくてもカレンダーの経過営業日数を使う', () => {
+    // 実績合計(workDays+absentDays+leaveDays)=15で、
+    // 本来のカレンダー経過営業日数(07/01-07/23)より少ない状況を想定
+    const calendarMax = countWeekdaysInRange(analysisStart, elapsedEnd);
+    const result = resolvePartnerElapsedDays(
+      { workDays: 10, absentDays: 2, leaveDays: 3, contractStart: '2026/06/01', contractEnd: '' },
+      undefined,
+      analysisStart,
+      elapsedEnd
+    );
+    expect(result).toBe(calendarMax); // 15(実績合計)ではなく、カレンダー基準の値
+    expect(result).toBeGreaterThan(10 + 2 + 3);
+  });
+
+  it('契約開始日が月途中なら、開始日から経過時点までのカレンダー営業日数になる', () => {
+    const result = resolvePartnerElapsedDays(
+      { workDays: 5, absentDays: 0, leaveDays: 0, contractStart: '2026/07/15', contractEnd: '' },
+      undefined,
+      analysisStart,
+      elapsedEnd
+    );
+    const expected = countWeekdaysInRange(new Date('2026-07-15'), elapsedEnd);
+    expect(result).toBe(expected);
+  });
+
+  it('契約終了日があれば、分析期間開始から契約終了日までのカレンダー営業日数になる', () => {
+    const result = resolvePartnerElapsedDays(
+      { workDays: 5, absentDays: 0, leaveDays: 0, contractStart: '2026/06/01', contractEnd: '2026/07/10' },
+      undefined,
+      analysisStart,
+      elapsedEnd
+    );
+    const expected = countWeekdaysInRange(analysisStart, new Date('2026-07-10'));
+    expect(result).toBe(expected);
+  });
+
+  it('手動で活動期間が設定されていれば、CSVの契約開始日より手動設定が優先される', () => {
+    const result = resolvePartnerElapsedDays(
+      { workDays: 5, absentDays: 0, leaveDays: 0, contractStart: '2026/06/01', contractEnd: '' },
+      { startDate: '2026-07-20' },
+      analysisStart,
+      elapsedEnd
+    );
+    const expected = countWeekdaysInRange(new Date('2026-07-20'), elapsedEnd);
+    expect(result).toBe(expected);
+  });
+
+  it('契約開始日が不正な文字列なら、実績合計にフォールバックする', () => {
+    const result = resolvePartnerElapsedDays(
+      { workDays: 15, absentDays: 1, leaveDays: 2, contractStart: '不明', contractEnd: '' },
+      undefined,
+      analysisStart,
+      elapsedEnd
+    );
+    expect(result).toBe(18);
   });
 });
