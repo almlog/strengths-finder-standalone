@@ -46,6 +46,10 @@ export interface UserFilterPanelProps {
   activityPeriods?: Map<string, EmployeeActivityPeriod>;
   /** 活動期間変更時のコールバック */
   onActivityPeriodChange?: (employeeId: string, period: EmployeeActivityPeriod) => void;
+  /** ユーザーごとのポジショングループ（メンバー交代を1名として数えるための任意ラベル） */
+  positionGroups?: Map<string, string>;
+  /** ポジショングループ変更時のコールバック */
+  onPositionGroupChange?: (employeeId: string, group: string) => void;
 }
 
 /**
@@ -108,6 +112,8 @@ const UserFilterPanel: React.FC<UserFilterPanelProps> = ({
   onCancel,
   activityPeriods,
   onActivityPeriodChange,
+  positionGroups,
+  onPositionGroupChange,
 }) => {
   // ユニークユーザーと部門別グループを計算
   const uniqueUsers = useMemo(() => extractUniqueUsers(records), [records]);
@@ -214,10 +220,11 @@ const UserFilterPanel: React.FC<UserFilterPanelProps> = ({
                 {group.users.map(user => {
                   const isSelected = userSelections.get(user.employeeId) ?? true;
                   const period = activityPeriods?.get(user.employeeId);
+                  const positionGroup = positionGroups?.get(user.employeeId) ?? '';
                   return (
                     <div
                       key={user.employeeId}
-                      className="flex items-center px-4 py-2 pl-10 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                      className="flex flex-wrap items-center gap-y-1 px-4 py-2 pl-10 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                     >
                       <label className="flex items-center cursor-pointer flex-1 min-w-0">
                         <input
@@ -260,6 +267,21 @@ const UserFilterPanel: React.FC<UserFilterPanelProps> = ({
                             })}
                             aria-label={`${user.employeeName}の退社日`}
                             className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                     bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                          />
+                        </div>
+                      )}
+                      {onPositionGroupChange && isSelected && (
+                        <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 ml-2">
+                          <span>グループ:</span>
+                          <input
+                            type="text"
+                            value={positionGroup}
+                            onChange={e => onPositionGroupChange(user.employeeId, e.target.value)}
+                            placeholder="例: SI1担当"
+                            aria-label={`${user.employeeName}のポジショングループ`}
+                            title="同じ名前を入力したメンバー同士は交代要員として1名にまとめてカウントされます"
+                            className="w-24 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
                                      bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
                           />
                         </div>

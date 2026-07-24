@@ -58,6 +58,7 @@ import { EStaffingRecord, parseEStaffingCsv } from '../../utils/eStaffingCsv';
 import { calculateCapacityUtilization, sumExpectedCapacityMinutes } from '../../utils/capacityUtilization';
 import { mergePartnerRecords } from '../../utils/mergePartnerRecords';
 import { EmployeeActivityPeriod, resolveEmployeePassedWeekdays } from '../../utils/employeeActivityPeriod';
+import { countDistinctPositions } from '../../utils/positionGrouping';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
 
@@ -208,6 +209,20 @@ const AttendanceAnalysisPage: React.FC = () => {
         next.delete(employeeId);
       } else {
         next.set(employeeId, period);
+      }
+      return next;
+    });
+  }, []);
+  // 正社員のポジショングループ（メンバー交代を1名として数えるための任意ラベル）
+  // - セッション内のみ保持
+  const [employeePositionGroups, setEmployeePositionGroups] = useState<Map<string, string>>(new Map());
+  const handlePositionGroupChange = useCallback((employeeId: string, group: string) => {
+    setEmployeePositionGroups(prev => {
+      const next = new Map(prev);
+      if (!group.trim()) {
+        next.delete(employeeId);
+      } else {
+        next.set(employeeId, group);
       }
       return next;
     });
@@ -678,6 +693,8 @@ const AttendanceAnalysisPage: React.FC = () => {
                 onCancel={handleCancelUserSelection}
                 activityPeriods={employeeActivityPeriods}
                 onActivityPeriodChange={handleActivityPeriodChange}
+                positionGroups={employeePositionGroups}
+                onPositionGroupChange={handlePositionGroupChange}
               />
             )}
             {rawPartnerRecords.length > 0 && (
@@ -1083,6 +1100,7 @@ const AttendanceAnalysisPage: React.FC = () => {
                   isExportingPdf={isExportingPdf}
                   employeeActivityPeriods={employeeActivityPeriods}
                   partnerActivityPeriods={partnerActivityPeriods}
+                  employeePositionGroups={employeePositionGroups}
                 />
               </div>
             )}
@@ -1437,7 +1455,13 @@ const SummaryTab: React.FC<{
   isExportingPdf?: boolean;
   employeeActivityPeriods?: Map<string, EmployeeActivityPeriod>;
   partnerActivityPeriods?: Map<string, EmployeeActivityPeriod>;
-}> = ({ result, partnerRecords = [], isExportingPdf = false, employeeActivityPeriods, partnerActivityPeriods }) => {
+  employeePositionGroups?: Map<string, string>;
+}> = ({ result, partnerRecords = [], isExportingPdf = false, employeeActivityPeriods, partnerActivityPeriods, employeePositionGroups }) => {
+  // メンバー交代（前半A・後半B）を1ポジションとして数えた人数
+  const groupedEmployeeCount = countDistinctPositions(
+    result.employeeSummaries.map(s => s.employeeId),
+    employeePositionGroups
+  );
   // 部門別残業データ（横棒グラフ用）
   const departmentOvertimeData = useMemo(() => {
     return result.departmentSummaries
@@ -1511,9 +1535,9 @@ const SummaryTab: React.FC<{
   const partnerTotalOvertime = partnerRecords.reduce((sum, r) => sum + r.overtimeMinutes, 0);
 
   const stats = {
-    // 基本情報（正社員 + パートナー）
-    totalEmployees: result.summary.totalEmployees + partnerRecords.length,
-    employeeOnlyCount: result.summary.totalEmployees,
+    // 基本情報（正社員 + パートナー）※メンバー交代は1ポジション＝1名として数える
+    totalEmployees: groupedEmployeeCount + partnerRecords.length,
+    employeeOnlyCount: groupedEmployeeCount,
     partnerCount: partnerRecords.length,
     totalWorkDays: result.employeeSummaries.reduce((sum, s) => sum + s.totalWorkDays, 0) + partnerTotalWorkDays,
     // 残業統計（正社員 + パートナー）
@@ -1531,7 +1555,7 @@ const SummaryTab: React.FC<{
   // 選択メンバー工数稼働率（7.5h/日基準・正社員＋パートナー）
   const capacityStats = useMemo(() => {
     const summaries = result.employeeSummaries;
-    const memberCount = summaries.length + partnerRecords.length;
+    const memberCount = groupedEmployeeCount + partnerRecords.length;
     if (memberCount === 0) return null;
     // passedWeekdays はカレンダー値なので正社員データがない場合は算出不能
     if (summaries.length === 0) return null;
@@ -1582,7 +1606,7 @@ const SummaryTab: React.FC<{
       memberCount, totalWeekdays, passedWeekdays,
       expectedMinutesPassed, actualMinutes, rate, delta,
     };
-  }, [result.employeeSummaries, result.summary.analysisDateRange, partnerRecords, employeeActivityPeriods, partnerActivityPeriods]);
+  }, [result.employeeSummaries, result.summary.analysisDateRange, partnerRecords, employeeActivityPeriods, partnerActivityPeriods, groupedEmployeeCount]);
 
   // 部署コード一覧を取得
   const departmentCodes = result.departmentSummaries.map(d => d.department);
@@ -1696,10 +1720,10 @@ const SummaryTab: React.FC<{
               </p>
               <p>
                 <span className="font-medium text-white">対象人数:</span>{' '}
-                {result.summary.totalEmployees + partnerRecords.length}名
+                {groupedEmployeeCount + partnerRecords.length}名
                 {partnerRecords.length > 0 && (
                   <span className="text-blue-200 text-sm ml-1">
-                    （正社員{result.summary.totalEmployees}名 + パートナー{partnerRecords.length}名）
+                    （正社員{groupedEmployeeCount}名 + パートナー{partnerRecords.length}名）
                   </span>
                 )}
               </p>
