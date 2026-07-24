@@ -4,7 +4,7 @@
 // 「有休を取得した分がそのまま超過扱いに加算される」という誤解を招く表現だった。
 // 有休調整を廃止し、生の差異・稼働率のみを算出する。
 
-import { calculateCapacityUtilization } from '../../utils/capacityUtilization';
+import { calculateCapacityUtilization, sumExpectedCapacityMinutes } from '../../utils/capacityUtilization';
 
 describe('calculateCapacityUtilization', () => {
   it('基準工数と実稼働工数から、有休調整なしの生の差異・稼働率を算出する', () => {
@@ -42,5 +42,31 @@ describe('calculateCapacityUtilization', () => {
       actualMinutes: 100,
     });
     expect(Number.isFinite(result.rate)).toBe(true);
+  });
+});
+
+describe('sumExpectedCapacityMinutes', () => {
+  // 月途中でJOINしたメンバーは、会社全体の経過営業日数ではなく
+  // 本人の経過営業日数（passedWeekdays）を基準にしないと、
+  // 実際には稼働していない日数分が不足（ショート）に見えてしまう。
+  it('メンバーごとの経過営業日数（passedWeekdays）を使って基準工数を合算する', () => {
+    // 鈴木: 月初から21営業日出勤、山岸: 月途中JOINで経過17営業日のみ
+    const total = sumExpectedCapacityMinutes(
+      [{ passedWeekdays: 21 }, { passedWeekdays: 17 }],
+      450 // 7.5h
+    );
+    expect(total).toBe((21 + 17) * 450);
+  });
+
+  it('全員が同じ経過営業日数なら、従来の「経過営業日×人数」と一致する', () => {
+    const total = sumExpectedCapacityMinutes(
+      [{ passedWeekdays: 21 }, { passedWeekdays: 21 }, { passedWeekdays: 21 }],
+      450
+    );
+    expect(total).toBe(21 * 450 * 3);
+  });
+
+  it('メンバーが0人なら0を返す', () => {
+    expect(sumExpectedCapacityMinutes([], 450)).toBe(0);
   });
 });

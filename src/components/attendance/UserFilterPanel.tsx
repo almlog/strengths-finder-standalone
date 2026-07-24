@@ -5,6 +5,7 @@
 import React, { useMemo } from 'react';
 import { Users, Check, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { AttendanceRecord } from '../../models/AttendanceTypes';
+import { EmployeeActivityPeriod } from '../../utils/employeeActivityPeriod';
 
 /**
  * ユニークなユーザー情報
@@ -41,6 +42,10 @@ export interface UserFilterPanelProps {
   onConfirm: () => void;
   /** キャンセルボタンのコールバック */
   onCancel?: () => void;
+  /** ユーザーごとの活動期間（入社日・退社日）- 稼働率計算の補正に使用 */
+  activityPeriods?: Map<string, EmployeeActivityPeriod>;
+  /** 活動期間変更時のコールバック */
+  onActivityPeriodChange?: (employeeId: string, period: EmployeeActivityPeriod) => void;
 }
 
 /**
@@ -101,6 +106,8 @@ const UserFilterPanel: React.FC<UserFilterPanelProps> = ({
   onDeselectAll,
   onConfirm,
   onCancel,
+  activityPeriods,
+  onActivityPeriodChange,
 }) => {
   // ユニークユーザーと部門別グループを計算
   const uniqueUsers = useMemo(() => extractUniqueUsers(records), [records]);
@@ -206,28 +213,58 @@ const UserFilterPanel: React.FC<UserFilterPanelProps> = ({
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {group.users.map(user => {
                   const isSelected = userSelections.get(user.employeeId) ?? true;
+                  const period = activityPeriods?.get(user.employeeId);
                   return (
-                    <label
+                    <div
                       key={user.employeeId}
-                      className="flex items-center px-4 py-2 pl-10 cursor-pointer
-                               hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                      className="flex items-center px-4 py-2 pl-10 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                     >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => onSelectionChange(user.employeeId, !isSelected)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600
-                                 focus:ring-blue-500 dark:border-gray-600
-                                 dark:bg-gray-700 dark:checked:bg-blue-600"
-                        aria-label={user.employeeName}
-                      />
-                      <span className="ml-3 text-gray-900 dark:text-white">
-                        {user.employeeName}
-                      </span>
-                      <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                        ({user.employeeId})
-                      </span>
-                    </label>
+                      <label className="flex items-center cursor-pointer flex-1 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => onSelectionChange(user.employeeId, !isSelected)}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600
+                                   focus:ring-blue-500 dark:border-gray-600
+                                   dark:bg-gray-700 dark:checked:bg-blue-600"
+                          aria-label={user.employeeName}
+                        />
+                        <span className="ml-3 text-gray-900 dark:text-white">
+                          {user.employeeName}
+                        </span>
+                        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                          ({user.employeeId})
+                        </span>
+                      </label>
+                      {onActivityPeriodChange && isSelected && (
+                        <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                          <span>活動期間:</span>
+                          <input
+                            type="date"
+                            value={period?.startDate ?? ''}
+                            onChange={e => onActivityPeriodChange(user.employeeId, {
+                              startDate: e.target.value || undefined,
+                              endDate: period?.endDate,
+                            })}
+                            aria-label={`${user.employeeName}の入社日`}
+                            className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                     bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                          />
+                          <span>〜</span>
+                          <input
+                            type="date"
+                            value={period?.endDate ?? ''}
+                            onChange={e => onActivityPeriodChange(user.employeeId, {
+                              startDate: period?.startDate,
+                              endDate: e.target.value || undefined,
+                            })}
+                            aria-label={`${user.employeeName}の退社日`}
+                            className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                     bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                          />
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>

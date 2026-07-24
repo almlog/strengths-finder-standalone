@@ -55,8 +55,9 @@ import {
 import { useStrengths } from '../../contexts/StrengthsContext';
 import { getPartnerOvertimeMinutes } from '../../utils/partnerOvertime';
 import { EStaffingRecord, parseEStaffingCsv } from '../../utils/eStaffingCsv';
-import { calculateCapacityUtilization } from '../../utils/capacityUtilization';
+import { calculateCapacityUtilization, sumExpectedCapacityMinutes } from '../../utils/capacityUtilization';
 import { mergePartnerRecords } from '../../utils/mergePartnerRecords';
+import { EmployeeActivityPeriod, resolveEmployeePassedWeekdays } from '../../utils/employeeActivityPeriod';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
 
@@ -185,6 +186,19 @@ const AttendanceAnalysisPage: React.FC = () => {
   const [rawRecords, setRawRecords] = useState<AttendanceRecord[]>([]);
   const [userSelections, setUserSelections] = useState<Map<string, boolean>>(new Map());
   const [showUserFilter, setShowUserFilter] = useState(false);
+  // 正社員の個別活動期間（入社日・退社日）- セッション内のみ保持
+  const [employeeActivityPeriods, setEmployeeActivityPeriods] = useState<Map<string, EmployeeActivityPeriod>>(new Map());
+  const handleActivityPeriodChange = useCallback((employeeId: string, period: EmployeeActivityPeriod) => {
+    setEmployeeActivityPeriods(prev => {
+      const next = new Map(prev);
+      if (!period.startDate && !period.endDate) {
+        next.delete(employeeId);
+      } else {
+        next.set(employeeId, period);
+      }
+      return next;
+    });
+  }, []);
 
   // PDF出力用のref
   const summaryRef = useRef<HTMLDivElement>(null);
@@ -649,6 +663,8 @@ const AttendanceAnalysisPage: React.FC = () => {
                 onDeselectAll={handleDeselectAllUsers}
                 onConfirm={handleConfirmUserSelection}
                 onCancel={handleCancelUserSelection}
+                activityPeriods={employeeActivityPeriods}
+                onActivityPeriodChange={handleActivityPeriodChange}
               />
             )}
             {rawPartnerRecords.length > 0 && (
@@ -1017,7 +1033,12 @@ const AttendanceAnalysisPage: React.FC = () => {
           <div className="min-h-[400px]">
             {activeTab === 'summary' && (
               <div ref={summaryRef}>
-                <SummaryTab result={analysisResult} partnerRecords={partnerRecords} isExportingPdf={isExportingPdf} />
+                <SummaryTab
+                  result={analysisResult}
+                  partnerRecords={partnerRecords}
+                  isExportingPdf={isExportingPdf}
+                  employeeActivityPeriods={employeeActivityPeriods}
+                />
               </div>
             )}
             {activeTab === 'employees' && (
@@ -1038,6 +1059,7 @@ const AttendanceAnalysisPage: React.FC = () => {
               <IntegratedTab
                 analysisResult={analysisResult}
                 partnerRecords={partnerRecords}
+                employeeActivityPeriods={employeeActivityPeriods}
               />
             )}
           </div>
@@ -1361,7 +1383,12 @@ const ChartTooltip: React.FC<{
   return null;
 };
 
-const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: EStaffingRecord[]; isExportingPdf?: boolean }> = ({ result, partnerRecords = [], isExportingPdf = false }) => {
+const SummaryTab: React.FC<{
+  result: ExtendedAnalysisResult;
+  partnerRecords?: EStaffingRecord[];
+  isExportingPdf?: boolean;
+  employeeActivityPeriods?: Map<string, EmployeeActivityPeriod>;
+}> = ({ result, partnerRecords = [], isExportingPdf = false, employeeActivityPeriods }) => {
   // 部門別残業データ（横棒グラフ用）
   const departmentOvertimeData = useMemo(() => {
     return result.departmentSummaries
@@ -1462,9 +1489,31 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
 
     const STANDARD_MINUTES_PER_DAY = 450; // 7.5h
     const totalWeekdays = summaries[0].totalWeekdaysInMonth;
+    // 会社全体の経過営業日数（参考表示用）。基準工数の算出には使わない
+    // — 月途中でJOINしたメンバーは本人の経過営業日数だけを使う必要があるため
     const passedWeekdays = summaries[0].passedWeekdays;
 
-    const expectedMinutesPassed = passedWeekdays * STANDARD_MINUTES_PER_DAY * memberCount;
+    const analysisStart = result.summary.analysisDateRange.start;
+    const elapsedEnd = result.summary.analysisDateRange.end;
+    // 正社員はXLSXフォーマットを変えない方針のため、手動設定された活動期間が
+    // ある場合のみ経過営業日数を補正する（未設定ならXLSX由来の値をそのまま使う）
+    const empElapsedDays = summaries.map(s => ({
+      passedWeekdays: resolveEmployeePassedWeekdays(
+        s.passedWeekdays,
+        employeeActivityPeriods?.get(s.employeeId),
+        analysisStart,
+        elapsedEnd
+      ),
+    }));
+    // パートナーは日次データを持たないため、workDays+absentDays+leaveDaysの合計を
+    // 本人の経過営業日数として使う（契約開始日からの実際の対象日数を反映する）
+    const partnerElapsedDays = partnerRecords.map(r => ({
+      passedWeekdays: r.workDays + r.absentDays + r.leaveDays,
+    }));
+    const expectedMinutesPassed = sumExpectedCapacityMinutes(
+      [...empElapsedDays, ...partnerElapsedDays],
+      STANDARD_MINUTES_PER_DAY
+    );
     const empActualMinutes = summaries.reduce((sum, s) => sum + s.totalWorkMinutes, 0);
     const partnerActualMinutes = partnerRecords.reduce((sum, r) => sum + r.totalMinutes, 0);
     const actualMinutes = empActualMinutes + partnerActualMinutes;
@@ -1475,7 +1524,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
       memberCount, totalWeekdays, passedWeekdays,
       expectedMinutesPassed, actualMinutes, rate, delta,
     };
-  }, [result.employeeSummaries, partnerRecords]);
+  }, [result.employeeSummaries, result.summary.analysisDateRange, partnerRecords, employeeActivityPeriods]);
 
   // 部署コード一覧を取得
   const departmentCodes = result.departmentSummaries.map(d => d.department);
@@ -1882,7 +1931,7 @@ const SummaryTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?: ES
                   <span className="font-medium text-gray-800 dark:text-gray-200">
                     {AttendanceService.formatMinutesToTime(capacityStats.expectedMinutesPassed)}
                     <span className="text-xs text-gray-400 ml-1">
-                      ({capacityStats.passedWeekdays}日×7.5h×{capacityStats.memberCount}名)
+                      （7.5h×メンバー各自の経過営業日数の合計・{capacityStats.memberCount}名）
                     </span>
                   </span>
                 </div>
@@ -3066,7 +3115,8 @@ const DataConflictDialog: React.FC<{
 const IntegratedTab: React.FC<{
   analysisResult: ExtendedAnalysisResult;
   partnerRecords: EStaffingRecord[];
-}> = ({ analysisResult, partnerRecords }) => {
+  employeeActivityPeriods?: Map<string, EmployeeActivityPeriod>;
+}> = ({ analysisResult, partnerRecords, employeeActivityPeriods }) => {
   const fmt = (min: number) => {
     if (min === 0) return '-';
     return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}m`;
@@ -3208,15 +3258,40 @@ const IntegratedTab: React.FC<{
     }
   });
 
-  // 稼働率: Σ実働 ÷ 想定稼働（経過営業日×7.5h×人数）
-  // SummaryTabのcapacityStatsと同じ基準（就業すべき人数×時間×営業日を100%とする）に統一
+  // 稼働率: Σ実働 ÷ 想定稼働（メンバー各自の経過営業日×7.5h）
+  // SummaryTabのcapacityStatsと同じ基準（就業すべき人数×時間×営業日を100%とする）に統一。
+  // 月途中でJOINしたメンバーは本人の経過営業日数のみを使うため、会社全体の
+  // 経過営業日数×人数ではなく、メンバーごとに個別集計する。
   const CAPACITY_STANDARD_MINUTES_PER_DAY = 450; // 7.5h
-  const passedWeekdays = analysisResult.employeeSummaries[0]?.passedWeekdays ?? 0;
+  const capacityAnalysisStart = analysisResult.summary.analysisDateRange.start;
+  const capacityElapsedEnd = analysisResult.summary.analysisDateRange.end;
+  const elapsedDaysOf = (row: RowItem) =>
+    row.type === 'employee'
+      ? resolveEmployeePassedWeekdays(
+          row.data.passedWeekdays,
+          employeeActivityPeriods?.get(row.data.employeeId),
+          capacityAnalysisStart,
+          capacityElapsedEnd
+        )
+      : row.data.workDays + row.data.absentDays + row.data.leaveDays;
 
   const empActualMin = analysisResult.employeeSummaries.reduce((s, e) => s + e.totalWorkMinutes, 0);
   const ptnActualMin = partnerRecords.reduce((s, r) => s + r.totalMinutes, 0);
   const totalActualMin = empActualMin + ptnActualMin;
-  const totalCapacityMin = passedWeekdays * CAPACITY_STANDARD_MINUTES_PER_DAY * totalCount;
+  const totalCapacityMin = sumExpectedCapacityMinutes(
+    [
+      ...analysisResult.employeeSummaries.map(e => ({
+        passedWeekdays: resolveEmployeePassedWeekdays(
+          e.passedWeekdays,
+          employeeActivityPeriods?.get(e.employeeId),
+          capacityAnalysisStart,
+          capacityElapsedEnd
+        ),
+      })),
+      ...partnerRecords.map(r => ({ passedWeekdays: r.workDays + r.absentDays + r.leaveDays })),
+    ],
+    CAPACITY_STANDARD_MINUTES_PER_DAY
+  );
   const { rate: totalUtilPct } = calculateCapacityUtilization({
     expectedMinutesPassed: totalCapacityMin,
     actualMinutes: totalActualMin,
@@ -3224,7 +3299,10 @@ const IntegratedTab: React.FC<{
 
   const deptUtil = orderedDepts.map(([dept, rows]) => {
     const actual = rows.reduce((s, row) => s + (row.type === 'employee' ? row.data.totalWorkMinutes : row.data.totalMinutes), 0);
-    const capacity = passedWeekdays * CAPACITY_STANDARD_MINUTES_PER_DAY * rows.length;
+    const capacity = sumExpectedCapacityMinutes(
+      rows.map(row => ({ passedWeekdays: elapsedDaysOf(row) })),
+      CAPACITY_STANDARD_MINUTES_PER_DAY
+    );
     const { rate: pct } = calculateCapacityUtilization({ expectedMinutesPassed: capacity, actualMinutes: actual });
     return { dept, headcount: rows.length, actual, capacity, pct };
   });
