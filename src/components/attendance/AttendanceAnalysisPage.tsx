@@ -58,7 +58,7 @@ import { EStaffingRecord, parseEStaffingCsv } from '../../utils/eStaffingCsv';
 import { calculateCapacityUtilization, sumExpectedCapacityMinutes } from '../../utils/capacityUtilization';
 import { mergePartnerRecords } from '../../utils/mergePartnerRecords';
 import { EmployeeActivityPeriod, resolveEmployeePassedWeekdays } from '../../utils/employeeActivityPeriod';
-import { countDistinctPositions } from '../../utils/positionGrouping';
+import { countDistinctPositions, summarizePositionGroups } from '../../utils/positionGrouping';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
 
@@ -1482,13 +1482,19 @@ const SummaryTab: React.FC<{
     result.employeeSummaries.map(s => s.employeeId),
     positionGroups
   );
-  const groupedTotalCount = countDistinctPositions(
+  const positionSummary = summarizePositionGroups(
     [
       ...result.employeeSummaries.map(s => s.employeeId),
       ...partnerRecords.map(r => r.staffCode || r.name),
     ],
     positionGroups
   );
+  const groupedTotalCount = positionSummary.total;
+  // 「正社員X名+パートナーY名」の素の内訳と対象人数が食い違って見えないよう、
+  // グループ統合があった場合はその件数を注記する
+  const positionGroupNote = positionSummary.mergedGroupCount > 0
+    ? `のうち${positionSummary.mergedGroupCount}件をグループ化 → 対象人数${groupedTotalCount}名`
+    : '';
   // 部門別残業データ（横棒グラフ用）
   const departmentOvertimeData = useMemo(() => {
     return result.departmentSummaries
@@ -1752,7 +1758,7 @@ const SummaryTab: React.FC<{
                 {groupedTotalCount}名
                 {partnerRecords.length > 0 && (
                   <span className="text-blue-200 text-sm ml-1">
-                    （正社員{groupedEmployeeCount}名 + パートナー{partnerRecords.length}名）
+                    （正社員{result.employeeSummaries.length}名 + パートナー{partnerRecords.length}名{positionGroupNote}）
                   </span>
                 )}
               </p>
@@ -1775,7 +1781,9 @@ const SummaryTab: React.FC<{
             <StatItem
               label="対象人数"
               value={`${stats.totalEmployees}名`}
-              subLabel={stats.partnerCount > 0 ? `（正社員${stats.employeeOnlyCount}名 + パートナー${stats.partnerCount}名）` : undefined}
+              subLabel={stats.partnerCount > 0
+                ? `（正社員${result.employeeSummaries.length}名 + パートナー${stats.partnerCount}名${positionGroupNote}）`
+                : undefined}
             />
             <StatItem label="総出勤日数" value={`${stats.totalWorkDays}日`} />
             <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3" />
@@ -3307,18 +3315,19 @@ const IntegratedTab: React.FC<{
 
   // セクション1: 全体サマリー計算
   // メンバー交代（正社員⇔パートナーをまたぐ場合も含む）は1ポジション＝1名として数える
-  const employeeCount = countDistinctPositions(
-    analysisResult.employeeSummaries.map(s => s.employeeId),
-    positionGroups
-  );
   const partnerCount = partnerRecords.length;
-  const totalCount = countDistinctPositions(
+  const rawEmployeeCount = analysisResult.employeeSummaries.length;
+  const positionSummary = summarizePositionGroups(
     [
       ...analysisResult.employeeSummaries.map(s => s.employeeId),
       ...partnerRecords.map(r => r.staffCode || r.name),
     ],
     positionGroups
   );
+  const totalCount = positionSummary.total;
+  const positionGroupNote = positionSummary.mergedGroupCount > 0
+    ? `のうち${positionSummary.mergedGroupCount}件をグループ化 → ${totalCount}名`
+    : '';
 
   const activePartners = partnerRecords.filter(r => r.workDays > 0).length;
 
@@ -3457,7 +3466,7 @@ const IntegratedTab: React.FC<{
           <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">総メンバー数</p>
           <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{totalCount}名</p>
           <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
-            正社員 {employeeCount}名 + パートナー {partnerCount}名
+            正社員 {rawEmployeeCount}名 + パートナー {partnerCount}名{positionGroupNote}
           </p>
         </div>
         <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-4">
@@ -3498,7 +3507,7 @@ const IntegratedTab: React.FC<{
         <div className="mb-5">
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-              全体（正社員 {employeeCount}名 + パートナー {partnerCount}名）
+              全体（正社員 {rawEmployeeCount}名 + パートナー {partnerCount}名{positionGroupNote}）
             </span>
             <span className={`text-xl font-bold ${totalUtilPct >= 90 ? 'text-green-600 dark:text-green-400' : totalUtilPct >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
               {fmtPct(totalUtilPct)}
