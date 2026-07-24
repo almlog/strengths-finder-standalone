@@ -700,13 +700,44 @@ const AttendanceAnalysisPage: React.FC = () => {
                     const key = r.staffCode || r.name;
                     const checked = partnerSelections.get(key) ?? true;
                     const tags = detectPartnerTags(r);
+                    const period = partnerActivityPeriods.get(key);
                     return (
-                      <label key={key} className={`flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!checked ? 'opacity-50' : ''}`}>
-                        <input type="checkbox" checked={checked} onChange={e => handlePartnerSelectionChange(key, e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-teal-600 accent-teal-600" />
-                        <span className="font-medium text-sm text-gray-900 dark:text-white">{r.name}</span>
-                        {tags.map(tag => <span key={tag} className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${TAG_STYLES[tag]}`}>{tag}</span>)}
-                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">{r.department}</span>
-                      </label>
+                      <div key={key} className={`flex items-center gap-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!checked ? 'opacity-50' : ''}`}>
+                        <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+                          <input type="checkbox" checked={checked} onChange={e => handlePartnerSelectionChange(key, e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-teal-600 accent-teal-600" />
+                          <span className="font-medium text-sm text-gray-900 dark:text-white">{r.name}</span>
+                          {tags.map(tag => <span key={tag} className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${TAG_STYLES[tag]}`}>{tag}</span>)}
+                          <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">{r.department}</span>
+                        </label>
+                        {checked && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 shrink-0">
+                            <span>活動期間:</span>
+                            <input
+                              type="date"
+                              value={period?.startDate ?? ''}
+                              onChange={e => handlePartnerActivityPeriodChange(key, {
+                                startDate: e.target.value || undefined,
+                                endDate: period?.endDate,
+                              })}
+                              aria-label={`${r.name}の入場日`}
+                              className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                       bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                            />
+                            <span>〜</span>
+                            <input
+                              type="date"
+                              value={period?.endDate ?? ''}
+                              onChange={e => handlePartnerActivityPeriodChange(key, {
+                                startDate: period?.startDate,
+                                endDate: e.target.value || undefined,
+                              })}
+                              aria-label={`${r.name}の退場日`}
+                              className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                       bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                            />
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
