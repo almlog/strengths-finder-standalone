@@ -65,6 +65,10 @@ docs/tmp/
 # e-staffing 認証設定（個人情報を含む - NEVER push to GitHub）
 scripts/estaffing.config.js
 
+# e-staffing ログイン診断出力（社内情報を含む可能性 - NEVER push to GitHub）
+scripts/login-debug.png
+scripts/login-debug.txt
+
 # Presentation files
 docs/slides/*.pptx
 docs/slides/*.ppt

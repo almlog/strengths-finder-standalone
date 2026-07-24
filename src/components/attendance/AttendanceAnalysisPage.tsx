@@ -175,6 +175,19 @@ const AttendanceAnalysisPage: React.FC = () => {
   const [rawPartnerRecords, setRawPartnerRecords] = useState<EStaffingRecord[]>([]);
   const [partnerSelections, setPartnerSelections] = useState<Map<string, boolean>>(new Map());
   const [showPartnerFilter, setShowPartnerFilter] = useState(false);
+  // パートナーの個別活動期間（入場日・退場日）- セッション内のみ保持
+  const [partnerActivityPeriods, setPartnerActivityPeriods] = useState<Map<string, EmployeeActivityPeriod>>(new Map());
+  const handlePartnerActivityPeriodChange = useCallback((key: string, period: EmployeeActivityPeriod) => {
+    setPartnerActivityPeriods(prev => {
+      const next = new Map(prev);
+      if (!period.startDate && !period.endDate) {
+        next.delete(key);
+      } else {
+        next.set(key, period);
+      }
+      return next;
+    });
+  }, []);
 
   // 確認ダイアログ用の状態
   const [showXlsxConfirm, setShowXlsxConfirm] = useState(false);
@@ -1038,6 +1051,7 @@ const AttendanceAnalysisPage: React.FC = () => {
                   partnerRecords={partnerRecords}
                   isExportingPdf={isExportingPdf}
                   employeeActivityPeriods={employeeActivityPeriods}
+                  partnerActivityPeriods={partnerActivityPeriods}
                 />
               </div>
             )}
@@ -1060,6 +1074,7 @@ const AttendanceAnalysisPage: React.FC = () => {
                 analysisResult={analysisResult}
                 partnerRecords={partnerRecords}
                 employeeActivityPeriods={employeeActivityPeriods}
+                partnerActivityPeriods={partnerActivityPeriods}
               />
             )}
           </div>
@@ -1089,6 +1104,8 @@ const AttendanceAnalysisPage: React.FC = () => {
           onDeselectAll={handleDeselectAllPartners}
           onConfirm={handleConfirmPartnerSelection}
           onCancel={() => setShowPartnerFilter(false)}
+          activityPeriods={partnerActivityPeriods}
+          onActivityPeriodChange={handlePartnerActivityPeriodChange}
         />
       )}
 
@@ -1388,7 +1405,8 @@ const SummaryTab: React.FC<{
   partnerRecords?: EStaffingRecord[];
   isExportingPdf?: boolean;
   employeeActivityPeriods?: Map<string, EmployeeActivityPeriod>;
-}> = ({ result, partnerRecords = [], isExportingPdf = false, employeeActivityPeriods }) => {
+  partnerActivityPeriods?: Map<string, EmployeeActivityPeriod>;
+}> = ({ result, partnerRecords = [], isExportingPdf = false, employeeActivityPeriods, partnerActivityPeriods }) => {
   // 部門別残業データ（横棒グラフ用）
   const departmentOvertimeData = useMemo(() => {
     return result.departmentSummaries
@@ -1506,10 +1524,19 @@ const SummaryTab: React.FC<{
       ),
     }));
     // パートナーは日次データを持たないため、workDays+absentDays+leaveDaysの合計を
-    // 本人の経過営業日数として使う（契約開始日からの実際の対象日数を反映する）
-    const partnerElapsedDays = partnerRecords.map(r => ({
-      passedWeekdays: r.workDays + r.absentDays + r.leaveDays,
-    }));
+    // 本人の経過営業日数のデフォルト値として使う（契約開始日からの実際の対象日数を
+    // 反映する）。CSVに契約期間が無い/古い場合は、手動設定された活動期間で補正する
+    const partnerElapsedDays = partnerRecords.map(r => {
+      const key = r.staffCode || r.name;
+      return {
+        passedWeekdays: resolveEmployeePassedWeekdays(
+          r.workDays + r.absentDays + r.leaveDays,
+          partnerActivityPeriods?.get(key),
+          analysisStart,
+          elapsedEnd
+        ),
+      };
+    });
     const expectedMinutesPassed = sumExpectedCapacityMinutes(
       [...empElapsedDays, ...partnerElapsedDays],
       STANDARD_MINUTES_PER_DAY
@@ -1524,7 +1551,7 @@ const SummaryTab: React.FC<{
       memberCount, totalWeekdays, passedWeekdays,
       expectedMinutesPassed, actualMinutes, rate, delta,
     };
-  }, [result.employeeSummaries, result.summary.analysisDateRange, partnerRecords, employeeActivityPeriods]);
+  }, [result.employeeSummaries, result.summary.analysisDateRange, partnerRecords, employeeActivityPeriods, partnerActivityPeriods]);
 
   // 部署コード一覧を取得
   const departmentCodes = result.departmentSummaries.map(d => d.department);
@@ -3116,7 +3143,8 @@ const IntegratedTab: React.FC<{
   analysisResult: ExtendedAnalysisResult;
   partnerRecords: EStaffingRecord[];
   employeeActivityPeriods?: Map<string, EmployeeActivityPeriod>;
-}> = ({ analysisResult, partnerRecords, employeeActivityPeriods }) => {
+  partnerActivityPeriods?: Map<string, EmployeeActivityPeriod>;
+}> = ({ analysisResult, partnerRecords, employeeActivityPeriods, partnerActivityPeriods }) => {
   const fmt = (min: number) => {
     if (min === 0) return '-';
     return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}m`;
@@ -3273,7 +3301,12 @@ const IntegratedTab: React.FC<{
           capacityAnalysisStart,
           capacityElapsedEnd
         )
-      : row.data.workDays + row.data.absentDays + row.data.leaveDays;
+      : resolveEmployeePassedWeekdays(
+          row.data.workDays + row.data.absentDays + row.data.leaveDays,
+          partnerActivityPeriods?.get(row.data.staffCode || row.data.name),
+          capacityAnalysisStart,
+          capacityElapsedEnd
+        );
 
   const empActualMin = analysisResult.employeeSummaries.reduce((s, e) => s + e.totalWorkMinutes, 0);
   const ptnActualMin = partnerRecords.reduce((s, r) => s + r.totalMinutes, 0);
@@ -3288,7 +3321,14 @@ const IntegratedTab: React.FC<{
           capacityElapsedEnd
         ),
       })),
-      ...partnerRecords.map(r => ({ passedWeekdays: r.workDays + r.absentDays + r.leaveDays })),
+      ...partnerRecords.map(r => ({
+        passedWeekdays: resolveEmployeePassedWeekdays(
+          r.workDays + r.absentDays + r.leaveDays,
+          partnerActivityPeriods?.get(r.staffCode || r.name),
+          capacityAnalysisStart,
+          capacityElapsedEnd
+        ),
+      })),
     ],
     CAPACITY_STANDARD_MINUTES_PER_DAY
   );
@@ -3499,7 +3539,9 @@ const PartnerFilterModal: React.FC<{
   onDeselectAll: () => void;
   onConfirm: () => void;
   onCancel: () => void;
-}> = ({ records, selections, onSelectionChange, onSelectAll, onDeselectAll, onConfirm, onCancel }) => {
+  activityPeriods?: Map<string, EmployeeActivityPeriod>;
+  onActivityPeriodChange?: (key: string, period: EmployeeActivityPeriod) => void;
+}> = ({ records, selections, onSelectionChange, onSelectAll, onDeselectAll, onConfirm, onCancel, activityPeriods, onActivityPeriodChange }) => {
   const selectedCount = Array.from(selections.values()).filter(Boolean).length;
 
   return (
@@ -3527,32 +3569,63 @@ const PartnerFilterModal: React.FC<{
             const key = r.staffCode || r.name;
             const checked = selections.get(key) ?? true;
             const tags = detectPartnerTags(r);
+            const period = activityPeriods?.get(key);
             return (
-              <label
+              <div
                 key={key}
-                className={`flex items-start gap-3 px-5 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${!checked ? 'opacity-50' : ''}`}
+                className={`flex items-start gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${!checked ? 'opacity-50' : ''}`}
               >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={e => onSelectionChange(key, e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 accent-teal-600"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm text-gray-900 dark:text-white">{r.name}</span>
-                    {tags.map(tag => (
-                      <span key={tag} className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${TAG_STYLES[tag]}`}>{tag}</span>
-                    ))}
+                <label className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={e => onSelectionChange(key, e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 accent-teal-600"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm text-gray-900 dark:text-white">{r.name}</span>
+                      {tags.map(tag => (
+                        <span key={tag} className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${TAG_STYLES[tag]}`}>{tag}</span>
+                      ))}
+                    </div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex gap-3 flex-wrap">
+                      <span>{r.department}</span>
+                      {r.contractStart && <span>{r.contractStart}〜{r.contractEnd}</span>}
+                      <span>出勤{r.workDays}日</span>
+                      {r.note && <span className="truncate">{r.note}</span>}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex gap-3 flex-wrap">
-                    <span>{r.department}</span>
-                    {r.contractStart && <span>{r.contractStart}〜{r.contractEnd}</span>}
-                    <span>出勤{r.workDays}日</span>
-                    {r.note && <span className="truncate">{r.note}</span>}
+                </label>
+                {onActivityPeriodChange && checked && (
+                  <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 shrink-0">
+                    <span>活動期間:</span>
+                    <input
+                      type="date"
+                      value={period?.startDate ?? ''}
+                      onChange={e => onActivityPeriodChange(key, {
+                        startDate: e.target.value || undefined,
+                        endDate: period?.endDate,
+                      })}
+                      aria-label={`${r.name}の入場日`}
+                      className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                               bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                    />
+                    <span>〜</span>
+                    <input
+                      type="date"
+                      value={period?.endDate ?? ''}
+                      onChange={e => onActivityPeriodChange(key, {
+                        startDate: period?.startDate,
+                        endDate: e.target.value || undefined,
+                      })}
+                      aria-label={`${r.name}の退場日`}
+                      className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                               bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                    />
                   </div>
-                </div>
-              </label>
+                )}
+              </div>
             );
           })}
         </div>

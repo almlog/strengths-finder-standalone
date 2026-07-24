@@ -136,8 +136,9 @@ async function ensureLoggedIn(page) {
 
   await humanDelay(600);
 
-  // ログインボタン: native click → isTrusted: true
-  await page.click('button[type="submit"]', { force: true });
+  // ログインボタン: type="submit"ではなくtype="button"（class: login-btn）のため
+  // アクセシブルネームで検索する（native click → isTrusted: true）
+  await page.getByRole('button', { name: 'ログイン', exact: true }).click({ force: true });
 
   try {
     await page.waitForURL(url => !url.includes('clogin'), { timeout: 30_000 });
