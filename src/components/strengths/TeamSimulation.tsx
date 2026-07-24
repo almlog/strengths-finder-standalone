@@ -10,12 +10,14 @@ import {
   DndContext,
   DragOverlay,
   closestCorners,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragStartEvent,
   DragEndEvent,
+  CollisionDetection,
   useDroppable
 } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -27,6 +29,20 @@ import { SimulationService } from '../../services/SimulationService';
 import { Download, Upload, CheckCircle, Plus, AlertTriangle, Users } from 'lucide-react';
 import MemberCard from './simulation/MemberCard';
 import GroupCard from './simulation/GroupCard';
+
+// closestCornersは各ドロップ領域の四隅との距離だけで判定するため、
+// メンバーが増えて縦に大きくなったグループ（コンテナ本体＋各メンバーカードが
+// それぞれドロップ領域になる）に、実際にはポインタが重なっていない別グループへの
+// ドロップまで誤って吸収されてしまうことがある。
+// ポインタが実際に領域内にあるかで判定するpointerWithinを優先し、
+// 領域外（ドラッグ開始直後など）ではclosestCornersにフォールバックする。
+const collisionDetectionStrategy: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    return pointerCollisions;
+  }
+  return closestCorners(args);
+};
 
 const TeamSimulation: React.FC = () => {
   const { state, addGroup, removeGroup, renameGroup, moveMember, exportSimulation, importSimulation, getApplyPreview, applyToProduction } = useSimulation();
@@ -326,7 +342,7 @@ const TeamSimulation: React.FC = () => {
       {/* メインコンテンツ */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={collisionDetectionStrategy}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >

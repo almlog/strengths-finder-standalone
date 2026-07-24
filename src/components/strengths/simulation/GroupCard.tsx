@@ -24,7 +24,6 @@ interface GroupCardProps {
   stats: GroupStats;
   onRemove: () => void;
   onRename: (newName: string) => void;
-  isOver?: boolean;
 }
 
 const GroupCard: React.FC<GroupCardProps> = ({
@@ -32,10 +31,9 @@ const GroupCard: React.FC<GroupCardProps> = ({
   members,
   stats,
   onRemove,
-  onRename,
-  isOver
+  onRename
 }) => {
-  const { setNodeRef } = useDroppable({ id: group.id });
+  const { setNodeRef, isOver } = useDroppable({ id: group.id });
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(group.name);
   const isManagerMode = useManagerMode();
