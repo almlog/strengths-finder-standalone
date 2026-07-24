@@ -215,9 +215,9 @@ const AttendanceAnalysisPage: React.FC = () => {
   }, []);
   // 正社員のポジショングループ（メンバー交代を1名として数えるための任意ラベル）
   // - セッション内のみ保持
-  const [employeePositionGroups, setEmployeePositionGroups] = useState<Map<string, string>>(new Map());
+  const [positionGroups, setPositionGroups] = useState<Map<string, string>>(new Map());
   const handlePositionGroupChange = useCallback((employeeId: string, group: string) => {
-    setEmployeePositionGroups(prev => {
+    setPositionGroups(prev => {
       const next = new Map(prev);
       if (!group.trim()) {
         next.delete(employeeId);
@@ -693,7 +693,7 @@ const AttendanceAnalysisPage: React.FC = () => {
                 onCancel={handleCancelUserSelection}
                 activityPeriods={employeeActivityPeriods}
                 onActivityPeriodChange={handleActivityPeriodChange}
-                positionGroups={employeePositionGroups}
+                positionGroups={positionGroups}
                 onPositionGroupChange={handlePositionGroupChange}
               />
             )}
@@ -718,40 +718,56 @@ const AttendanceAnalysisPage: React.FC = () => {
                     const checked = partnerSelections.get(key) ?? true;
                     const tags = detectPartnerTags(r);
                     const period = partnerActivityPeriods.get(key);
+                    const positionGroup = positionGroups.get(key) ?? '';
                     return (
-                      <div key={key} className={`flex items-center gap-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!checked ? 'opacity-50' : ''}`}>
-                        <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+                      <div key={key} className={`px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!checked ? 'opacity-50' : ''}`}>
+                        <label className="flex items-center gap-3 cursor-pointer">
                           <input type="checkbox" checked={checked} onChange={e => handlePartnerSelectionChange(key, e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-teal-600 accent-teal-600" />
                           <span className="font-medium text-sm text-gray-900 dark:text-white">{r.name}</span>
                           {tags.map(tag => <span key={tag} className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${TAG_STYLES[tag]}`}>{tag}</span>)}
                           <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">{r.department}</span>
                         </label>
                         {checked && (
-                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 shrink-0">
-                            <span>活動期間:</span>
-                            <input
-                              type="date"
-                              value={period?.startDate ?? ''}
-                              onChange={e => handlePartnerActivityPeriodChange(key, {
-                                startDate: e.target.value || undefined,
-                                endDate: period?.endDate,
-                              })}
-                              aria-label={`${r.name}の入場日`}
-                              className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
-                                       bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
-                            />
-                            <span>〜</span>
-                            <input
-                              type="date"
-                              value={period?.endDate ?? ''}
-                              onChange={e => handlePartnerActivityPeriodChange(key, {
-                                startDate: period?.startDate,
-                                endDate: e.target.value || undefined,
-                              })}
-                              aria-label={`${r.name}の退場日`}
-                              className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
-                                       bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
-                            />
+                          <div className="mt-1.5 ml-7 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-dashed border-gray-200 dark:border-gray-700 pt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-400 dark:text-gray-500">活動期間</span>
+                              <input
+                                type="date"
+                                value={period?.startDate ?? ''}
+                                onChange={e => handlePartnerActivityPeriodChange(key, {
+                                  startDate: e.target.value || undefined,
+                                  endDate: period?.endDate,
+                                })}
+                                aria-label={`${r.name}の入場日`}
+                                className="w-32 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                         bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                              />
+                              <span>〜</span>
+                              <input
+                                type="date"
+                                value={period?.endDate ?? ''}
+                                onChange={e => handlePartnerActivityPeriodChange(key, {
+                                  startDate: period?.startDate,
+                                  endDate: e.target.value || undefined,
+                                })}
+                                aria-label={`${r.name}の退場日`}
+                                className="w-32 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                         bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-400 dark:text-gray-500">グループ</span>
+                              <input
+                                type="text"
+                                value={positionGroup}
+                                onChange={e => handlePositionGroupChange(key, e.target.value)}
+                                placeholder="例: 東SI1担当"
+                                aria-label={`${r.name}のポジショングループ`}
+                                title="同じ名前を入力したメンバー同士は交代要員として1名にまとめてカウントされます"
+                                className="w-28 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                         bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1100,7 +1116,7 @@ const AttendanceAnalysisPage: React.FC = () => {
                   isExportingPdf={isExportingPdf}
                   employeeActivityPeriods={employeeActivityPeriods}
                   partnerActivityPeriods={partnerActivityPeriods}
-                  employeePositionGroups={employeePositionGroups}
+                  positionGroups={positionGroups}
                 />
               </div>
             )}
@@ -1124,6 +1140,7 @@ const AttendanceAnalysisPage: React.FC = () => {
                 partnerRecords={partnerRecords}
                 employeeActivityPeriods={employeeActivityPeriods}
                 partnerActivityPeriods={partnerActivityPeriods}
+                positionGroups={positionGroups}
               />
             )}
           </div>
@@ -1155,6 +1172,8 @@ const AttendanceAnalysisPage: React.FC = () => {
           onCancel={() => setShowPartnerFilter(false)}
           activityPeriods={partnerActivityPeriods}
           onActivityPeriodChange={handlePartnerActivityPeriodChange}
+          positionGroups={positionGroups}
+          onPositionGroupChange={handlePositionGroupChange}
         />
       )}
 
@@ -1455,12 +1474,20 @@ const SummaryTab: React.FC<{
   isExportingPdf?: boolean;
   employeeActivityPeriods?: Map<string, EmployeeActivityPeriod>;
   partnerActivityPeriods?: Map<string, EmployeeActivityPeriod>;
-  employeePositionGroups?: Map<string, string>;
-}> = ({ result, partnerRecords = [], isExportingPdf = false, employeeActivityPeriods, partnerActivityPeriods, employeePositionGroups }) => {
+  positionGroups?: Map<string, string>;
+}> = ({ result, partnerRecords = [], isExportingPdf = false, employeeActivityPeriods, partnerActivityPeriods, positionGroups }) => {
   // メンバー交代（前半A・後半B）を1ポジションとして数えた人数
+  // 正社員同士・パートナー同士だけでなく、正社員⇔パートナーの交代もグループ化対象
   const groupedEmployeeCount = countDistinctPositions(
     result.employeeSummaries.map(s => s.employeeId),
-    employeePositionGroups
+    positionGroups
+  );
+  const groupedTotalCount = countDistinctPositions(
+    [
+      ...result.employeeSummaries.map(s => s.employeeId),
+      ...partnerRecords.map(r => r.staffCode || r.name),
+    ],
+    positionGroups
   );
   // 部門別残業データ（横棒グラフ用）
   const departmentOvertimeData = useMemo(() => {
@@ -1536,7 +1563,9 @@ const SummaryTab: React.FC<{
 
   const stats = {
     // 基本情報（正社員 + パートナー）※メンバー交代は1ポジション＝1名として数える
-    totalEmployees: groupedEmployeeCount + partnerRecords.length,
+    // （正社員⇔パートナーをまたぐ交代グループがある場合、totalEmployeesは
+    //   employeeOnlyCount+partnerCountより少なくなることがある＝仕様通り）
+    totalEmployees: groupedTotalCount,
     employeeOnlyCount: groupedEmployeeCount,
     partnerCount: partnerRecords.length,
     totalWorkDays: result.employeeSummaries.reduce((sum, s) => sum + s.totalWorkDays, 0) + partnerTotalWorkDays,
@@ -1555,7 +1584,7 @@ const SummaryTab: React.FC<{
   // 選択メンバー工数稼働率（7.5h/日基準・正社員＋パートナー）
   const capacityStats = useMemo(() => {
     const summaries = result.employeeSummaries;
-    const memberCount = groupedEmployeeCount + partnerRecords.length;
+    const memberCount = groupedTotalCount;
     if (memberCount === 0) return null;
     // passedWeekdays はカレンダー値なので正社員データがない場合は算出不能
     if (summaries.length === 0) return null;
@@ -1606,7 +1635,7 @@ const SummaryTab: React.FC<{
       memberCount, totalWeekdays, passedWeekdays,
       expectedMinutesPassed, actualMinutes, rate, delta,
     };
-  }, [result.employeeSummaries, result.summary.analysisDateRange, partnerRecords, employeeActivityPeriods, partnerActivityPeriods, groupedEmployeeCount]);
+  }, [result.employeeSummaries, result.summary.analysisDateRange, partnerRecords, employeeActivityPeriods, partnerActivityPeriods, groupedTotalCount]);
 
   // 部署コード一覧を取得
   const departmentCodes = result.departmentSummaries.map(d => d.department);
@@ -1720,7 +1749,7 @@ const SummaryTab: React.FC<{
               </p>
               <p>
                 <span className="font-medium text-white">対象人数:</span>{' '}
-                {groupedEmployeeCount + partnerRecords.length}名
+                {groupedTotalCount}名
                 {partnerRecords.length > 0 && (
                   <span className="text-blue-200 text-sm ml-1">
                     （正社員{groupedEmployeeCount}名 + パートナー{partnerRecords.length}名）
@@ -3199,7 +3228,8 @@ const IntegratedTab: React.FC<{
   partnerRecords: EStaffingRecord[];
   employeeActivityPeriods?: Map<string, EmployeeActivityPeriod>;
   partnerActivityPeriods?: Map<string, EmployeeActivityPeriod>;
-}> = ({ analysisResult, partnerRecords, employeeActivityPeriods, partnerActivityPeriods }) => {
+  positionGroups?: Map<string, string>;
+}> = ({ analysisResult, partnerRecords, employeeActivityPeriods, partnerActivityPeriods, positionGroups }) => {
   const fmt = (min: number) => {
     if (min === 0) return '-';
     return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}m`;
@@ -3276,9 +3306,19 @@ const IntegratedTab: React.FC<{
   }
 
   // セクション1: 全体サマリー計算
-  const employeeCount = analysisResult.summary.totalEmployees;
+  // メンバー交代（正社員⇔パートナーをまたぐ場合も含む）は1ポジション＝1名として数える
+  const employeeCount = countDistinctPositions(
+    analysisResult.employeeSummaries.map(s => s.employeeId),
+    positionGroups
+  );
   const partnerCount = partnerRecords.length;
-  const totalCount = employeeCount + partnerCount;
+  const totalCount = countDistinctPositions(
+    [
+      ...analysisResult.employeeSummaries.map(s => s.employeeId),
+      ...partnerRecords.map(r => r.staffCode || r.name),
+    ],
+    positionGroups
+  );
 
   const activePartners = partnerRecords.filter(r => r.workDays > 0).length;
 
@@ -3596,12 +3636,14 @@ const PartnerFilterModal: React.FC<{
   onCancel: () => void;
   activityPeriods?: Map<string, EmployeeActivityPeriod>;
   onActivityPeriodChange?: (key: string, period: EmployeeActivityPeriod) => void;
-}> = ({ records, selections, onSelectionChange, onSelectAll, onDeselectAll, onConfirm, onCancel, activityPeriods, onActivityPeriodChange }) => {
+  positionGroups?: Map<string, string>;
+  onPositionGroupChange?: (key: string, group: string) => void;
+}> = ({ records, selections, onSelectionChange, onSelectAll, onDeselectAll, onConfirm, onCancel, activityPeriods, onActivityPeriodChange, positionGroups, onPositionGroupChange }) => {
   const selectedCount = Array.from(selections.values()).filter(Boolean).length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-xl mx-4 flex flex-col max-h-[80vh]">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[80vh]">
         {/* header */}
         <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">分析対象メンバーを選択</h2>
@@ -3625,12 +3667,13 @@ const PartnerFilterModal: React.FC<{
             const checked = selections.get(key) ?? true;
             const tags = detectPartnerTags(r);
             const period = activityPeriods?.get(key);
+            const positionGroup = positionGroups?.get(key) ?? '';
             return (
               <div
                 key={key}
-                className={`flex items-start gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${!checked ? 'opacity-50' : ''}`}
+                className={`px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${!checked ? 'opacity-50' : ''}`}
               >
-                <label className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer">
+                <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={checked}
@@ -3652,32 +3695,51 @@ const PartnerFilterModal: React.FC<{
                     </div>
                   </div>
                 </label>
-                {onActivityPeriodChange && checked && (
-                  <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 shrink-0">
-                    <span>活動期間:</span>
-                    <input
-                      type="date"
-                      value={period?.startDate ?? ''}
-                      onChange={e => onActivityPeriodChange(key, {
-                        startDate: e.target.value || undefined,
-                        endDate: period?.endDate,
-                      })}
-                      aria-label={`${r.name}の入場日`}
-                      className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
-                               bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
-                    />
-                    <span>〜</span>
-                    <input
-                      type="date"
-                      value={period?.endDate ?? ''}
-                      onChange={e => onActivityPeriodChange(key, {
-                        startDate: period?.startDate,
-                        endDate: e.target.value || undefined,
-                      })}
-                      aria-label={`${r.name}の退場日`}
-                      className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
-                               bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
-                    />
+                {(onActivityPeriodChange || onPositionGroupChange) && checked && (
+                  <div className="mt-2 ml-7 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-dashed border-gray-200 dark:border-gray-700 pt-2 text-xs text-gray-500 dark:text-gray-400">
+                    {onActivityPeriodChange && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-400 dark:text-gray-500">活動期間</span>
+                        <input
+                          type="date"
+                          value={period?.startDate ?? ''}
+                          onChange={e => onActivityPeriodChange(key, {
+                            startDate: e.target.value || undefined,
+                            endDate: period?.endDate,
+                          })}
+                          aria-label={`${r.name}の入場日`}
+                          className="w-32 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                   bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                        />
+                        <span>〜</span>
+                        <input
+                          type="date"
+                          value={period?.endDate ?? ''}
+                          onChange={e => onActivityPeriodChange(key, {
+                            startDate: period?.startDate,
+                            endDate: e.target.value || undefined,
+                          })}
+                          aria-label={`${r.name}の退場日`}
+                          className="w-32 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                   bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                        />
+                      </div>
+                    )}
+                    {onPositionGroupChange && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-400 dark:text-gray-500">グループ</span>
+                        <input
+                          type="text"
+                          value={positionGroup}
+                          onChange={e => onPositionGroupChange(key, e.target.value)}
+                          placeholder="例: 東SI1担当"
+                          aria-label={`${r.name}のポジショングループ`}
+                          title="同じ名前を入力したメンバー同士は交代要員として1名にまとめてカウントされます"
+                          className="w-28 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                   bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

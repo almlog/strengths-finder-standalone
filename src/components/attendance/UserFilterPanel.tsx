@@ -224,9 +224,9 @@ const UserFilterPanel: React.FC<UserFilterPanelProps> = ({
                   return (
                     <div
                       key={user.employeeId}
-                      className="flex flex-wrap items-center gap-y-1 px-4 py-2 pl-10 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                      className="px-4 py-2 pl-10 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                     >
-                      <label className="flex items-center cursor-pointer flex-1 min-w-0">
+                      <label className="flex items-center cursor-pointer">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -243,47 +243,51 @@ const UserFilterPanel: React.FC<UserFilterPanelProps> = ({
                           ({user.employeeId})
                         </span>
                       </label>
-                      {onActivityPeriodChange && isSelected && (
-                        <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                          <span>活動期間:</span>
-                          <input
-                            type="date"
-                            value={period?.startDate ?? ''}
-                            onChange={e => onActivityPeriodChange(user.employeeId, {
-                              startDate: e.target.value || undefined,
-                              endDate: period?.endDate,
-                            })}
-                            aria-label={`${user.employeeName}の入社日`}
-                            className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
-                                     bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
-                          />
-                          <span>〜</span>
-                          <input
-                            type="date"
-                            value={period?.endDate ?? ''}
-                            onChange={e => onActivityPeriodChange(user.employeeId, {
-                              startDate: period?.startDate,
-                              endDate: e.target.value || undefined,
-                            })}
-                            aria-label={`${user.employeeName}の退社日`}
-                            className="px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
-                                     bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
-                          />
-                        </div>
-                      )}
-                      {onPositionGroupChange && isSelected && (
-                        <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 ml-2">
-                          <span>グループ:</span>
-                          <input
-                            type="text"
-                            value={positionGroup}
-                            onChange={e => onPositionGroupChange(user.employeeId, e.target.value)}
-                            placeholder="例: SI1担当"
-                            aria-label={`${user.employeeName}のポジショングループ`}
-                            title="同じ名前を入力したメンバー同士は交代要員として1名にまとめてカウントされます"
-                            className="w-24 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
-                                     bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
-                          />
+                      {(onActivityPeriodChange || onPositionGroupChange) && isSelected && (
+                        <div className="mt-1.5 ml-7 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-dashed border-gray-200 dark:border-gray-700 pt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                          {onActivityPeriodChange && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-400 dark:text-gray-500">活動期間</span>
+                              <input
+                                type="date"
+                                value={period?.startDate ?? ''}
+                                onChange={e => onActivityPeriodChange(user.employeeId, {
+                                  startDate: e.target.value || undefined,
+                                  endDate: period?.endDate,
+                                })}
+                                aria-label={`${user.employeeName}の入社日`}
+                                className="w-32 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                         bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                              />
+                              <span>〜</span>
+                              <input
+                                type="date"
+                                value={period?.endDate ?? ''}
+                                onChange={e => onActivityPeriodChange(user.employeeId, {
+                                  startDate: period?.startDate,
+                                  endDate: e.target.value || undefined,
+                                })}
+                                aria-label={`${user.employeeName}の退社日`}
+                                className="w-32 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                         bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                              />
+                            </div>
+                          )}
+                          {onPositionGroupChange && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-400 dark:text-gray-500">グループ</span>
+                              <input
+                                type="text"
+                                value={positionGroup}
+                                onChange={e => onPositionGroupChange(user.employeeId, e.target.value)}
+                                placeholder="例: SI1担当"
+                                aria-label={`${user.employeeName}のポジショングループ`}
+                                title="同じ名前を入力したメンバー同士は交代要員として1名にまとめてカウントされます"
+                                className="w-28 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600
+                                         bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
