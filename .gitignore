@@ -68,6 +68,13 @@ scripts/estaffing.config.js
 # e-staffing ログイン診断出力（社内情報を含む可能性 - NEVER push to GitHub）
 scripts/login-debug.png
 scripts/login-debug.txt
+scripts/deptsearch-debug.png
+scripts/nomembers-debug.png
+scripts/nomembers-debug.txt
+scripts/searcherror-debug.png
+scripts/table-structure-debug.json
+scripts/memberpage-debug.png
+scripts/memberpage-debug.txt
 
 # Presentation files
 docs/slides/*.pptx

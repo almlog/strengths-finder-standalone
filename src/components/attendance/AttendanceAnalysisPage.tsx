@@ -1076,7 +1076,7 @@ const AttendanceAnalysisPage: React.FC = () => {
           {/* タブコンテンツ */}
           <div className="min-h-[400px]">
             {activeTab === 'summary' && (
-              <div ref={summaryRef}>
+              <div ref={summaryRef} style={isExportingPdf ? { width: '1600px' } : undefined}>
                 <SummaryTab
                   result={analysisResult}
                   partnerRecords={partnerRecords}
@@ -1826,11 +1826,11 @@ const SummaryTab: React.FC<{
         </div>
       </div>
 
-      {/* グラフセクション: 部門別残業 + 違反種別（WEB:横並び、PDF:縦並び・中央揃え） */}
-      <div className={isExportingPdf ? "flex flex-col items-center gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
+      {/* グラフセクション: 部門別残業 + 違反種別（WEB/PDFともに横並び） */}
+      <div className={isExportingPdf ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
         {/* 部門別残業時間チャート */}
         {departmentOvertimeData.length > 0 && (
-          <div className={isExportingPdf ? "bg-white p-4 w-full max-w-2xl" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
+          <div className={isExportingPdf ? "bg-white p-4 w-full" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
             <h3 className={isExportingPdf ? "text-base font-semibold text-gray-900 mb-3 text-center" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
               部門別 平均残業時間
             </h3>
@@ -1875,7 +1875,7 @@ const SummaryTab: React.FC<{
 
         {/* 違反種別分布チャート */}
         {violationDistributionData.length > 0 && (
-          <div className={isExportingPdf ? "bg-white p-4 w-full max-w-2xl" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
+          <div className={isExportingPdf ? "bg-white p-4 w-full" : "bg-white dark:bg-gray-800 rounded-lg shadow p-6"}>
             <h3 className={isExportingPdf ? "text-base font-semibold text-gray-900 mb-3 text-center" : "text-lg font-semibold text-gray-900 dark:text-white mb-4"}>
               違反種別の分布
             </h3>
