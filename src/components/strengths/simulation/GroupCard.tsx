@@ -81,6 +81,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+              onBlur={handleRename}
               className="flex-1 px-2 py-1 border dark:border-gray-600 rounded dark:bg-gray-700 dark:text-gray-100"
               autoFocus
             />
