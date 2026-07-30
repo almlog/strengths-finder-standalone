@@ -159,6 +159,11 @@ export class AttendanceService {
       // AltX残業
       altxOvertimeIn: this.parseDateTime(row[XLSX_COLUMN_INDEX.ALTX_OVERTIME_IN]),
       altxOvertimeOut: this.parseDateTime(row[XLSX_COLUMN_INDEX.ALTX_OVERTIME_OUT]),
+      // 出社2/出社3（退社とのギャップを休憩として扱う運用）
+      clockIn2: this.parseDateTime(row[XLSX_COLUMN_INDEX.CLOCK_IN_2]),
+      clockOut2: this.parseDateTime(row[XLSX_COLUMN_INDEX.CLOCK_OUT_2]),
+      clockIn3: this.parseDateTime(row[XLSX_COLUMN_INDEX.CLOCK_IN_3]),
+      clockOut3: this.parseDateTime(row[XLSX_COLUMN_INDEX.CLOCK_OUT_3]),
       // 私用外出/戻り（時間有休用）
       privateOutTime: this.parseDateTime(row[XLSX_COLUMN_INDEX.PRIVATE_OUT_TIME]),
       privateReturnTime: this.parseDateTime(row[XLSX_COLUMN_INDEX.PRIVATE_RETURN_TIME]),
@@ -727,6 +732,32 @@ export class AttendanceService {
   }
 
   /**
+   * 出社2/出社3利用時のギャップ休憩（分）を算出
+   *
+   * 午前有休取得時は所定休憩が有休帯に含まれ休憩がカウントされず、
+   * 休憩時間修正申請も運用ルールで使用不可のため、
+   * 「退社→出社2（退社2→出社3）」のギャップで休憩を表現する運用がある。
+   * このギャップを休憩時間として加算する（午前有休に限らず出社2利用時は常に適用）。
+   * 前の退社時刻がない、またはギャップが負の場合は0として扱う。
+   */
+  static getGapBreakMinutes(record: AttendanceRecord): number {
+    const gapMinutes = (prevOut: Date | null | undefined, nextIn: Date | null | undefined): number => {
+      if (!prevOut || !nextIn) return 0;
+      const diff = Math.round((nextIn.getTime() - prevOut.getTime()) / 60000);
+      return Math.max(0, diff);
+    };
+
+    let total = 0;
+    if (record.clockIn2) {
+      total += gapMinutes(record.clockOut ?? record.originalClockOut, record.clockIn2);
+    }
+    if (record.clockIn3) {
+      total += gapMinutes(record.clockOut2, record.clockIn3);
+    }
+    return total;
+  }
+
+  /**
    * 残業時間と法定外残業時間を計算
    * - 休憩時間修正申請がない場合、休憩1:00固定として実働を再計算
    *   （楽楽勤怠が自動で1:15に増加させるが、実際の休憩は1:00のため）
@@ -1249,8 +1280,10 @@ export class AttendanceService {
     const lateMinutes = shouldExcludeLate ? 0 : rawLateMinutes;
 
     // 休憩時間: 調整後の値で判定（自動増加/自動付与を除外）
+    // 出社2/出社3利用時は退社とのギャップを休憩として加算
     const breakAdjustment = this.getBreakAdjustmentMinutes(record);
-    const breakMinutes = Math.max(0, (record.breakTimeMinutes || 0) - breakAdjustment);
+    const gapBreakMinutes = this.getGapBreakMinutes(record);
+    const breakMinutes = Math.max(0, (record.breakTimeMinutes || 0) - breakAdjustment) + gapBreakMinutes;
     const adjustedWorkMinutes = actualWorkMinutes + breakAdjustment;
     const adjustedRequiredBreakMinutes = this.calculateRequiredBreakMinutes(adjustedWorkMinutes);
 

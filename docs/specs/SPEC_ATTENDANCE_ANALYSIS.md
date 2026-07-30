@@ -43,6 +43,10 @@
 | 16 | AltX残業(終) | AltX残業終了時刻 | ✓ |
 | 21 | 私用外出 | 私用外出時刻 | ✓ |
 | 22 | 私用戻り | 私用戻り時刻 | ✓ |
+| 23 | 出社2 | 2回目の出勤打刻時刻（退社→出社2のギャップを休憩として加算） | ✓ |
+| 24 | 退社2 | 2回目の退勤打刻時刻 | ✓ |
+| 30 | 出社3 | 3回目の出勤打刻時刻（退社2→出社3のギャップを休憩として加算） | ✓ |
+| 31 | 退社3 | 3回目の退勤打刻時刻 | ✓ |
 | 36 | 休憩時間 | 休憩時間（分） | ✓ |
 | 37 | 深夜休憩修正 | 深夜休憩の修正値 | ✓ |
 | 38 | 深夜勤務 | 深夜勤務時間 | ✓ |
@@ -85,7 +89,7 @@
 | 違反タイプ | 説明 | 検出条件 |
 |-----------|------|----------|
 | `missing_clock` | 打刻漏れ | 出勤/退勤打刻がない（休暇以外） |
-| `break_violation` | 休憩時間不足 | 法定休憩時間を満たしていない |
+| `break_violation` | 休憩時間不足 | 法定休憩時間を満たしていない。判定前に「退社→出社2」「退社2→出社3」の打刻ギャップを休憩時間に加算する（午前有休で所定休憩が計上されない日の運用に対応。加算しても不足する場合のみ違反） |
 | `late_application_missing` | 遅刻申請漏れ | 遅刻しているが申請がない |
 | `early_leave_application_missing` | 早退申請漏れ | 早退しているが申請がない |
 | `early_start_application_missing` | 早出申請漏れ | 早出しているが申請がない |
@@ -233,6 +237,9 @@ class AttendanceService {
 
   // 日次分析
   static analyzeDailyRecord(record: AttendanceRecord): DailyAttendanceAnalysis
+
+  // ギャップ休憩の算出（出社2/出社3利用時、退社→出社2・退社2→出社3の間を休憩として集計）
+  static getGapBreakMinutes(record: AttendanceRecord): number
 
   // 拡張分析（月次）
   static analyzeExtended(records: AttendanceRecord[]): ExtendedAnalysisResult

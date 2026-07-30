@@ -4,17 +4,35 @@
 
 | 項目 | 状態 |
 |------|------|
-| 最終更新 | 2026-03-31 |
-| ブランチ | main |
-| テスト | ✅ 全件PASS（PodcastService 21件） |
-| CIビルド | ✅ 成功（`Compiled successfully.` 警告なし） |
-| 未コミット変更 | ドキュメント更新のみ |
-| 最新コミット | `22b68bc` feat: スタラジ（Podcast）タブ追加 |
-| 本番デプロイ | ✅ GitHub Actions success |
+| 最終更新 | 2026-07-31 |
+| ブランチ | feature/break-time-gap-correction |
+| テスト | ⚠️ AttendanceService系 18スイート380件中379 PASS（FN301のみ既存失敗）。全体では既存失敗91件あり（下記残タスク参照） |
+| CIビルド | ✅ 成功（`CI=true` で `Compiled successfully.`） |
+| 未コミット変更 | 休憩ギャップ補正一式（コード3ファイル＋ドキュメント） |
+| 最新コミット | `189d343` fix(simulation): save group rename on blur |
+| 本番デプロイ | ✅ GitHub Actions success（`189d343` 2026-07-27） |
 
 ---
 
-## 本セッション（2026-03-31）の成果
+## 本セッション（2026-07-31）の成果
+
+### 勤怠分析: 出社2/出社3ギャップの休憩補正（v3.9.2）
+- [x] 課題特定: 午前有休時に所定休憩が計上されず、出社2運用の休憩が認められないため休憩不足を誤検出
+- [x] `getGapBreakMinutes()` 実装（退社→出社2、退社2→出社3のギャップを休憩に加算）
+- [x] テスト11件（RED→GREEN）、既存AttendanceService系18スイートに新規失敗なし
+- [x] 実データ検証: 31名×31日=961レコードで休憩違反2件→0件（午前有休の2日のみ解消、副作用なし）
+- [x] `CI=true` ビルド成功、ユーザー目視確認済み
+- [x] ドキュメント更新（README / SPEC_ATTENDANCE_ANALYSIS / CHANGELOG / dev_log）
+- [ ] コミット・push・本番デプロイ
+
+### 環境整備（このマシン）
+- [x] ローカルmainがorigin/mainから267コミット遅れていたのを同期（旧状態は `backup/local-main-20260731` とstashに保全）
+- [x] `.env.local` 再作成（本番バンドルからFirebase公開設定を取得、`REACT_APP_USE_EMULATOR=false`）
+- [x] 個人データ（`server/data/`）を `.git/info/exclude` でローカル除外
+
+---
+
+## 前回セッション（2026-03-31）の成果
 
 ### スタラジ（Podcast）タブ追加（v3.9）
 - [x] 型定義（`src/types/podcast.ts`）
@@ -50,6 +68,7 @@
 ## 残タスク・クリーンアップ
 
 ### 優先度: 高
+- [ ] **テスト失敗91件（20スイート）の調査** — mainのHEADで発生。CIワークフローはテスト未実行のため見逃されていた。実アサーション失敗（FinancialServiceのポジション別内訳、AttendanceService FN301等）と環境系（localStorage undefined）の混在。切り分けと修正が必要
 - [ ] GitHub Actions CI/CD結果の確認（`505a17f` push後）
 - [ ] 本番環境で「このシステムについて」タブの表示確認
 
