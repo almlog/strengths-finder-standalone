@@ -5,12 +5,12 @@
 | 項目 | 状態 |
 |------|------|
 | 最終更新 | 2026-07-31 |
-| ブランチ | feature/break-time-gap-correction |
-| テスト | ⚠️ AttendanceService系 18スイート380件中379 PASS（FN301のみ既存失敗）。全体では既存失敗91件あり（下記残タスク参照） |
+| ブランチ | main |
+| テスト | ⚠️ AttendanceService系 18スイート394件中393 PASS（FN301のみ既存失敗）。全体では既存失敗91件あり（下記残タスク参照） |
 | CIビルド | ✅ 成功（`CI=true` で `Compiled successfully.`） |
-| 未コミット変更 | 休憩ギャップ補正一式（コード3ファイル＋ドキュメント） |
-| 最新コミット | `189d343` fix(simulation): save group rename on blur |
-| 本番デプロイ | ✅ GitHub Actions success（`189d343` 2026-07-27） |
+| 未コミット変更 | なし |
+| 最新コミット | `4e9161f` Merge branch 'feature/break-time-gap-correction' |
+| 本番デプロイ | ✅ GitHub Actions success（`4e9161f` 2026-07-31、バンドル反映確認済み） |
 
 ---
 
@@ -23,7 +23,8 @@
 - [x] 実データ検証: 31名×31日=961レコードで休憩違反2件→0件（午前有休の2日のみ解消、副作用なし）
 - [x] `CI=true` ビルド成功、ユーザー目視確認済み
 - [x] ドキュメント更新（README / SPEC_ATTENDANCE_ANALYSIS / CHANGELOG / dev_log）
-- [ ] コミット・push・本番デプロイ
+- [x] テスト用xlsx作成（`server/data/テスト用_出勤簿_日別詳細.xlsx`、合成データ）→ ブラウザE2Eで期待どおり違反3件を確認
+- [x] コミット `395500b` → mainマージ `4e9161f` → push → CI/CD success → 本番バンドル反映確認（`main.8a7aecfc.js` に `getGapBreakMinutes` 存在確認）
 
 ### 環境整備（このマシン）
 - [x] ローカルmainがorigin/mainから267コミット遅れていたのを同期（旧状態は `backup/local-main-20260731` とstashに保全）
@@ -80,6 +81,7 @@
 ### 優先度: 低
 - [ ] SPEC_BULK_SELECTION の着手判断
 - [ ] SPEC_USER_FILTER の着手判断
+- [ ] deploy.yml のNode.js 20非推奨警告対応（actions/deploy-pages@v4 がNode 24強制実行。動作影響なし）
 
 ---
 
