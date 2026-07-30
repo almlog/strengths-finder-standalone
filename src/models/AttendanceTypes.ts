@@ -49,6 +49,10 @@ export interface AttendanceRecord {
   earlyStartFlag: boolean;       // 早出フラグ（"1"が入力されていればtrue）
   altxOvertimeIn: Date | null;   // AltX残業出
   altxOvertimeOut: Date | null;  // AltX残業退
+  clockIn2?: Date | null;        // 出社2（退社→出社2のギャップを休憩として扱う運用）
+  clockOut2?: Date | null;       // 退社2
+  clockIn3?: Date | null;        // 出社3（退社2→出社3のギャップも休憩として扱う）
+  clockOut3?: Date | null;       // 退社3
   privateOutTime: Date | null;   // 私用外出時刻
   privateReturnTime: Date | null; // 私用戻り時刻
   breakTimeMinutes: number;      // 休憩時間（分）
@@ -134,8 +138,12 @@ export const XLSX_COLUMN_INDEX = {
   CALC_END: 12,             // 計算終了 (Index 13)
   ALTX_OVERTIME_IN: 16,     // AltX残業出 (Index 17)
   ALTX_OVERTIME_OUT: 17,    // AltX残業退 (Index 18)
+  CLOCK_IN_2: 23,           // 出社2 (Index 24)
+  CLOCK_OUT_2: 24,          // 退社2 (Index 25)
   PRIVATE_OUT_TIME: 28,     // 私用外出 (Index 29)
   PRIVATE_RETURN_TIME: 29,  // 私用戻り (Index 30)
+  CLOCK_IN_3: 30,           // 出社3 (Index 31)
+  CLOCK_OUT_3: 31,          // 退社3 (Index 32)
   BREAK_TIME: 36,           // 休憩時間 (Index 37)
   NIGHT_BREAK_MODIFICATION: 38, // 深夜休憩修正 (Index 39)
   ACTUAL_WORK_HOURS: 39,    // 実働時間 (Index 40)
