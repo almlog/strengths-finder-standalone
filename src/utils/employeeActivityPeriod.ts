@@ -28,6 +28,40 @@ export function countWeekdaysInRange(start: Date, end: Date): number {
   return count;
 }
 
+// 指定した日付が活動期間内かどうかを判定する（終了日当日は含む）。
+// 活動期間が未設定なら常にtrue。
+export function isWithinActivityPeriod(date: Date, period: EmployeeActivityPeriod | undefined): boolean {
+  if (!period || (!period.startDate && !period.endDate)) return true;
+
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  if (period.startDate) {
+    const start = new Date(period.startDate);
+    start.setHours(0, 0, 0, 0);
+    if (target < start) return false;
+  }
+  if (period.endDate) {
+    const end = new Date(period.endDate);
+    end.setHours(0, 0, 0, 0);
+    if (target > end) return false;
+  }
+  return true;
+}
+
+// 活動期間が設定されているメンバーのレコードのみ、期間外の日付を除外する。
+// 同一employeeIdの記録が複数シート（異動前後など）にまたがって存在する場合、
+// analyzeExtendedはemployeeId単位で無条件に合算してしまうため、実績集計
+// （totalWorkDays/totalOvertimeMinutes等）に活動期間を反映させるには、
+// 集計前にこの関数でレコード自体を絞り込む必要がある。
+export function filterRecordsByActivityPeriod<T extends { employeeId: string; date: Date }>(
+  records: T[],
+  periods: Map<string, EmployeeActivityPeriod> | undefined
+): T[] {
+  if (!periods || periods.size === 0) return records;
+  return records.filter(r => isWithinActivityPeriod(r.date, periods.get(r.employeeId)));
+}
+
 export function resolveEmployeePassedWeekdays(
   defaultPassedWeekdays: number,
   period: EmployeeActivityPeriod | undefined,

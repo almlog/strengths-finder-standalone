@@ -8,6 +8,8 @@ import {
   resolveEmployeePassedWeekdays,
   resolvePartnerElapsedDays,
   resolveTargetMonthRange,
+  isWithinActivityPeriod,
+  filterRecordsByActivityPeriod,
 } from '../../utils/employeeActivityPeriod';
 
 describe('countWeekdaysInRange', () => {
@@ -241,6 +243,76 @@ describe('resolvePartnerElapsedDays', () => {
       const expected = countWeekdaysInRange(analysisStart, elapsedEnd);
       expect(result).toBe(expected);
     });
+  });
+});
+
+describe('isWithinActivityPeriod', () => {
+  it('活動期間が未設定なら常にtrue', () => {
+    expect(isWithinActivityPeriod(new Date('2026-06-15'), undefined)).toBe(true);
+  });
+
+  it('開始日より前の日付はfalse', () => {
+    expect(isWithinActivityPeriod(new Date('2026-06-05'), { startDate: '2026-06-10' })).toBe(false);
+  });
+
+  it('開始日以降の日付はtrue', () => {
+    expect(isWithinActivityPeriod(new Date('2026-06-10'), { startDate: '2026-06-10' })).toBe(true);
+    expect(isWithinActivityPeriod(new Date('2026-06-15'), { startDate: '2026-06-10' })).toBe(true);
+  });
+
+  it('終了日より後の日付はfalse', () => {
+    expect(isWithinActivityPeriod(new Date('2026-06-10'), { endDate: '2026-06-09' })).toBe(false);
+  });
+
+  it('終了日当日はtrue（終了日を含む）', () => {
+    expect(isWithinActivityPeriod(new Date('2026-06-09'), { endDate: '2026-06-09' })).toBe(true);
+  });
+
+  it('開始日・終了日の範囲内はtrue、範囲外はfalse', () => {
+    const period = { startDate: '2026-06-10', endDate: '2026-06-20' };
+    expect(isWithinActivityPeriod(new Date('2026-06-09'), period)).toBe(false);
+    expect(isWithinActivityPeriod(new Date('2026-06-15'), period)).toBe(true);
+    expect(isWithinActivityPeriod(new Date('2026-06-21'), period)).toBe(false);
+  });
+});
+
+describe('filterRecordsByActivityPeriod', () => {
+  // 実例: あるメンバーが月途中で異動し、6/9まではAシート、6/10以降は別シート
+  // (異動先)に記録が存在するケース。employeeIdは同じままなので、
+  // analyzeExtendedは何もしないと両方を1人分として合算してしまう。手動で
+  // 「6/9退場」の活動期間を設定した場合、6/10以降のレコードは集計から
+  // 除外されるべき。
+  const records = [
+    { employeeId: 'emp-a', date: new Date('2026-06-05') },
+    { employeeId: 'emp-a', date: new Date('2026-06-09') },
+    { employeeId: 'emp-a', date: new Date('2026-06-10') },
+    { employeeId: 'emp-a', date: new Date('2026-06-20') },
+    { employeeId: 'emp-b', date: new Date('2026-06-15') },
+  ];
+
+  it('活動期間の設定が無いメンバーのレコードはそのまま残る', () => {
+    const result = filterRecordsByActivityPeriod(records, undefined);
+    expect(result).toEqual(records);
+  });
+
+  it('終了日が設定されたメンバーは、終了日より後のレコードが除外される', () => {
+    const periods = new Map([['emp-a', { endDate: '2026-06-09' }]]);
+    const result = filterRecordsByActivityPeriod(records, periods);
+
+    expect(result.filter(r => r.employeeId === 'emp-a')).toHaveLength(2);
+    expect(result.filter(r => r.employeeId === 'emp-a').map(r => r.date.toISOString().slice(0, 10)))
+      .toEqual(['2026-06-05', '2026-06-09']);
+    // 活動期間未設定の他メンバーは影響を受けない
+    expect(result.filter(r => r.employeeId === 'emp-b')).toHaveLength(1);
+  });
+
+  it('開始日が設定されたメンバーは、開始日より前のレコードが除外される', () => {
+    const periods = new Map([['emp-a', { startDate: '2026-06-10' }]]);
+    const result = filterRecordsByActivityPeriod(records, periods);
+
+    expect(result.filter(r => r.employeeId === 'emp-a')).toHaveLength(2);
+    expect(result.filter(r => r.employeeId === 'emp-a').map(r => r.date.toISOString().slice(0, 10)))
+      .toEqual(['2026-06-10', '2026-06-20']);
   });
 });
 

@@ -57,7 +57,7 @@ import { getPartnerOvertimeMinutes } from '../../utils/partnerOvertime';
 import { EStaffingRecord, parseEStaffingCsv } from '../../utils/eStaffingCsv';
 import { calculateCapacityUtilization, sumExpectedCapacityMinutes } from '../../utils/capacityUtilization';
 import { mergePartnerRecords } from '../../utils/mergePartnerRecords';
-import { EmployeeActivityPeriod, resolveEmployeePassedWeekdays, resolvePartnerElapsedDays } from '../../utils/employeeActivityPeriod';
+import { EmployeeActivityPeriod, resolveEmployeePassedWeekdays, resolvePartnerElapsedDays, filterRecordsByActivityPeriod } from '../../utils/employeeActivityPeriod';
 import { countDistinctPositions, summarizePositionGroups } from '../../utils/positionGrouping';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
@@ -259,12 +259,18 @@ const AttendanceAnalysisPage: React.FC = () => {
   }, []);
 
   // 分析を実行（フィルター済みレコードで）
+  // 手動で活動期間（入場日・退社日）が設定されているメンバーは、期間外の
+  // 日次レコードを集計前に除外する。同一employeeIdの記録が異動等で複数
+  // シートにまたがっている場合、analyzeExtendedはemployeeId単位で無条件に
+  // 合算してしまうため、ここで絞り込まないと総出勤日数・総残業時間に
+  // 活動期間外の実績が混入する。
   const executeAnalysis = useCallback((records: AttendanceRecord[]) => {
-    const filteredRecords = filterRecordsBySelection(records, userSelections);
+    const selectedRecords = filterRecordsBySelection(records, userSelections);
+    const filteredRecords = filterRecordsByActivityPeriod(selectedRecords, employeeActivityPeriods);
     setRecords(filteredRecords);
     const result = AttendanceService.analyzeExtended(filteredRecords, { includeToday });
     setAnalysisResult(result);
-  }, [userSelections, includeToday, filterRecordsBySelection]);
+  }, [userSelections, employeeActivityPeriods, includeToday, filterRecordsBySelection]);
 
   const processXlsxFile = useCallback(async (file: File, mergeMode?: 'overwrite' | 'merge' | 'replace') => {
     setIsLoading(true);
@@ -296,9 +302,10 @@ const AttendanceAnalysisPage: React.FC = () => {
       const initialSelections = initializeUserSelections(finalRecords);
       setUserSelections(initialSelections);
 
-      // 分析実行（全員選択状態で）
-      setRecords(finalRecords);
-      const result = AttendanceService.analyzeExtended(finalRecords, { includeToday });
+      // 分析実行（全員選択状態で、既存の活動期間設定があれば反映）
+      const periodFilteredRecords = filterRecordsByActivityPeriod(finalRecords, employeeActivityPeriods);
+      setRecords(periodFilteredRecords);
+      const result = AttendanceService.analyzeExtended(periodFilteredRecords, { includeToday });
       setAnalysisResult(result);
 
     } catch (err) {
@@ -306,7 +313,7 @@ const AttendanceAnalysisPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [includeToday, initializeUserSelections, rawRecords]);
+  }, [includeToday, initializeUserSelections, rawRecords, employeeActivityPeriods]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     if (rawRecords.length > 0) {
