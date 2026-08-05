@@ -7,6 +7,7 @@ import {
   countWeekdaysInRange,
   resolveEmployeePassedWeekdays,
   resolvePartnerElapsedDays,
+  resolveTargetMonthRange,
 } from '../../utils/employeeActivityPeriod';
 
 describe('countWeekdaysInRange', () => {
@@ -27,6 +28,18 @@ describe('countWeekdaysInRange', () => {
     expect(countWeekdaysInRange(new Date('2026-07-01'), new Date('2026-07-01'))).toBe(1);
     // 2026/07/04は土曜日
     expect(countWeekdaysInRange(new Date('2026-07-04'), new Date('2026-07-04'))).toBe(0);
+  });
+
+  it('国民の祝日は平日でも除外する（2026/07/20 海の日）', () => {
+    // 2026年7月は土日を除くと23日あるが、7/20(月)が海の日のため
+    // 正しい営業日数は22日
+    const count = countWeekdaysInRange(new Date('2026-07-01'), new Date('2026-07-31'));
+    expect(count).toBe(22);
+  });
+
+  it('祝日単体を指定した場合は0を返す', () => {
+    // 2026/07/20は海の日（月曜日）
+    expect(countWeekdaysInRange(new Date('2026-07-20'), new Date('2026-07-20'))).toBe(0);
   });
 });
 
@@ -170,5 +183,86 @@ describe('resolvePartnerElapsedDays', () => {
       elapsedEnd
     );
     expect(result).toBe(18);
+  });
+
+  // パートナーは正社員XLSXが無くても単独で分析される可能性があるため、
+  // CSV自身が持つ「対象年月」列から期間を決定できるようにする。
+  // 正社員XLSX由来のanalysisStart/elapsedEndには依存しない。
+  describe('targetMonthが設定されている場合、CSV自身の対象年月を優先する', () => {
+    it('対象月が完全に経過済みなら、正社員側のanalysisStart/elapsedEndが的外れでも対象月ベースの営業日数（祝日除外）になる', () => {
+      // analysisStart/elapsedEndは意図的に無関係な値を渡し、無視されることを確認する
+      const irrelevantStart = new Date('2020-01-01');
+      const irrelevantEnd = new Date('2020-01-01');
+      const now = new Date('2026-08-05'); // 対象月(7月)が完全に経過した後
+
+      const result = resolvePartnerElapsedDays(
+        {
+          workDays: 10, absentDays: 0, leaveDays: 0,
+          contractStart: '2026/06/01', contractEnd: '',
+          targetMonth: '2026/07',
+        },
+        undefined,
+        irrelevantStart,
+        irrelevantEnd,
+        now
+      );
+
+      // 2026年7月の祝日除外後の営業日数は22日
+      expect(result).toBe(22);
+    });
+
+    it('対象月がまだ進行中なら、今日時点までの営業日数にクリップされる', () => {
+      const now = new Date('2026-07-15'); // 7月15日時点（月の途中）
+
+      const result = resolvePartnerElapsedDays(
+        {
+          workDays: 5, absentDays: 0, leaveDays: 0,
+          contractStart: '2026/06/01', contractEnd: '',
+          targetMonth: '2026/07',
+        },
+        undefined,
+        new Date('2020-01-01'),
+        new Date('2020-01-01'),
+        now
+      );
+
+      const expected = countWeekdaysInRange(new Date('2026-07-01'), new Date('2026-07-15'));
+      expect(result).toBe(expected);
+      expect(result).toBeLessThan(22);
+    });
+
+    it('targetMonthが未設定なら、従来通り引数のanalysisStart/elapsedEndを使う（後方互換）', () => {
+      const result = resolvePartnerElapsedDays(
+        { workDays: 10, absentDays: 0, leaveDays: 0, contractStart: '2026/06/01', contractEnd: '' },
+        undefined,
+        analysisStart,
+        elapsedEnd
+      );
+      const expected = countWeekdaysInRange(analysisStart, elapsedEnd);
+      expect(result).toBe(expected);
+    });
+  });
+});
+
+describe('resolveTargetMonthRange', () => {
+  it('"YYYY/MM"形式から月初〜月末のDateレンジを返す', () => {
+    const range = resolveTargetMonthRange('2026/07');
+    expect(range).toBeDefined();
+    expect(range!.start.getFullYear()).toBe(2026);
+    expect(range!.start.getMonth()).toBe(6); // 0-indexed: 7月
+    expect(range!.start.getDate()).toBe(1);
+    expect(range!.end.getMonth()).toBe(6);
+    expect(range!.end.getDate()).toBe(31);
+  });
+
+  it('1桁月("2026/2")でも正しく2月末（28日）を返す', () => {
+    const range = resolveTargetMonthRange('2026/2');
+    expect(range!.end.getDate()).toBe(28);
+  });
+
+  it('不正な形式ならundefinedを返す', () => {
+    expect(resolveTargetMonthRange('')).toBeUndefined();
+    expect(resolveTargetMonthRange('不明')).toBeUndefined();
+    expect(resolveTargetMonthRange('2026-07')).toBeUndefined();
   });
 });
