@@ -4,17 +4,7 @@
  */
 
 import { DelayHistoryEntry, TrainStatus } from '../types/trainDelay';
-
-/**
- * Yahoo!路線情報のURL（関東エリア）
- */
-const YAHOO_TRANSIT_URL = 'https://transit.yahoo.co.jp/traininfo/area/4/';
-
-/**
- * CORSプロキシ（開発・テスト用）
- * 本番環境では自前のプロキシサーバーを使用することを推奨
- */
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+import { fetchTrainInfoContent } from './TrainInfoProxy';
 
 /**
  * 路線名の正規化マッピング
@@ -51,8 +41,6 @@ const RAILWAY_NAME_NORMALIZE: Record<string, string> = {
   '都営大江戸線': '都営大江戸線',
 };
 
-// extractText関数は将来の拡張用に保持（現在はHTMLパターンマッチで代替）
-
 /**
  * ステータスを判定
  */
@@ -68,27 +56,14 @@ function parseStatus(text: string): TrainStatus {
 
 /**
  * Yahoo!路線情報から遅延履歴を取得
+ * 取得はCloud Function（fetchTrainInfo）経由。CORSプロキシは使用しない。
  */
 export async function fetchYahooDelayHistory(): Promise<DelayHistoryEntry[]> {
   try {
-    console.log('[YahooDelayService] Fetching from Yahoo Transit...');
+    console.log('[YahooDelayService] Fetching from Yahoo Transit via Cloud Function...');
 
-    const url = CORS_PROXY + encodeURIComponent(YAHOO_TRANSIT_URL);
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'text/html',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
-    }
-
-    const html = await response.text();
+    const html = await fetchTrainInfoContent('yahooTraininfo');
     console.log('[YahooDelayService] Received HTML, length:', html.length);
-
-    // デバッグ: HTMLの一部を出力
-    console.log('[YahooDelayService] HTML preview:', html.substring(0, 1000));
 
     // 遅延情報を解析
     const entries: DelayHistoryEntry[] = [];
@@ -318,185 +293,17 @@ function addEntry(
 }
 
 /**
- * JR東日本運行情報RSSから遅延情報を取得
- */
-export async function fetchJRRssDelays(): Promise<DelayHistoryEntry[]> {
-  try {
-    console.log('[YahooDelayService] Fetching JR East RSS...');
-
-    // JR東日本の運行情報RSS（複数のURLを試す）
-    const rssUrls = [
-      'https://www.jreast.co.jp/info/rss/traininfo_area_kanto.xml',
-      'https://traininfo.jreast.co.jp/train_info/service.atom',
-    ];
-
-    for (const rssUrl of rssUrls) {
-      try {
-        const url = CORS_PROXY + encodeURIComponent(rssUrl);
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          console.log('[YahooDelayService] RSS not available:', rssUrl, response.status);
-          continue;
-        }
-
-        const xml = await response.text();
-        console.log('[YahooDelayService] Received RSS from', rssUrl, ', length:', xml.length);
-        console.log('[YahooDelayService] RSS preview:', xml.substring(0, 500));
-
-        // XMLがエラーページでないか確認
-        if (xml.includes('<!DOCTYPE html>') || xml.includes('<html')) {
-          console.log('[YahooDelayService] Received HTML instead of RSS, skipping');
-          continue;
-        }
-
-        const entries: DelayHistoryEntry[] = [];
-        const now = new Date().toISOString();
-
-        // RSSのitem要素を解析
-        const itemPattern = /<item>[\s\S]*?<title>([^<]+)<\/title>[\s\S]*?<description>([^<]*)<\/description>[\s\S]*?(?:<pubDate>([^<]+)<\/pubDate>)?[\s\S]*?<\/item>/gi;
-
-        let match;
-        while ((match = itemPattern.exec(xml)) !== null) {
-          const title = match[1].trim();
-          const description = (match[2] || '').trim();
-          const pubDate = (match[3] || '').trim();
-
-          console.log('[YahooDelayService] RSS item:', title, description.substring(0, 50));
-
-          // 平常運転以外を抽出
-          if (title.includes('平常') || description.includes('平常どおり') || description.includes('平常運転')) {
-            continue;
-          }
-
-          // 遅延・運休情報のみ追加
-          if (!title.includes('遅') && !title.includes('運休') && !title.includes('見合') &&
-              !description.includes('遅') && !description.includes('運休') && !description.includes('見合')) {
-            continue;
-          }
-
-          const status = parseStatus(description || title);
-          const delayMatch = (description || title).match(/(\d+)分/);
-          const delayMinutes = delayMatch ? parseInt(delayMatch[1], 10) : undefined;
-
-          // pubDateをISO形式に変換
-          let recordedAt = now;
-          if (pubDate) {
-            try {
-              recordedAt = new Date(pubDate).toISOString();
-            } catch {
-              // パース失敗時は現在時刻を使用
-            }
-          }
-
-          entries.push({
-            id: `jrrss-${title}-${recordedAt}`,
-            railway: `jrrss.Railway:${title}`,
-            railwayName: title,
-            operator: 'JR-East',
-            operatorName: 'JR東日本',
-            status: status !== 'unknown' ? status : 'delayed',
-            delayMinutes,
-            informationText: description || title,
-            fetchedAt: now,
-            recordedAt,
-          });
-
-          console.log('[YahooDelayService] Found JR delay:', title, status);
-        }
-
-        // Atom形式も試す
-        if (entries.length === 0) {
-          const atomPattern = /<entry>[\s\S]*?<title[^>]*>([^<]+)<\/title>[\s\S]*?(?:<summary[^>]*>([^<]*)<\/summary>)?[\s\S]*?(?:<updated>([^<]+)<\/updated>)?[\s\S]*?<\/entry>/gi;
-
-          while ((match = atomPattern.exec(xml)) !== null) {
-            const title = match[1].trim();
-            const summary = (match[2] || '').trim();
-            const updated = (match[3] || '').trim();
-
-            if (title.includes('平常') || summary.includes('平常')) {
-              continue;
-            }
-
-            if (!title.includes('遅') && !title.includes('運休') && !summary.includes('遅') && !summary.includes('運休')) {
-              continue;
-            }
-
-            const status = parseStatus(summary || title);
-            const delayMatch = (summary || title).match(/(\d+)分/);
-            const delayMinutes = delayMatch ? parseInt(delayMatch[1], 10) : undefined;
-
-            let recordedAt = now;
-            if (updated) {
-              try {
-                recordedAt = new Date(updated).toISOString();
-              } catch {
-                // ignore
-              }
-            }
-
-            entries.push({
-              id: `jratom-${title}-${recordedAt}`,
-              railway: `jratom.Railway:${title}`,
-              railwayName: title,
-              operator: 'JR-East',
-              operatorName: 'JR東日本',
-              status: status !== 'unknown' ? status : 'delayed',
-              delayMinutes,
-              informationText: summary || title,
-              fetchedAt: now,
-              recordedAt,
-            });
-
-            console.log('[YahooDelayService] Found JR Atom delay:', title);
-          }
-        }
-
-        if (entries.length > 0) {
-          console.log('[YahooDelayService] JR RSS entries:', entries.length);
-          return entries;
-        }
-      } catch (urlError) {
-        console.log('[YahooDelayService] Error fetching', rssUrl, urlError);
-      }
-    }
-
-    console.log('[YahooDelayService] No JR RSS entries found');
-    return [];
-
-  } catch (error) {
-    console.error('[YahooDelayService] JR RSS fetch error:', error);
-    return [];
-  }
-}
-
-/**
- * 複数のソースから遅延履歴を取得して統合
+ * 外部ソースから遅延履歴を取得して統合
+ *
+ * 現在のソースはYahoo!路線情報のみ。
+ * JR東日本RSS（traininfo_area_kanto.xml / service.atom）は配信終了（403/404）のため
+ * 2026-08-26に削除した。
  */
 export async function fetchExternalDelayHistory(): Promise<DelayHistoryEntry[]> {
   console.log('[YahooDelayService] Fetching from external sources...');
 
-  // 並列で取得
-  const [yahooEntries, jrEntries] = await Promise.all([
-    fetchYahooDelayHistory().catch(() => [] as DelayHistoryEntry[]),
-    fetchJRRssDelays().catch(() => [] as DelayHistoryEntry[]),
-  ]);
+  const entries = await fetchYahooDelayHistory().catch(() => [] as DelayHistoryEntry[]);
 
-  // 統合して重複を除去
-  const allEntries = [...yahooEntries, ...jrEntries];
-
-  // 路線名でグループ化し、最新のエントリのみを保持
-  const uniqueEntries = new Map<string, DelayHistoryEntry>();
-  for (const entry of allEntries) {
-    const key = entry.railwayName;
-    const existing = uniqueEntries.get(key);
-    if (!existing || entry.recordedAt > existing.recordedAt) {
-      uniqueEntries.set(key, entry);
-    }
-  }
-
-  const result = Array.from(uniqueEntries.values());
-  console.log('[YahooDelayService] Total unique entries:', result.length);
-
-  return result;
+  console.log('[YahooDelayService] Total unique entries:', entries.length);
+  return entries;
 }

@@ -3,6 +3,17 @@
  * @module services/__tests__/TrainDelayService.test
  */
 
+// firebase config のモック（import連鎖による実Firebase初期化を回避）
+jest.mock('../../config/firebase', () => ({
+  functions: {},
+}));
+
+// YahooDelayService（外部ソース取得）のモック
+const mockFetchExternalDelayHistory = jest.fn();
+jest.mock('../YahooDelayService', () => ({
+  fetchExternalDelayHistory: (...args: unknown[]) => mockFetchExternalDelayHistory(...args),
+}));
+
 import {
   TrainDelayService,
   parseDelayStatus,
@@ -11,15 +22,9 @@ import {
   getOperatorName,
 } from '../TrainDelayService';
 import {
-  TrainDelayInfo,
   DelayHistoryEntry,
-  ODPTTrainInformationResponse,
   DELAY_STORAGE_KEY,
 } from '../../types/trainDelay';
-
-// fetchのモック
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
 
 // LocalStorageのモック
 const mockLocalStorage = (() => {
@@ -39,129 +44,112 @@ const mockLocalStorage = (() => {
 })();
 Object.defineProperty(window, 'localStorage', { value: mockLocalStorage });
 
+/** テスト用のDelayHistoryEntryを生成 */
+function makeEntry(overrides: Partial<DelayHistoryEntry> = {}): DelayHistoryEntry {
+  const now = new Date().toISOString();
+  return {
+    id: `test-${Math.random()}`,
+    railway: 'yahoo.Railway:山手線',
+    railwayName: '山手線',
+    operator: 'yahoo',
+    operatorName: 'Yahoo!路線情報',
+    status: 'delayed',
+    delayMinutes: 15,
+    informationText: '人身事故の影響で約15分の遅れ',
+    fetchedAt: now,
+    recordedAt: now,
+    ...overrides,
+  };
+}
+
 describe('TrainDelayService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockLocalStorage.clear();
+    // resetMocks: true 対策で毎回getItem/setItemの実装を再設定
+    mockLocalStorage.getItem.mockImplementation(() => null);
+    mockLocalStorage.setItem.mockImplementation(() => undefined);
   });
 
   describe('parseDelayStatus', () => {
-    it('should return "normal" for normal operation text', () => {
+    it('平常運転テキストは "normal"', () => {
       expect(parseDelayStatus('現在、平常どおり運転しています。')).toBe('normal');
       expect(parseDelayStatus('平常運転')).toBe('normal');
     });
 
-    it('should return "delayed" for delay text', () => {
+    it('遅延テキストは "delayed"', () => {
       expect(parseDelayStatus('人身事故の影響で約15分の遅れ')).toBe('delayed');
       expect(parseDelayStatus('遅延が発生しています')).toBe('delayed');
       expect(parseDelayStatus('約10分遅れ')).toBe('delayed');
     });
 
-    it('should return "suspended" for suspended operation text', () => {
+    it('運転見合わせテキストは "suspended"', () => {
       expect(parseDelayStatus('運転を見合わせています')).toBe('suspended');
       expect(parseDelayStatus('運休')).toBe('suspended');
       expect(parseDelayStatus('運転見合わせ')).toBe('suspended');
     });
 
-    it('should return "unknown" for unrecognized text', () => {
+    it('判定不能テキストは "unknown"', () => {
       expect(parseDelayStatus('')).toBe('unknown');
       expect(parseDelayStatus('その他の情報')).toBe('unknown');
     });
   });
 
   describe('extractDelayMinutes', () => {
-    it('should extract delay minutes from text', () => {
+    it('テキストから遅延分数を抽出する', () => {
       expect(extractDelayMinutes('約15分の遅れ')).toBe(15);
       expect(extractDelayMinutes('10分程度の遅延')).toBe(10);
       expect(extractDelayMinutes('最大30分の遅れが発生')).toBe(30);
     });
 
-    it('should return undefined for text without delay minutes', () => {
+    it('分数がないテキストはundefined', () => {
       expect(extractDelayMinutes('平常運転')).toBeUndefined();
       expect(extractDelayMinutes('運転見合わせ')).toBeUndefined();
     });
   });
 
   describe('getRailwayName', () => {
-    it('should return mapped railway name', () => {
+    it('マッピング済み路線IDは路線名を返す', () => {
       expect(getRailwayName('odpt.Railway:JR-East.ChuoRapid')).toBe('中央線快速');
       expect(getRailwayName('odpt.Railway:TokyoMetro.Ginza')).toBe('銀座線');
     });
 
-    it('should return extracted name for unknown railway', () => {
+    it('未知の路線IDはIDから抽出する', () => {
       expect(getRailwayName('odpt.Railway:Unknown.TestLine')).toBe('TestLine');
     });
   });
 
   describe('getOperatorName', () => {
-    it('should return mapped operator name', () => {
+    it('マッピング済み事業者IDは事業者名を返す', () => {
       expect(getOperatorName('odpt.Operator:JR-East')).toBe('JR東日本');
       expect(getOperatorName('odpt.Operator:TokyoMetro')).toBe('東京メトロ');
     });
 
-    it('should return extracted name for unknown operator', () => {
+    it('未知の事業者IDはIDから抽出する', () => {
       expect(getOperatorName('odpt.Operator:Unknown')).toBe('Unknown');
     });
   });
 
   describe('fetchDelayInfo', () => {
-    const mockODPTResponse: ODPTTrainInformationResponse[] = [
-      {
-        '@context': 'http://vocab.odpt.org/context_odpt.jsonld',
-        '@id': 'urn:test:1',
-        '@type': 'odpt:TrainInformation',
-        'dc:date': '2024-01-28T09:00:00+09:00',
-        'odpt:operator': 'odpt.Operator:JR-East',
-        'odpt:railway': 'odpt.Railway:JR-East.ChuoRapid',
-        'odpt:trainInformationText': '人身事故の影響で約15分の遅れ',
-      },
-      {
-        '@context': 'http://vocab.odpt.org/context_odpt.jsonld',
-        '@id': 'urn:test:2',
-        '@type': 'odpt:TrainInformation',
-        'dc:date': '2024-01-28T09:00:00+09:00',
-        'odpt:operator': 'odpt.Operator:TokyoMetro',
-        'odpt:railway': 'odpt.Railway:TokyoMetro.Ginza',
-        'odpt:trainInformationText': '現在、平常どおり運転しています。',
-      },
-    ];
-
-    it('should fetch and parse delay info correctly', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockODPTResponse,
-      });
+    it('外部ソースのエントリをTrainDelayInfoに変換して返す', async () => {
+      mockFetchExternalDelayHistory.mockResolvedValueOnce([
+        makeEntry({ railwayName: '山手線', status: 'delayed', delayMinutes: 15 }),
+        makeEntry({ railwayName: '常磐線', status: 'suspended', delayMinutes: undefined }),
+      ]);
 
       const service = new TrainDelayService('test-token');
       const result = await service.fetchDelayInfo();
 
       expect(result).toHaveLength(2);
-      expect(result[0].railwayName).toBe('中央線快速');
+      expect(result[0].railwayName).toBe('山手線');
       expect(result[0].status).toBe('delayed');
       expect(result[0].delayMinutes).toBe(15);
-      expect(result[1].railwayName).toBe('銀座線');
-      expect(result[1].status).toBe('normal');
+      expect(result[1].railwayName).toBe('常磐線');
+      expect(result[1].status).toBe('suspended');
     });
 
-    it('should return cached data on API error', async () => {
-      // First, populate cache
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockODPTResponse,
-      });
-
-      const service = new TrainDelayService('test-token');
-      await service.fetchDelayInfo();
-
-      // Then, simulate API error
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
-      const result = await service.fetchDelayInfo();
-      expect(result).toHaveLength(2);
-    });
-
-    it('should return empty array when no cache and API error', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    it('外部ソースがエラーの場合は空配列を返す', async () => {
+      mockFetchExternalDelayHistory.mockRejectedValueOnce(new Error('Network error'));
 
       const service = new TrainDelayService('test-token');
       const result = await service.fetchDelayInfo();
@@ -171,80 +159,39 @@ describe('TrainDelayService', () => {
   });
 
   describe('getCurrentDelays', () => {
-    it('should return only delayed/suspended trains', async () => {
-      const mockResponse: ODPTTrainInformationResponse[] = [
-        {
-          '@context': 'http://vocab.odpt.org/context_odpt.jsonld',
-          '@id': 'urn:test:1',
-          '@type': 'odpt:TrainInformation',
-          'dc:date': '2024-01-28T09:00:00+09:00',
-          'odpt:operator': 'odpt.Operator:JR-East',
-          'odpt:railway': 'odpt.Railway:JR-East.ChuoRapid',
-          'odpt:trainInformationText': '人身事故の影響で約15分の遅れ',
-        },
-        {
-          '@context': 'http://vocab.odpt.org/context_odpt.jsonld',
-          '@id': 'urn:test:2',
-          '@type': 'odpt:TrainInformation',
-          'dc:date': '2024-01-28T09:00:00+09:00',
-          'odpt:operator': 'odpt.Operator:TokyoMetro',
-          'odpt:railway': 'odpt.Railway:TokyoMetro.Ginza',
-          'odpt:trainInformationText': '現在、平常どおり運転しています。',
-        },
-      ];
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
+    it('遅延・運休のみを返す', async () => {
+      mockFetchExternalDelayHistory.mockResolvedValueOnce([
+        makeEntry({ railwayName: '山手線', status: 'delayed' }),
+        makeEntry({ railwayName: '銀座線', status: 'normal' }),
+        makeEntry({ railwayName: '常磐線', status: 'suspended' }),
+      ]);
 
       const service = new TrainDelayService('test-token');
       await service.fetchDelayInfo();
       const delays = service.getCurrentDelays();
 
-      expect(delays).toHaveLength(1);
-      expect(delays[0].railwayName).toBe('中央線快速');
+      expect(delays).toHaveLength(2);
+      expect(delays.map((d) => d.railwayName)).toEqual(['山手線', '常磐線']);
     });
   });
 
   describe('filterByOperatorGroup', () => {
-    it('should filter by operator group', async () => {
-      const mockResponse: ODPTTrainInformationResponse[] = [
-        {
-          '@context': 'http://vocab.odpt.org/context_odpt.jsonld',
-          '@id': 'urn:test:1',
-          '@type': 'odpt:TrainInformation',
-          'dc:date': '2024-01-28T09:00:00+09:00',
-          'odpt:operator': 'odpt.Operator:JR-East',
-          'odpt:railway': 'odpt.Railway:JR-East.ChuoRapid',
-          'odpt:trainInformationText': '約10分の遅れ',
-        },
-        {
-          '@context': 'http://vocab.odpt.org/context_odpt.jsonld',
-          '@id': 'urn:test:2',
-          '@type': 'odpt:TrainInformation',
-          'dc:date': '2024-01-28T09:00:00+09:00',
-          'odpt:operator': 'odpt.Operator:TokyoMetro',
-          'odpt:railway': 'odpt.Railway:TokyoMetro.Ginza',
-          'odpt:trainInformationText': '約5分の遅れ',
-        },
-      ];
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
+    it('事業者グループでフィルタする', async () => {
+      mockFetchExternalDelayHistory.mockResolvedValueOnce([
+        makeEntry({ railwayName: '中央線快速', operator: 'odpt.Operator:JR-East' }),
+        makeEntry({ railwayName: '銀座線', operator: 'odpt.Operator:TokyoMetro' }),
+      ]);
 
       const service = new TrainDelayService('test-token');
       await service.fetchDelayInfo();
 
       const jrDelays = service.filterByOperatorGroup('JR');
       expect(jrDelays).toHaveLength(1);
-      expect(jrDelays[0].operatorName).toBe('JR東日本');
+      expect(jrDelays[0].railwayName).toBe('中央線快速');
 
       const metroDelays = service.filterByOperatorGroup('metro');
       expect(metroDelays).toHaveLength(1);
-      expect(metroDelays[0].operatorName).toBe('東京メトロ');
+      expect(metroDelays[0].railwayName).toBe('銀座線');
 
       const allDelays = service.filterByOperatorGroup('all');
       expect(allDelays).toHaveLength(2);
@@ -252,23 +199,10 @@ describe('TrainDelayService', () => {
   });
 
   describe('History management', () => {
-    it('should save history to localStorage', async () => {
-      const mockResponse: ODPTTrainInformationResponse[] = [
-        {
-          '@context': 'http://vocab.odpt.org/context_odpt.jsonld',
-          '@id': 'urn:test:1',
-          '@type': 'odpt:TrainInformation',
-          'dc:date': '2024-01-28T09:00:00+09:00',
-          'odpt:operator': 'odpt.Operator:JR-East',
-          'odpt:railway': 'odpt.Railway:JR-East.ChuoRapid',
-          'odpt:trainInformationText': '約10分の遅れ',
-        },
-      ];
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
+    it('遅延情報をlocalStorageに保存する', async () => {
+      mockFetchExternalDelayHistory.mockResolvedValueOnce([
+        makeEntry({ railwayName: '山手線', status: 'delayed' }),
+      ]);
 
       const service = new TrainDelayService('test-token');
       await service.fetchDelayInfo();
@@ -279,22 +213,8 @@ describe('TrainDelayService', () => {
       );
     });
 
-    it('should load history from localStorage', () => {
-      const mockHistory: DelayHistoryEntry[] = [
-        {
-          id: 'test-1',
-          railway: 'odpt.Railway:JR-East.ChuoRapid',
-          railwayName: '中央線快速',
-          operator: 'odpt.Operator:JR-East',
-          operatorName: 'JR東日本',
-          status: 'delayed',
-          delayMinutes: 10,
-          informationText: '約10分の遅れ',
-          fetchedAt: new Date().toISOString(),
-          recordedAt: new Date().toISOString(),
-        },
-      ];
-
+    it('localStorageから履歴を読み込む', () => {
+      const mockHistory: DelayHistoryEntry[] = [makeEntry({ railwayName: '中央線快速' })];
       mockLocalStorage.getItem.mockReturnValueOnce(JSON.stringify(mockHistory));
 
       const service = new TrainDelayService('test-token');
@@ -304,63 +224,32 @@ describe('TrainDelayService', () => {
       expect(history[0].railwayName).toBe('中央線快速');
     });
 
-    it('should prune old history entries', () => {
+    it('6時間以上古い履歴エントリは削除される', () => {
       const now = Date.now();
-      const oldEntry: DelayHistoryEntry = {
-        id: 'old-1',
-        railway: 'odpt.Railway:JR-East.ChuoRapid',
+      const oldEntry = makeEntry({
         railwayName: '中央線快速',
-        operator: 'odpt.Operator:JR-East',
-        operatorName: 'JR東日本',
-        status: 'delayed',
-        informationText: '古い遅延情報',
-        fetchedAt: new Date(now - 7 * 60 * 60 * 1000).toISOString(), // 7時間前
+        fetchedAt: new Date(now - 7 * 60 * 60 * 1000).toISOString(),
         recordedAt: new Date(now - 7 * 60 * 60 * 1000).toISOString(),
-      };
-
-      const recentEntry: DelayHistoryEntry = {
-        id: 'recent-1',
-        railway: 'odpt.Railway:TokyoMetro.Ginza',
+      });
+      const recentEntry = makeEntry({
         railwayName: '銀座線',
-        operator: 'odpt.Operator:TokyoMetro',
-        operatorName: '東京メトロ',
-        status: 'delayed',
-        informationText: '最近の遅延情報',
-        fetchedAt: new Date(now - 1 * 60 * 60 * 1000).toISOString(), // 1時間前
+        fetchedAt: new Date(now - 1 * 60 * 60 * 1000).toISOString(),
         recordedAt: new Date(now - 1 * 60 * 60 * 1000).toISOString(),
-      };
+      });
 
-      mockLocalStorage.getItem.mockReturnValueOnce(
-        JSON.stringify([oldEntry, recentEntry])
-      );
+      mockLocalStorage.getItem.mockReturnValueOnce(JSON.stringify([oldEntry, recentEntry]));
 
       const service = new TrainDelayService('test-token');
       const history = service.getHistory();
 
-      // 6時間以上古いエントリは削除される
       expect(history).toHaveLength(1);
       expect(history[0].railwayName).toBe('銀座線');
     });
   });
 
   describe('getTickerText', () => {
-    it('should return normal operation message when no delays', async () => {
-      const mockResponse: ODPTTrainInformationResponse[] = [
-        {
-          '@context': 'http://vocab.odpt.org/context_odpt.jsonld',
-          '@id': 'urn:test:1',
-          '@type': 'odpt:TrainInformation',
-          'dc:date': '2024-01-28T09:00:00+09:00',
-          'odpt:operator': 'odpt.Operator:JR-East',
-          'odpt:railway': 'odpt.Railway:JR-East.ChuoRapid',
-          'odpt:trainInformationText': '現在、平常どおり運転しています。',
-        },
-      ];
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
+    it('遅延なしの場合は平常運転メッセージを返す', async () => {
+      mockFetchExternalDelayHistory.mockResolvedValueOnce([]);
 
       const service = new TrainDelayService('test-token');
       await service.fetchDelayInfo();
@@ -369,23 +258,10 @@ describe('TrainDelayService', () => {
       expect(text).toBe('主要路線は平常運転です');
     });
 
-    it('should return delay info when delays exist', async () => {
-      const mockResponse: ODPTTrainInformationResponse[] = [
-        {
-          '@context': 'http://vocab.odpt.org/context_odpt.jsonld',
-          '@id': 'urn:test:1',
-          '@type': 'odpt:TrainInformation',
-          'dc:date': '2024-01-28T09:00:00+09:00',
-          'odpt:operator': 'odpt.Operator:JR-East',
-          'odpt:railway': 'odpt.Railway:JR-East.ChuoRapid',
-          'odpt:trainInformationText': '人身事故の影響で約15分の遅れ',
-        },
-      ];
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      });
+    it('遅延ありの場合は路線名と遅延分数を含む', async () => {
+      mockFetchExternalDelayHistory.mockResolvedValueOnce([
+        makeEntry({ railwayName: '中央線快速', status: 'delayed', delayMinutes: 15 }),
+      ]);
 
       const service = new TrainDelayService('test-token');
       await service.fetchDelayInfo();
