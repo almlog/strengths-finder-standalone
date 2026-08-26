@@ -119,12 +119,10 @@ describe('YahooDelayService', () => {
       expect(entries).toEqual([]);
     });
 
-    it('プロキシがエラーの場合は空配列を返す', async () => {
+    it('プロキシがエラーの場合は例外を伝播する（取得失敗と遅延なしを区別するため）', async () => {
       mockFetchTrainInfoContent.mockRejectedValueOnce(new Error('unavailable'));
 
-      const entries = await fetchYahooDelayHistory();
-
-      expect(entries).toEqual([]);
+      await expect(fetchYahooDelayHistory()).rejects.toThrow('unavailable');
     });
 
     it('__NEXT_DATA__埋め込みJSONから遅延・見合わせを抽出する（平常運転は除外）', async () => {
@@ -193,12 +191,10 @@ describe('YahooDelayService', () => {
       expect(entries.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('プロキシがエラーの場合は空配列を返す', async () => {
+    it('プロキシがエラーの場合は例外を伝播する', async () => {
       mockFetchTrainInfoContent.mockRejectedValueOnce(new Error('unavailable'));
 
-      const entries = await fetchExternalDelayHistory();
-
-      expect(entries).toEqual([]);
+      await expect(fetchExternalDelayHistory()).rejects.toThrow('unavailable');
     });
   });
 });

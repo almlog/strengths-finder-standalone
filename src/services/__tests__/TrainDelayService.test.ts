@@ -148,13 +148,44 @@ describe('TrainDelayService', () => {
       expect(result[1].status).toBe('suspended');
     });
 
-    it('外部ソースがエラーの場合は空配列を返す', async () => {
+    it('外部ソースがエラーの場合はエラー状態を記録し空のキャッシュを返す', async () => {
       mockFetchExternalDelayHistory.mockRejectedValueOnce(new Error('Network error'));
 
       const service = new TrainDelayService('test-token');
       const result = await service.fetchDelayInfo();
 
       expect(result).toHaveLength(0);
+      expect(service.getLastError()).toBe('Network error');
+    });
+
+    it('外部ソースがエラーの場合は前回の取得結果（キャッシュ）を保持する', async () => {
+      mockFetchExternalDelayHistory.mockResolvedValueOnce([
+        makeEntry({ railwayName: '山手線', status: 'delayed' }),
+      ]);
+
+      const service = new TrainDelayService('test-token');
+      await service.fetchDelayInfo();
+
+      mockFetchExternalDelayHistory.mockRejectedValueOnce(new Error('Network error'));
+      const result = await service.fetchDelayInfo();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].railwayName).toBe('山手線');
+      expect(service.getCurrentDelays()).toHaveLength(1);
+      expect(service.getLastError()).toBe('Network error');
+    });
+
+    it('取得成功時はエラー状態をクリアする', async () => {
+      mockFetchExternalDelayHistory.mockRejectedValueOnce(new Error('Network error'));
+
+      const service = new TrainDelayService('test-token');
+      await service.fetchDelayInfo();
+      expect(service.getLastError()).not.toBeNull();
+
+      mockFetchExternalDelayHistory.mockResolvedValueOnce([]);
+      await service.fetchDelayInfo();
+
+      expect(service.getLastError()).toBeNull();
     });
   });
 

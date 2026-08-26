@@ -118,6 +118,7 @@ export class TrainDelayService {
   private cache: TrainDelayInfo[] = [];
   private history: DelayHistoryEntry[] = [];
   private lastFetched: Date | null = null;
+  private lastError: string | null = null;
 
   constructor(token: string) {
     this.token = token;
@@ -131,11 +132,8 @@ export class TrainDelayService {
     console.log('[TrainDelayService] Fetching delay info (Yahoo primary)...');
 
     try {
-      // Yahoo!路線情報を主要ソースとして取得
-      const externalEntries = await fetchExternalDelayHistory().catch((e) => {
-        console.error('[TrainDelayService] Yahoo fetch error:', e);
-        return [] as DelayHistoryEntry[];
-      });
+      // Yahoo!路線情報を主要ソースとして取得（失敗はcatch節でエラー状態として記録）
+      const externalEntries = await fetchExternalDelayHistory();
 
       const now = new Date().toISOString();
 
@@ -163,6 +161,7 @@ export class TrainDelayService {
 
       this.cache = delayInfos;
       this.lastFetched = new Date();
+      this.lastError = null;
       // 履歴への追加はupdateHistoryに一本化（5分以内の同一路線は重複追加しない）
       this.updateHistory(delayInfos);
 
@@ -170,9 +169,18 @@ export class TrainDelayService {
       return delayInfos;
     } catch (error) {
       console.error('[TrainDelayService] Fetch error:', error);
-      // エラー時はキャッシュを返す
+      // エラー時は前回の取得結果（キャッシュ）を保持し、エラー状態を記録する
+      this.lastError = error instanceof Error ? error.message : String(error);
       return this.cache;
     }
+  }
+
+  /**
+   * 直近の取得エラーを取得（成功時はnull）
+   * UIで「取得失敗」と「遅延なし」を区別するために使う
+   */
+  getLastError(): string | null {
+    return this.lastError;
   }
 
   /**

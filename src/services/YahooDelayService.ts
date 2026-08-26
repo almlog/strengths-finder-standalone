@@ -144,13 +144,13 @@ function parseEmbeddedNextData(html: string, now: string): DelayHistoryEntry[] |
 /**
  * Yahoo!路線情報から遅延履歴を取得
  * 取得はCloud Function（fetchTrainInfo）経由。CORSプロキシは使用しない。
+ * @throws 取得失敗時（「取得失敗」と「遅延なし」を呼び出し元で区別できるようにするため）
  */
 export async function fetchYahooDelayHistory(): Promise<DelayHistoryEntry[]> {
-  try {
-    console.log('[YahooDelayService] Fetching from Yahoo Transit via Cloud Function...');
+  console.log('[YahooDelayService] Fetching from Yahoo Transit via Cloud Function...');
 
-    const html = await fetchTrainInfoContent('yahooTraininfo');
-    console.log('[YahooDelayService] Received HTML, length:', html.length);
+  const html = await fetchTrainInfoContent('yahooTraininfo');
+  console.log('[YahooDelayService] Received HTML, length:', html.length);
 
     const now = new Date().toISOString();
 
@@ -316,11 +316,6 @@ export async function fetchYahooDelayHistory(): Promise<DelayHistoryEntry[]> {
 
     console.log('[YahooDelayService] Total entries found:', entries.length);
     return entries;
-
-  } catch (error) {
-    console.error('[YahooDelayService] Fetch error:', error);
-    return [];
-  }
 }
 
 /**
@@ -396,11 +391,12 @@ function addEntry(
  * 現在のソースはYahoo!路線情報のみ。
  * JR東日本RSS（traininfo_area_kanto.xml / service.atom）は配信終了（403/404）のため
  * 2026-08-26に削除した。
+ * @throws 取得失敗時（呼び出し元でエラー表示に使う）
  */
 export async function fetchExternalDelayHistory(): Promise<DelayHistoryEntry[]> {
   console.log('[YahooDelayService] Fetching from external sources...');
 
-  const entries = await fetchYahooDelayHistory().catch(() => [] as DelayHistoryEntry[]);
+  const entries = await fetchYahooDelayHistory();
 
   console.log('[YahooDelayService] Total unique entries:', entries.length);
   return entries;

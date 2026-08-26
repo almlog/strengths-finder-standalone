@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, Loader2, RefreshCw, History } from 'lucide-react';
+import { AlertTriangle, CheckCircle, CloudOff, Loader2, RefreshCw, History } from 'lucide-react';
 import { getTrainDelayService } from '../../services/TrainDelayService';
 import { TrainDelayInfo } from '../../types/trainDelay';
 
@@ -34,6 +34,7 @@ const DelayTicker: React.FC<DelayTickerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // 遅延情報を取得
   const fetchData = useCallback(async () => {
@@ -44,8 +45,10 @@ const DelayTicker: React.FC<DelayTickerProps> = ({
       setDelays(currentDelays);
       setTickerText(service.getTickerText());
       setLastUpdated(service.getLastUpdated());
+      setFetchError(service.getLastError());
     } catch (error) {
       console.error('[DelayTicker] Fetch error:', error);
+      setFetchError(error instanceof Error ? error.message : String(error));
     } finally {
       setIsLoading(false);
     }
@@ -60,22 +63,39 @@ const DelayTicker: React.FC<DelayTickerProps> = ({
 
   // 遅延があるかどうか
   const hasDelays = delays.length > 0;
+  // 取得失敗（キャッシュ表示中の失敗も含む）。失敗を「平常運転」と誤表示しない
+  const hasError = fetchError !== null;
+
+  // 表示テキスト（取得失敗かつ表示できるキャッシュもない場合は失敗を明示）
+  const displayText = hasError && !hasDelays ? '遅延情報の取得に失敗しました' : tickerText;
 
   // アイコン
-  const StatusIcon = isLoading ? Loader2 : hasDelays ? AlertTriangle : CheckCircle;
+  const StatusIcon = isLoading
+    ? Loader2
+    : hasError && !hasDelays
+    ? CloudOff
+    : hasDelays
+    ? AlertTriangle
+    : CheckCircle;
   const iconColor = isLoading
     ? 'text-gray-400'
+    : hasError && !hasDelays
+    ? 'text-gray-500'
     : hasDelays
     ? 'text-amber-500'
     : 'text-green-500';
 
   // 背景色
-  const bgColor = hasDelays
+  const bgColor = hasError && !hasDelays
+    ? 'bg-gray-50 dark:bg-gray-800/40 border-gray-200 dark:border-gray-700'
+    : hasDelays
     ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
     : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800';
 
   // テキスト色
-  const textColor = hasDelays
+  const textColor = hasError && !hasDelays
+    ? 'text-gray-600 dark:text-gray-300'
+    : hasDelays
     ? 'text-amber-700 dark:text-amber-300'
     : 'text-green-700 dark:text-green-300';
 
@@ -108,12 +128,12 @@ const DelayTicker: React.FC<DelayTickerProps> = ({
             animationPlayState: isPaused ? 'paused' : 'running',
           }}
         >
-          {tickerText}
+          {displayText}
         </div>
       </div>
 
       {/* 履歴ボタンのヒント（平常運転時のみ表示） */}
-      {!hasDelays && !isLoading && (
+      {!hasDelays && !isLoading && !hasError && (
         <span className="hidden sm:flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
           <History className="w-3 h-3" />
           履歴
