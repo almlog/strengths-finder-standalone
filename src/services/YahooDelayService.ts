@@ -45,13 +45,100 @@ const RAILWAY_NAME_NORMALIZE: Record<string, string> = {
  * ステータスを判定
  */
 function parseStatus(text: string): TrainStatus {
-  if (text.includes('見合わせ') || text.includes('運休') || text.includes('不通')) {
+  if (
+    text.includes('見合わせ') ||
+    text.includes('運休') ||
+    text.includes('不通') ||
+    text.includes('取りやめ')
+  ) {
     return 'suspended';
   }
   if (text.includes('遅れ') || text.includes('遅延') || text.includes('ダイヤ乱れ')) {
     return 'delayed';
   }
   return 'unknown';
+}
+
+/**
+ * __NEXT_DATA__埋め込みJSON内の路線ノード
+ */
+interface YahooDiainfoItem {
+  status?: string;
+  message?: string;
+}
+
+interface YahooLineNode {
+  displayName: string;
+  companyName?: string;
+  diainfo: YahooDiainfoItem[];
+}
+
+/**
+ * オブジェクトツリーを再帰的に走査し、diainfoを持つ路線ノードを収集する
+ * （Yahoo!のJSON階層構造の変化に依存しないため）
+ */
+function collectLineNodes(node: unknown, result: YahooLineNode[], depth = 0): void {
+  if (depth > 20 || node === null || typeof node !== 'object') return;
+
+  if (Array.isArray(node)) {
+    node.forEach((item) => collectLineNodes(item, result, depth + 1));
+    return;
+  }
+
+  const obj = node as Record<string, unknown>;
+  if (typeof obj.displayName === 'string' && Array.isArray(obj.diainfo)) {
+    result.push({
+      displayName: obj.displayName,
+      companyName: typeof obj.companyName === 'string' ? obj.companyName : undefined,
+      diainfo: obj.diainfo as YahooDiainfoItem[],
+    });
+    return;
+  }
+
+  Object.values(obj).forEach((value) => collectLineNodes(value, result, depth + 1));
+}
+
+/**
+ * __NEXT_DATA__埋め込みJSONから遅延・運休エントリを抽出する
+ * （2026-08のYahoo!ページ刷新後の主要データソース）
+ * @returns JSONが存在しない・壊れている場合はnull（HTMLパターン解析へフォールバック）
+ */
+function parseEmbeddedNextData(html: string, now: string): DelayHistoryEntry[] | null {
+  const scriptMatch = html.match(
+    /<script id="__NEXT_DATA__" type="application\/json"[^>]*>([\s\S]*?)<\/script>/
+  );
+  if (!scriptMatch) return null;
+
+  let data: unknown;
+  try {
+    data = JSON.parse(scriptMatch[1]);
+  } catch {
+    console.log('[YahooDelayService] __NEXT_DATA__ JSON parse failed, falling back to HTML patterns');
+    return null;
+  }
+
+  const lineNodes: YahooLineNode[] = [];
+  collectLineNodes(data, lineNodes);
+  console.log('[YahooDelayService] __NEXT_DATA__ line nodes found:', lineNodes.length);
+
+  const entries: DelayHistoryEntry[] = [];
+  lineNodes.forEach((line) => {
+    line.diainfo.forEach((info) => {
+      const status = info.status || '';
+      const message = info.message || '';
+
+      // 平常運転は除外
+      if (status.includes('平常') || message.includes('平常通り') || message.includes('平常どおり')) {
+        return;
+      }
+      // ステータスもメッセージも空なら情報なし
+      if (!status && !message) return;
+
+      addEntry(entries, line.displayName, `${message}`.trim() || status, now, line.companyName);
+    });
+  });
+
+  return entries;
 }
 
 /**
@@ -65,9 +152,17 @@ export async function fetchYahooDelayHistory(): Promise<DelayHistoryEntry[]> {
     const html = await fetchTrainInfoContent('yahooTraininfo');
     console.log('[YahooDelayService] Received HTML, length:', html.length);
 
-    // 遅延情報を解析
-    const entries: DelayHistoryEntry[] = [];
     const now = new Date().toISOString();
+
+    // 主要パターン: __NEXT_DATA__埋め込みJSON（最も堅牢）
+    const jsonEntries = parseEmbeddedNextData(html, now);
+    if (jsonEntries !== null) {
+      console.log('[YahooDelayService] Entries from __NEXT_DATA__:', jsonEntries.length);
+      return jsonEntries;
+    }
+
+    // フォールバック: HTMLパターン解析（旧ページ構造用）
+    const entries: DelayHistoryEntry[] = [];
 
     // パターンA: 「現在運行情報のある路線」テーブルを探す
     // Yahoo!路線情報の構造: 路線名 | 状況 | 詳細
@@ -236,7 +331,8 @@ function addEntry(
   entries: DelayHistoryEntry[],
   railwayName: string,
   infoText: string,
-  now: string
+  now: string,
+  operatorName?: string
 ): void {
   // 平常運転や遅延情報なしは除外
   if (
@@ -252,10 +348,12 @@ function addEntry(
   // 注意: 「運転状況」「列車遅延」はラベルであり、遅延を示すものではない
   const hasDelayKeyword =
     infoText.includes('遅れ') ||
+    infoText.includes('遅延') ||
     infoText.includes('ダイヤ乱れ') ||
     infoText.includes('見合わせ') ||
     infoText.includes('運休') ||
     infoText.includes('不通') ||
+    infoText.includes('取りやめ') ||
     infoText.includes('振替輸送') ||
     infoText.includes('直通運転中止');
 
@@ -281,7 +379,7 @@ function addEntry(
     railway: `yahoo.Railway:${railwayName}`,
     railwayName: normalizedName,
     operator: 'yahoo',
-    operatorName: 'Yahoo!路線情報',
+    operatorName: operatorName || 'Yahoo!路線情報',
     status: status !== 'unknown' ? status : 'delayed',
     delayMinutes,
     informationText: infoText,

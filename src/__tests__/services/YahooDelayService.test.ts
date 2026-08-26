@@ -38,6 +38,56 @@ const HTML_WITHOUT_DELAYS = `
 </body></html>
 `;
 
+/** __NEXT_DATA__埋め込みJSON形式のHTML（2026-08 Yahoo!ページ刷新後の構造） */
+function makeNextDataHtml(lines: unknown[]): string {
+  const nextData = {
+    props: {
+      pageProps: {
+        area: { routes: lines },
+      },
+    },
+  };
+  return `<html><body><script id="__NEXT_DATA__" type="application/json">${JSON.stringify(
+    nextData
+  )}</script></body></html>`;
+}
+
+const JSON_LINE_DELAYED = {
+  displayName: '常磐線[品川～水戸]',
+  companyName: 'JR東日本',
+  diainfo: [
+    {
+      status: '列車遅延',
+      message: '土浦駅での車内安全確認の影響で、一部列車に約15分の遅れが出ています。',
+      updateDate: '2026-08-26 20:20:00',
+    },
+  ],
+};
+
+const JSON_LINE_SUSPENDED = {
+  displayName: '小湊鐵道線',
+  companyName: '小湊鐵道',
+  diainfo: [
+    {
+      status: 'その他',
+      message: '大雨災害の影響で、里見〜上総中野駅間の運転を見合わせています。',
+      updateDate: '2026-08-26 22:20:00',
+    },
+  ],
+};
+
+const JSON_LINE_NORMAL = {
+  displayName: '山手線',
+  companyName: 'JR東日本',
+  diainfo: [
+    {
+      status: '平常運転',
+      message: '22:20現在、ほぼ平常通り運転しています。',
+      updateDate: '2026-08-26 22:20:00',
+    },
+  ],
+};
+
 describe('YahooDelayService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -75,6 +125,59 @@ describe('YahooDelayService', () => {
       const entries = await fetchYahooDelayHistory();
 
       expect(entries).toEqual([]);
+    });
+
+    it('__NEXT_DATA__埋め込みJSONから遅延・見合わせを抽出する（平常運転は除外）', async () => {
+      mockFetchTrainInfoContent.mockResolvedValueOnce(
+        makeNextDataHtml([JSON_LINE_DELAYED, JSON_LINE_SUSPENDED, JSON_LINE_NORMAL])
+      );
+
+      const entries = await fetchYahooDelayHistory();
+
+      expect(entries).toHaveLength(2);
+
+      const joban = entries.find((e) => e.railwayName === '常磐線[品川～水戸]');
+      expect(joban).toBeDefined();
+      expect(joban!.status).toBe('delayed');
+      expect(joban!.delayMinutes).toBe(15);
+      expect(joban!.operatorName).toBe('JR東日本');
+      expect(joban!.informationText).toContain('車内安全確認');
+
+      const kominato = entries.find((e) => e.railwayName === '小湊鐵道線');
+      expect(kominato).toBeDefined();
+      expect(kominato!.status).toBe('suspended');
+      expect(kominato!.operatorName).toBe('小湊鐵道');
+    });
+
+    it('__NEXT_DATA__があり全路線平常運転なら空配列を返す', async () => {
+      mockFetchTrainInfoContent.mockResolvedValueOnce(makeNextDataHtml([JSON_LINE_NORMAL]));
+
+      const entries = await fetchYahooDelayHistory();
+
+      expect(entries).toEqual([]);
+    });
+
+    it('__NEXT_DATA__のJSONが壊れている場合はHTMLパターン解析にフォールバックする', async () => {
+      const html = `<html><body><script id="__NEXT_DATA__" type="application/json">{broken json</script>
+<table>
+<tr><td><a href="/x">山手線</a></td><td>列車遅延</td><td>荒天の影響で、一部列車に遅れが出ています。</td></tr>
+</table></body></html>`;
+      mockFetchTrainInfoContent.mockResolvedValueOnce(html);
+
+      const entries = await fetchYahooDelayHistory();
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0].railwayName).toBe('山手線');
+    });
+
+    it('同一路線の重複エントリは1件にまとめる', async () => {
+      mockFetchTrainInfoContent.mockResolvedValueOnce(
+        makeNextDataHtml([JSON_LINE_DELAYED, JSON_LINE_DELAYED])
+      );
+
+      const entries = await fetchYahooDelayHistory();
+
+      expect(entries).toHaveLength(1);
     });
   });
 
