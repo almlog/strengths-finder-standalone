@@ -247,6 +247,36 @@ describe('TrainDelayService', () => {
     });
   });
 
+  describe('History deduplication', () => {
+    it('1回のfetchで同一路線の履歴は1件だけ追加される', async () => {
+      mockFetchExternalDelayHistory.mockResolvedValueOnce([
+        makeEntry({ railwayName: '小湊鉄道線', status: 'suspended' }),
+      ]);
+
+      const service = new TrainDelayService('test-token');
+      await service.fetchDelayInfo();
+
+      const history = service.getHistory();
+      const kominato = history.filter((h) => h.railwayName === '小湊鉄道線');
+      expect(kominato).toHaveLength(1);
+    });
+
+    it('5分以内の連続fetchでは同一路線の履歴を重複追加しない', async () => {
+      mockFetchExternalDelayHistory.mockResolvedValue([
+        makeEntry({ railwayName: '小湊鉄道線', status: 'suspended' }),
+      ]);
+
+      const service = new TrainDelayService('test-token');
+      await service.fetchDelayInfo();
+      await service.fetchDelayInfo();
+      await service.fetchDelayInfo();
+
+      const history = service.getHistory();
+      const kominato = history.filter((h) => h.railwayName === '小湊鉄道線');
+      expect(kominato).toHaveLength(1);
+    });
+  });
+
   describe('getTickerText', () => {
     it('遅延なしの場合は平常運転メッセージを返す', async () => {
       mockFetchExternalDelayHistory.mockResolvedValueOnce([]);

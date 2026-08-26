@@ -163,18 +163,8 @@ export class TrainDelayService {
 
       this.cache = delayInfos;
       this.lastFetched = new Date();
+      // 履歴への追加はupdateHistoryに一本化（5分以内の同一路線は重複追加しない）
       this.updateHistory(delayInfos);
-
-      // 履歴も更新
-      externalEntries.forEach((entry) => {
-        const existingIndex = this.history.findIndex(
-          (h) => h.railwayName === entry.railwayName && h.recordedAt === entry.recordedAt
-        );
-        if (existingIndex === -1) {
-          this.history.unshift(entry);
-        }
-      });
-      this.saveHistory();
 
       console.log('[TrainDelayService] Total delays:', this.getCurrentDelays().length);
       return delayInfos;
