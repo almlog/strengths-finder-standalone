@@ -1,5 +1,35 @@
 # Changelog
 
+## [v3.9.3] - 2026-08-26
+
+### Fixed
+
+#### 交通情報 — 遅延情報が取得できない障害の修正（数分待機後「遅延なし」表示）
+- **原因1（プロキシ死亡）**: 依存していた無料CORSプロキシ `api.allorigins.win` が完全ダウン（Cloudflare 522/500、1リクエスト約20秒で失敗）。全エラーが握りつぶされ「平常運転」と誤表示されていた
+- **原因2（パース全滅）**: Yahoo!路線情報のページ刷新により既存の正規表現パターンが全滅。運行情報の実体は `__NEXT_DATA__` 埋め込みJSONに移行していた
+- **修正1**: 自前のCloud Function `fetchTrainInfo` を新設（Auth必須・ソース許可リスト方式・10秒タイムアウト、asia-northeast1にデプロイ済み）。クライアントは `TrainInfoProxy` 経由で取得
+- **修正2**: `__NEXT_DATA__` JSONをparseし、diainfoを持つ路線ノードを再帰走査で収集する方式を主要パースに変更。JSON破損時は旧HTMLパターンにフォールバック
+- **修正3**: 遅延履歴が毎fetchで二重追加される重複バグを修正（履歴追加を `updateHistory` に一本化）
+- **削除**: 配信終了していたJR東日本RSS経路（403/404）を削除
+- **本番検証**: 実際の運行障害3件（小湊鉄道・いすみ鉄道・わたらせ渓谷鐵道）の表示をユーザー確認済み
+
+#### 変更ファイル
+- `functions/src/index.ts`: `fetchTrainInfo` Cloud Function追加、`functions/tsconfig.json` に skipLibCheck
+- `src/services/TrainInfoProxy.ts`: 新設（httpsCallableクライアント）
+- `src/services/YahooDelayService.ts`: JSONパース主要化＋transport差し替え＋JR RSS削除
+- `src/services/TrainDelayService.ts`: 履歴重複追加の修正
+
+#### テスト
+- 新規: TrainInfoProxy 3件、YahooDelayService 9件、TrainDelayService履歴重複2件
+- 旧ODPT実装前提で実行不能だった `TrainDelayService.test.ts` を現行構成に書き直し（既知テスト失敗 91件→86件に改善）
+- 関連3スイート33件 全PASS
+
+#### 残課題
+- ステップ③（取得失敗時に「平常運転」ではなく「取得失敗」を表示する可視化）未着手
+- Cloud Functions: Node.js 20ランタイムが2026-10-30廃止予定、firebase-functionsパッケージ旧版の警告あり
+
+---
+
 ## [v3.9.2] - 2026-07-31
 
 ### Fixed

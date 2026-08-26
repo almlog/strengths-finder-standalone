@@ -4,17 +4,32 @@
 
 | 項目 | 状態 |
 |------|------|
-| 最終更新 | 2026-07-31 |
+| 最終更新 | 2026-08-26 |
 | ブランチ | main |
-| テスト | ⚠️ AttendanceService系 18スイート394件中393 PASS（FN301のみ既存失敗）。全体では既存失敗91件あり（下記残タスク参照） |
+| テスト | ⚠️ 全体で既存失敗86件/19スイート（電車遅延関連の書き直しで91件→86件に改善。残りは下記残タスク参照） |
 | CIビルド | ✅ 成功（`CI=true` で `Compiled successfully.`） |
-| 未コミット変更 | なし |
-| 最新コミット | `4e9161f` Merge branch 'feature/break-time-gap-correction' |
-| 本番デプロイ | ✅ GitHub Actions success（`4e9161f` 2026-07-31、バンドル反映確認済み） |
+| 未コミット変更 | files/（ドキュメントのみ） |
+| 最新コミット | `f4ff9c3` fix(traffic): dedupe delay history entries |
+| 本番デプロイ | ✅ GitHub Actions success（バンドル反映＋ユーザー動作確認済み） |
+| Cloud Functions | ✅ `fetchTrainInfo` デプロイ済み（asia-northeast1、2026-08-26） |
 
 ---
 
-## 本セッション（2026-07-31）の成果
+## 本セッション（2026-08-26）の成果
+
+### 交通情報: 遅延情報収集の復旧（v3.9.3）
+- [x] 原因特定: allorigins.winプロキシ完全ダウン＋Yahoo!ページ刷新でパース全滅の複合障害
+- [x] Cloud Function `fetchTrainInfo` 新設・デプロイ（Auth必須・許可リスト・10秒タイムアウト）
+- [x] `__NEXT_DATA__` 埋め込みJSONパースを主要方式に変更（HTMLパターンはフォールバック）
+- [x] 遅延履歴の二重追加バグ修正
+- [x] 死んだJR東日本RSS経路（403/404）削除
+- [x] テスト書き直し・追加（関連3スイート33件PASS、全体既知失敗91→86件）
+- [x] 本番反映＋実遅延3件の表示をユーザー確認済み
+- [x] firebase CLIログイン済み（syunpeman@gmail.com、このマシン）
+
+---
+
+## 前回セッション（2026-07-31）の成果
 
 ### 勤怠分析: 出社2/出社3ギャップの休憩補正（v3.9.2）
 - [x] 課題特定: 午前有休時に所定休憩が計上されず、出社2運用の休憩が認められないため休憩不足を誤検出
@@ -69,7 +84,8 @@
 ## 残タスク・クリーンアップ
 
 ### 優先度: 高
-- [ ] **テスト失敗91件（20スイート）の調査** — mainのHEADで発生。CIワークフローはテスト未実行のため見逃されていた。実アサーション失敗（FinancialServiceのポジション別内訳、AttendanceService FN301等）と環境系（localStorage undefined）の混在。切り分けと修正が必要
+- [ ] **テスト失敗86件（19スイート）の調査** — mainのHEADで発生。CIワークフローはテスト未実行のため見逃されていた。実アサーション失敗（FinancialServiceのポジション別内訳、AttendanceService FN301等）と環境系（localStorage undefined）の混在。切り分けと修正が必要（2026-08-26: 電車遅延関連の書き直しで91→86件に改善済み）
+- [ ] **遅延情報ステップ③: 取得失敗の可視化** — fetch失敗時に「平常運転」ではなく「取得失敗」を表示する（DelayTicker + TrainDelayService）
 - [ ] GitHub Actions CI/CD結果の確認（`505a17f` push後）
 - [ ] 本番環境で「このシステムについて」タブの表示確認
 
@@ -82,6 +98,7 @@
 - [ ] SPEC_BULK_SELECTION の着手判断
 - [ ] SPEC_USER_FILTER の着手判断
 - [ ] deploy.yml のNode.js 20非推奨警告対応（actions/deploy-pages@v4 がNode 24強制実行。動作影響なし）
+- [ ] Cloud Functions: Node.js 20ランタイム廃止（2026-10-30）前にNode 22へ更新＋firebase-functionsパッケージ更新（breaking changesあり）
 
 ---
 
