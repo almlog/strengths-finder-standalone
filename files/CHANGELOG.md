@@ -1,5 +1,25 @@
 # Changelog
 
+## [v3.9.4] - 2026-09-01
+
+### Added
+
+#### スタラジ — 配信停止時の「確認中」バナー自動表示
+- **背景**: 配信生成を担うRaspberry PiのNW不調で新しい回の配信が停止（最新回 2026-08-27）。利用者が「壊れた」と誤解しないよう案内を表示したい
+- **方式**: 手動フラグではなく**自動検知**。`PodcastService.isBroadcastStale()` が最新回の日付を今日と比較し、2日より古ければバナー表示（日曜は配信なし・月曜早朝は前夜分未生成のため2日以内は正常扱い）。ラズパイ復旧後に新しい回がpushされれば自動で消える
+- **文言**: 「新しい回の配信が止まっています」「いま調査中なので、ちょっと待っててね」「過去の配信分はこれまでどおり聴けます（最新回: YYYY-MM-DD）」
+- **過去配信分**: 音声・フィードはGitHub Pages（almlog.github.io/starradio-feed）上にあるため、ラズパイ停止中も再生可能（疎通確認済み）
+
+#### 変更ファイル
+- `src/types/podcast.ts`: `PODCAST_STALE_THRESHOLD_DAYS = 2`
+- `src/services/PodcastService.ts`: `getLatestEpisodeDate()` / `isBroadcastStale()`
+- `src/components/podcast/PodcastPlayerPage.tsx`: `BroadcastStaleNotice` バナー
+
+#### テスト
+- PodcastService.isBroadcastStale: 6件、PodcastPlayerPage バナー表示/非表示: 3件（計30件PASS）
+
+---
+
 ## [v3.9.3] - 2026-08-26
 
 ### Fixed
