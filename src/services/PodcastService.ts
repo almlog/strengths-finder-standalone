@@ -5,6 +5,7 @@ import {
   EpisodeFilter,
   PODCAST_BASE_URL,
   PODCAST_CACHE_TTL_MS,
+  PODCAST_STALE_THRESHOLD_DAYS,
 } from '../types/podcast';
 
 const CACHE_PREFIX = 'podcast-cache-';
@@ -115,5 +116,30 @@ export class PodcastService {
     const m = Math.floor(total / 60);
     const s = total % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  // ── 配信停止検知 ──────────────────────────────────────
+
+  /** 最新エピソードの日付（'YYYY-MM-DD'）。空ならnull */
+  static getLatestEpisodeDate(episodes: PodcastEpisode[]): string | null {
+    if (episodes.length === 0) return null;
+    return episodes.reduce((max, e) => (e.date > max ? e.date : max), episodes[0].date);
+  }
+
+  /**
+   * 新しい回の配信が止まっているか
+   * 最新回の日付が PODCAST_STALE_THRESHOLD_DAYS より古ければ true。
+   * エピソードが空の場合は判定不能として false（取得失敗は別途扱う）。
+   */
+  static isBroadcastStale(episodes: PodcastEpisode[], now: Date = new Date()): boolean {
+    const latest = this.getLatestEpisodeDate(episodes);
+    if (!latest) return false;
+
+    const [y, m, d] = latest.split('-').map(Number);
+    const latestDate = new Date(y, m - 1, d);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.round((today.getTime() - latestDate.getTime()) / 86_400_000);
+
+    return diffDays > PODCAST_STALE_THRESHOLD_DAYS;
   }
 }

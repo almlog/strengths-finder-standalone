@@ -48,6 +48,8 @@ const PodcastPlayerPage: React.FC = () => {
   }, [loadData]);
 
   const filteredEpisodes = PodcastService.filterByMode(episodes, filter);
+  const isStale = PodcastService.isBroadcastStale(episodes);
+  const latestDate = PodcastService.getLatestEpisodeDate(episodes);
 
   // ローディング
   if (loading) {
@@ -81,6 +83,9 @@ const PodcastPlayerPage: React.FC = () => {
 
   return (
     <div>
+      {/* 配信停止のお知らせ（最新回が古い場合のみ自動表示） */}
+      {isStale && latestDate && <BroadcastStaleNotice latestDate={latestDate} />}
+
       {/* メインコンテンツ */}
       <div className="flex flex-col md:flex-row" style={{ minHeight: '400px' }}>
         {/* エピソード一覧（左サイドバー） */}
@@ -132,6 +137,27 @@ const PodcastPlayerPage: React.FC = () => {
     </div>
   );
 };
+
+// ── 配信停止のお知らせ ──────────────────────────────────────
+
+const BroadcastStaleNotice: React.FC<{ latestDate: string }> = ({ latestDate }) => (
+  <div
+    role="status"
+    className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3"
+  >
+    <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+    <div className="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
+      <div className="font-bold">新しい回の配信が止まっています</div>
+      <p className="mt-1">
+        配信サーバー（Raspberry Pi）のネットワーク不調で、新しい回の配信が滞っています。
+        いま調査中なので、ちょっと待っててね。
+      </p>
+      <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+        過去の配信分はこれまでどおり聴けます（最新回: {latestDate}）
+      </p>
+    </div>
+  </div>
+);
 
 // ── 説明ボックス ──────────────────────────────────────
 

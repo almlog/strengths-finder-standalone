@@ -210,4 +210,38 @@ describe('PodcastService ユーティリティ', () => {
   test('formatTime はNaNを 0:00 にする', () => {
     expect(PodcastService.formatTime(NaN)).toBe('0:00');
   });
+
+  // ── 配信停止検知 ──────────────────────────────────────
+
+  describe('isBroadcastStale', () => {
+    const at = (dateStr: string) => new Date(`${dateStr}T10:00:00`);
+    const ep = (date: string) => ({ ...mockEpisodes[0], id: `ep-${date}`, date });
+
+    test('最新回が今日なら停止ではない', () => {
+      expect(PodcastService.isBroadcastStale([ep('2026-09-01')], at('2026-09-01'))).toBe(false);
+    });
+
+    test('最新回が2日前（閾値以内）なら停止ではない（日曜・月曜早朝の誤検知防止）', () => {
+      expect(PodcastService.isBroadcastStale([ep('2026-08-30')], at('2026-09-01'))).toBe(false);
+    });
+
+    test('最新回が3日以上前なら停止と判定する', () => {
+      expect(PodcastService.isBroadcastStale([ep('2026-08-29')], at('2026-09-01'))).toBe(true);
+      expect(PodcastService.isBroadcastStale([ep('2026-08-27')], at('2026-09-01'))).toBe(true);
+    });
+
+    test('最新回が未来日付（前夜生成）でも停止ではない', () => {
+      expect(PodcastService.isBroadcastStale([ep('2026-09-02')], at('2026-09-01'))).toBe(false);
+    });
+
+    test('エピソードが空なら判定しない（false）', () => {
+      expect(PodcastService.isBroadcastStale([], at('2026-09-01'))).toBe(false);
+    });
+
+    test('未ソートでも最大日付で判定する', () => {
+      const eps = [ep('2026-08-20'), ep('2026-09-01'), ep('2026-08-25')];
+      expect(PodcastService.isBroadcastStale(eps, at('2026-09-01'))).toBe(false);
+      expect(PodcastService.getLatestEpisodeDate(eps)).toBe('2026-09-01');
+    });
+  });
 });
