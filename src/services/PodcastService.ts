@@ -6,6 +6,7 @@ import {
   PODCAST_BASE_URL,
   PODCAST_CACHE_TTL_MS,
   PODCAST_STALE_THRESHOLD_DAYS,
+  PODCAST_RECOVERY_NOTICE_UNTIL,
 } from '../types/podcast';
 
 const CACHE_PREFIX = 'podcast-cache-';
@@ -141,5 +142,16 @@ export class PodcastService {
     const diffDays = Math.round((today.getTime() - latestDate.getTime()) / 86_400_000);
 
     return diffDays > PODCAST_STALE_THRESHOLD_DAYS;
+  }
+
+  /**
+   * 復帰告知の表示期間内か
+   * PODCAST_RECOVERY_NOTICE_UNTIL の日いっぱいまでtrue。期間後は自動で通常表示に戻る。
+   */
+  static isRecoveryNoticePeriod(now: Date = new Date()): boolean {
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}` <= PODCAST_RECOVERY_NOTICE_UNTIL;
   }
 }

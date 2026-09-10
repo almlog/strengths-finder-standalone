@@ -48,6 +48,7 @@ const PodcastPlayerPage: React.FC = () => {
   }, [loadData]);
 
   const filteredEpisodes = PodcastService.filterByMode(episodes, filter);
+  const isRecoveryNotice = PodcastService.isRecoveryNoticePeriod();
   const isStale = PodcastService.isBroadcastStale(episodes);
   const latestDate = PodcastService.getLatestEpisodeDate(episodes);
 
@@ -83,8 +84,13 @@ const PodcastPlayerPage: React.FC = () => {
 
   return (
     <div>
-      {/* 配信停止のお知らせ（最新回が古い場合のみ自動表示） */}
-      {isStale && latestDate && <BroadcastStaleNotice latestDate={latestDate} />}
+      {/* 復帰告知（期限付き・期限後は自動で通常表示に戻る）。停止バナーより優先 */}
+      {isRecoveryNotice ? (
+        <RecoveryNotice />
+      ) : (
+        /* 配信停止のお知らせ（最新回が古い場合のみ自動表示） */
+        isStale && latestDate && <BroadcastStaleNotice latestDate={latestDate} />
+      )}
 
       {/* メインコンテンツ */}
       <div className="flex flex-col md:flex-row" style={{ minHeight: '400px' }}>
@@ -137,6 +143,24 @@ const PodcastPlayerPage: React.FC = () => {
     </div>
   );
 };
+
+// ── 復帰告知 ──────────────────────────────────────
+
+const RecoveryNotice: React.FC = () => (
+  <div
+    role="status"
+    className="mb-4 flex items-start gap-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 px-4 py-3"
+  >
+    <Radio className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+    <div className="text-sm text-green-800 dark:text-green-200 leading-relaxed">
+      <div className="font-bold">おまたせしました！復帰しました！</div>
+      <p className="mt-1">
+        配信サーバー（Raspberry Pi）の修理が完了し、スタラジの配信を再開しました。
+        配信できてなかったらごめんね！
+      </p>
+    </div>
+  </div>
+);
 
 // ── 配信停止のお知らせ ──────────────────────────────────────
 

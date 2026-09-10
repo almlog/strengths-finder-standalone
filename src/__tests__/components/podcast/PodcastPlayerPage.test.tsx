@@ -51,6 +51,7 @@ function daysAgo(n: number): string {
 
 describe('PodcastPlayerPage 配信停止バナー', () => {
   beforeEach(() => {
+    jest.spyOn(PodcastService, 'isRecoveryNoticePeriod').mockReturnValue(false);
     jest.spyOn(PodcastService, 'fetchCharacters').mockResolvedValue({});
   });
 
@@ -94,5 +95,67 @@ describe('PodcastPlayerPage 配信停止バナー', () => {
       expect(screen.getByText('スタラジ')).toBeInTheDocument();
     });
     expect(screen.queryByText(STALE_NOTICE)).not.toBeInTheDocument();
+  });
+});
+
+describe('PodcastPlayerPage 復帰告知バナー', () => {
+  const RECOVERY_NOTICE = /おまたせしました！復帰しました！/;
+
+  beforeEach(() => {
+    jest.spyOn(PodcastService, 'isRecoveryNoticePeriod').mockReturnValue(false);
+    jest.spyOn(PodcastService, 'fetchCharacters').mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('復帰告知期間中は「おまたせしました！復帰しました！」を表示する', async () => {
+    jest.spyOn(PodcastService, 'isRecoveryNoticePeriod').mockReturnValue(true);
+    jest.spyOn(PodcastService, 'fetchEpisodes').mockResolvedValue([makeEpisode(daysAgo(0))]);
+
+    render(<PodcastPlayerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(RECOVERY_NOTICE)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/配信できてなかったらごめんね！/)).toBeInTheDocument();
+  });
+
+  it('復帰告知期間中は配信が古くても停止バナーではなく復帰告知を表示する', async () => {
+    jest.spyOn(PodcastService, 'isRecoveryNoticePeriod').mockReturnValue(true);
+    jest.spyOn(PodcastService, 'fetchEpisodes').mockResolvedValue([makeEpisode(daysAgo(10))]);
+
+    render(<PodcastPlayerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(RECOVERY_NOTICE)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(STALE_NOTICE)).not.toBeInTheDocument();
+  });
+
+  it('復帰告知期間終了後は表示しない（配信正常なら何も出ない）', async () => {
+    jest.spyOn(PodcastService, 'isRecoveryNoticePeriod').mockReturnValue(false);
+    jest.spyOn(PodcastService, 'fetchEpisodes').mockResolvedValue([makeEpisode(daysAgo(0))]);
+
+    render(<PodcastPlayerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('スタラジ')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(RECOVERY_NOTICE)).not.toBeInTheDocument();
+    expect(screen.queryByText(STALE_NOTICE)).not.toBeInTheDocument();
+  });
+
+  it('復帰告知期間終了後に配信が止まっていれば停止バナーに戻る', async () => {
+    jest.spyOn(PodcastService, 'isRecoveryNoticePeriod').mockReturnValue(false);
+    jest.spyOn(PodcastService, 'fetchEpisodes').mockResolvedValue([makeEpisode(daysAgo(10))]);
+
+    render(<PodcastPlayerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(STALE_NOTICE)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(RECOVERY_NOTICE)).not.toBeInTheDocument();
   });
 });

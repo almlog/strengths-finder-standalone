@@ -244,4 +244,21 @@ describe('PodcastService ユーティリティ', () => {
       expect(PodcastService.getLatestEpisodeDate(eps)).toBe('2026-09-01');
     });
   });
+
+  // ── 復帰告知期間 ──────────────────────────────────────
+
+  describe('isRecoveryNoticePeriod', () => {
+    test('期限内はtrue', () => {
+      expect(PodcastService.isRecoveryNoticePeriod(new Date('2026-09-11T10:00:00'))).toBe(true);
+    });
+
+    test('期限日当日の終わりまでtrue', () => {
+      expect(PodcastService.isRecoveryNoticePeriod(new Date('2026-09-16T23:59:00'))).toBe(true);
+    });
+
+    test('期限を過ぎたらfalse', () => {
+      expect(PodcastService.isRecoveryNoticePeriod(new Date('2026-09-17T00:00:00'))).toBe(false);
+      expect(PodcastService.isRecoveryNoticePeriod(new Date('2027-01-01T00:00:00'))).toBe(false);
+    });
+  });
 });

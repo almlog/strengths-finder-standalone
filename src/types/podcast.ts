@@ -45,3 +45,10 @@ export const PODCAST_CACHE_TTL_MS = 60 * 60 * 1000; // 1時間
  * 日曜は配信なし・月曜早朝は前日分未生成のため、2日以内は正常扱い。
  */
 export const PODCAST_STALE_THRESHOLD_DAYS = 2;
+
+/**
+ * 復帰告知の表示期限（'YYYY-MM-DD'、この日いっぱいまで表示）
+ * 2026-08-28〜09-11のラズパイNW不調による配信停止からの復帰告知。
+ * 期限後は自動で通常表示（または停止検知バナー）に戻るため手動削除は不要。
+ */
+export const PODCAST_RECOVERY_NOTICE_UNTIL = '2026-09-16';
