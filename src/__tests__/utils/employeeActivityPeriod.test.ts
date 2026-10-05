@@ -187,6 +187,44 @@ describe('resolvePartnerElapsedDays', () => {
     expect(result).toBe(18);
   });
 
+  // e-staffingは契約を四半期更新するため、月初の翌月最初の営業日にCSVを
+  // エクスポートすると、継続勤務中でも「契約開始」列がすでに次契約期間の
+  // 開始日（分析対象月より後）に書き換わっているケースがある。この場合、
+  // 契約開始日が分析期間終了より後ろになり effectiveStart > effectiveEnd と
+  // なって countWeekdaysInRange が0を返してしまっていた（実際はフルに
+  // 稼働していたにもかかわらず基準工数が0になるバグ）。
+  it('契約開始日が分析期間より完全に後ろ（契約更新の先付け）なら、カレンダー計算せず実績合計にフォールバックする', () => {
+    const result = resolvePartnerElapsedDays(
+      { workDays: 18, absentDays: 0, leaveDays: 0, contractStart: '2026/10/01', contractEnd: '2026/12/31' },
+      undefined,
+      analysisStart, // 2026-07-01
+      elapsedEnd     // 2026-07-23
+    );
+    expect(result).toBe(18); // 0ではなく実績合計(18+0+0)にフォールバック
+  });
+
+  // 対称ケース: 古い契約終了日が残存している場合も同様にガードする
+  it('契約終了日が分析期間より完全に前なら、カレンダー計算せず実績合計にフォールバックする', () => {
+    const result = resolvePartnerElapsedDays(
+      { workDays: 15, absentDays: 1, leaveDays: 2, contractStart: '2026/05/01', contractEnd: '2026/06/30' },
+      undefined,
+      analysisStart, // 2026-07-01
+      elapsedEnd     // 2026-07-23
+    );
+    expect(result).toBe(18); // 15+1+2、0にならない
+  });
+
+  // 境界の回帰防止: 「完全に後ろ」のみを除外し、同日はガードしない
+  it('契約開始日が分析期間終了と同日なら、ガードされずカレンダー計算される', () => {
+    const result = resolvePartnerElapsedDays(
+      { workDays: 1, absentDays: 0, leaveDays: 0, contractStart: '2026/07/23', contractEnd: '' },
+      undefined,
+      analysisStart,
+      elapsedEnd
+    );
+    expect(result).toBe(1); // 07/23の1日分のみ
+  });
+
   // パートナーは正社員XLSXが無くても単独で分析される可能性があるため、
   // CSV自身が持つ「対象年月」列から期間を決定できるようにする。
   // 正社員XLSX由来のanalysisStart/elapsedEndには依存しない。

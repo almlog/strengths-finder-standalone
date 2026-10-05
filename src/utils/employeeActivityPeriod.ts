@@ -151,9 +151,18 @@ export function resolvePartnerElapsedDays(
   const contractStartDate = record.contractStart ? parseSlashDate(record.contractStart) : undefined;
   if (contractStartDate) {
     const contractEndDate = record.contractEnd ? parseSlashDate(record.contractEnd) : undefined;
-    const effectiveStart = contractStartDate > effectiveAnalysisStart ? contractStartDate : effectiveAnalysisStart;
-    const effectiveEnd = contractEndDate && contractEndDate < effectiveElapsedEnd ? contractEndDate : effectiveElapsedEnd;
-    calendarBasedDefault = countWeekdaysInRange(effectiveStart, effectiveEnd);
+    // 契約期間が分析対象ウィンドウと重ならない場合はカレンダー計算せず実績合計に委ねる。
+    // e-staffingは契約を四半期更新するため、エクスポート時点で「契約開始」に
+    // 次契約の先付け日（分析対象月より後）が入っているケースがある
+    // （継続勤務中でも、更新後は次契約開始日に書き換わる）。この場合に
+    // effectiveStart > effectiveEnd となって0を返すのを防ぐ。
+    const startsAfterWindow = contractStartDate > effectiveElapsedEnd;
+    const endsBeforeWindow = contractEndDate !== undefined && contractEndDate < effectiveAnalysisStart;
+    if (!startsAfterWindow && !endsBeforeWindow) {
+      const effectiveStart = contractStartDate > effectiveAnalysisStart ? contractStartDate : effectiveAnalysisStart;
+      const effectiveEnd = contractEndDate && contractEndDate < effectiveElapsedEnd ? contractEndDate : effectiveElapsedEnd;
+      calendarBasedDefault = countWeekdaysInRange(effectiveStart, effectiveEnd);
+    }
   }
 
   return resolveEmployeePassedWeekdays(calendarBasedDefault, manualPeriod, effectiveAnalysisStart, effectiveElapsedEnd);
