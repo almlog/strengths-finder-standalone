@@ -203,6 +203,7 @@ export type ViolationType =
   | 'early_leave_application_missing'  // 早退関連の届出漏れ
   | 'early_start_application_missing'  // 早出関連の届出漏れ
   | 'time_leave_punch_missing'         // 時間有休打刻漏れ（私用外出/戻り）
+  | 'mid_day_hourly_leave_suspected'   // 中抜け時間休の打刻漏れ疑い（出退勤が定時をカバー）
   | 'night_break_application_missing'  // 深夜休憩関連の届出漏れ
   | 'remarks_missing'                  // 備考欄未入力（申請に対して）
   | 'remarks_format_warning';          // 備考欄フォーマット警告
@@ -261,6 +262,11 @@ export const VIOLATION_DISPLAY_INFO: Record<ViolationType, ViolationDisplayInfo>
     displayName: '打刻漏れ（時間有休）',
     possibleApplications: ['私用外出', '私用戻り'],
     notes: '時間有休申請時は、退社時に「私用外出」、戻り時に「私用戻り」の打刻が必須です。打刻がないと有休残数が過剰に減算される場合があります。',
+  },
+  mid_day_hourly_leave_suspected: {
+    displayName: '中抜け時間休疑い',
+    possibleApplications: ['私用外出', '私用戻り'],
+    notes: '出社が定時以前・退社が定時超えのまま時間休を申請しています。就業時間内の中抜け（通院・家庭の事情等）が疑われるため、「私用外出」「私用戻り」の打刻を確認してください。',
   },
   night_break_application_missing: {
     displayName: '届出漏れ（深夜休憩）',
@@ -594,6 +600,13 @@ export const HOURLY_LEAVE_KEYWORDS = [
 ] as const;
 
 /**
+ * 所定終業時刻（中抜け時間休判定で始業・終業の吸収分を厳密に計算するための基準値）
+ * TIMELY_DEPARTURE_TIME（17:45）は「おおむね定時」の15分猶予を含む値のため、
+ * 時間休合計との引き算にはこちらの厳密な所定終業時刻を使う。
+ */
+export const STANDARD_WORK_END_TIME = '17:30' as const;
+
+/**
  * 振替出勤関連のキーワード
  */
 export const SUBSTITUTE_WORK_KEYWORDS = [
@@ -771,6 +784,7 @@ export const VIOLATION_URGENCY: Record<ViolationType, ViolationUrgencyLevel> = {
   early_leave_application_missing: 'medium',  // 届出漏れ（早退）
   early_start_application_missing: 'medium',  // 届出漏れ（早出）
   time_leave_punch_missing: 'medium',         // 時間有休の私用外出打刻漏れ
+  mid_day_hourly_leave_suspected: 'medium',   // 中抜け時間休の打刻漏れ疑い
 
   // 問題ありにはカウントするが、緊急度別には含めない
   missing_clock: 'none',           // 打刻漏れ（月締め不可だが法令違反ではない）

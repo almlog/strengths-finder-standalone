@@ -38,6 +38,7 @@ describe('VIOLATION_URGENCY マッピング', () => {
       'early_leave_application_missing',
       'early_start_application_missing',
       'time_leave_punch_missing',
+      'mid_day_hourly_leave_suspected',
     ];
 
     test.each(mediumUrgencyTypes)('%s は中緊急度に分類される', (type) => {
@@ -49,11 +50,12 @@ describe('VIOLATION_URGENCY マッピング', () => {
         .filter(([, level]) => level === 'medium')
         .map(([type]) => type);
 
-      expect(mediumTypes).toHaveLength(4);
+      expect(mediumTypes).toHaveLength(5);
       expect(mediumTypes).toContain('late_application_missing');
       expect(mediumTypes).toContain('early_leave_application_missing');
       expect(mediumTypes).toContain('early_start_application_missing');
       expect(mediumTypes).toContain('time_leave_punch_missing');
+      expect(mediumTypes).toContain('mid_day_hourly_leave_suspected');
     });
   });
 
@@ -88,6 +90,7 @@ describe('VIOLATION_URGENCY マッピング', () => {
       'early_leave_application_missing',
       'early_start_application_missing',
       'time_leave_punch_missing',
+      'mid_day_hourly_leave_suspected',
       'night_break_application_missing',
       'remarks_missing',
       'remarks_format_warning',

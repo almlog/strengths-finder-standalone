@@ -41,6 +41,8 @@ import {
   CHILD_CARE_LEAVE_KEYWORDS,
   NURSING_CARE_LEAVE_KEYWORDS,
   POST_NIGHT_LEAVE_KEYWORDS,
+  HOURLY_LEAVE_KEYWORDS,
+  STANDARD_WORK_END_TIME,
   hasApplicationKeyword,
   hasExactApplicationKeyword,
   // 36協定・残業時間管理
@@ -1030,6 +1032,81 @@ export class AttendanceService {
   }
 
   /**
+   * 中抜け時間休の打刻漏れ疑いをチェック
+   *
+   * 時間休は通常、就業開始時（遅れて出社）か退勤時（早めに退社）に取得され、
+   * この場合は出退勤時刻自体が短縮されるため私用外出/私用戻りの打刻は不要。
+   *
+   * その日に申請された時間休の合計（勤務時間－実働時間）のうち、
+   * 始業・終業のズレ（始業の遅れ＋終業の早まり）で説明できる分を引いても
+   * まだ残りがある場合、その残りは就業時間内の "中抜け" で取得した可能性が高く、
+   * 私用外出/私用戻りの打刻が必須にもかかわらず入力されていない疑いがある。
+   *
+   * 例: 9:00出社・14-15中抜け1h・16:00退勤（終業1.5h分前倒し）で時間休合計2.5h
+   *     → 終業側で吸収できるのは1.5hのみ。残り1h（中抜け分）が説明不可 → 違反
+   *
+   * 【時差出勤】始業・終業がセットでシフトし絶対時刻の基準点が不明なため、
+   * 始業・終業それぞれの吸収分ではなく「標準の合計勤務スパン(9:00-17:30=8.5h)
+   * と実際のスパンの差」を吸収分とみなして同様に判定する。
+   */
+  static hasMidDayHourlyLeaveSuspected(record: AttendanceRecord): boolean {
+    // 休日は対象外
+    if (record.calendarType !== 'weekday') {
+      return false;
+    }
+
+    const applicationContent = record.applicationContent || '';
+
+    // 時間休系の申請がなければ対象外
+    if (!hasApplicationKeyword(applicationContent, HOURLY_LEAVE_KEYWORDS)) {
+      return false;
+    }
+
+    // 私用外出・戻りの両方が入力されていれば問題なし
+    if (record.privateOutTime && record.privateReturnTime) {
+      return false;
+    }
+
+    // 出退勤時刻がなければ判定不可
+    if (!record.clockIn || !record.clockOut) {
+      return false;
+    }
+
+    // 時間休合計(分) = 勤務時間 - 実働時間（算出できなければ判定不可）
+    const workMinutes = this.parseTimeToMinutes(record.workHours || '');
+    const actualMinutes = this.parseTimeToMinutes(record.actualWorkHours);
+    const leaveMinutes = workMinutes - actualMinutes;
+    if (leaveMinutes <= 0) {
+      return false;
+    }
+
+    const isFlextime = hasApplicationKeyword(applicationContent, FLEXTIME_EXACT_KEYWORDS);
+
+    const [endHour, endMinute] = STANDARD_WORK_END_TIME.split(':').map(Number);
+    const scheduledStartTotalMinutes = STANDARD_WORK_START_HOUR * 60;
+    const scheduledEndTotalMinutes = endHour * 60 + endMinute;
+
+    let absorbedMinutes: number;
+
+    if (isFlextime) {
+      // 時差出勤: 標準の合計勤務スパンと実スパンの差を吸収分とみなす
+      const standardFullSpanMinutes = scheduledEndTotalMinutes - scheduledStartTotalMinutes;
+      const actualSpanMinutes = (record.clockOut.getTime() - record.clockIn.getTime()) / 60000;
+      absorbedMinutes = Math.max(0, standardFullSpanMinutes - actualSpanMinutes);
+    } else {
+      // 通常勤務: 始業の遅れ分＋終業の早まり分を吸収分とする
+      const clockInTotalMinutes = record.clockIn.getHours() * 60 + record.clockIn.getMinutes();
+      const clockOutTotalMinutes = record.clockOut.getHours() * 60 + record.clockOut.getMinutes();
+      const startAbsorbed = Math.max(0, clockInTotalMinutes - scheduledStartTotalMinutes);
+      const endAbsorbed = Math.max(0, scheduledEndTotalMinutes - clockOutTotalMinutes);
+      absorbedMinutes = startAbsorbed + endAbsorbed;
+    }
+
+    // 時間休合計のうち、始業・終業のズレで説明できない分が残っていれば中抜け疑い
+    return leaveMinutes - absorbedMinutes > 0;
+  }
+
+  /**
    * 早出フラグ未入力違反をチェック
    * - 申請内容に始業時刻がある場合、その時刻より前の出勤で早出フラグがなければ違反
    * - 申請内容に始業時刻がない場合、9時より前の出勤で早出フラグがなければ違反
@@ -1315,6 +1392,7 @@ export class AttendanceService {
     const hasLateApplicationMissing = this.hasLateApplicationMissingWithMinutes(record, lateMinutes);
     const hasEarlyLeaveApplicationMissing = this.hasEarlyLeaveApplicationMissing(record);
     const hasTimeLeavePunchMissing = this.hasTimeLeavePunchMissing(record);
+    const hasMidDayHourlyLeaveSuspected = this.hasMidDayHourlyLeaveSuspected(record);
     const hasNightBreakApplicationMissing = this.hasNightBreakApplicationMissing(record);
 
     // 備考欄チェックは楽楽勤怠側で管理されるため無効化（2026-01-30）
@@ -1331,6 +1409,7 @@ export class AttendanceService {
     if (hasEarlyLeaveApplicationMissing) violations.push('early_leave_application_missing');
     if (hasEarlyStartViolation) violations.push('early_start_application_missing');
     if (hasTimeLeavePunchMissing) violations.push('time_leave_punch_missing');
+    if (hasMidDayHourlyLeaveSuspected) violations.push('mid_day_hourly_leave_suspected');
     if (hasNightBreakApplicationMissing) violations.push('night_break_application_missing');
     // 備考欄チェックは無効化（楽楽勤怠側で管理）
     // if (hasRemarksMissing) violations.push('remarks_missing');
@@ -1799,6 +1878,24 @@ export class AttendanceService {
           date: record.date,
           type: 'time_leave_punch_missing',
           details: '私用外出/戻り未打刻',
+        });
+      }
+
+      // 中抜け時間休の打刻漏れ疑い
+      if (analysis.violations.includes('mid_day_hourly_leave_suspected')) {
+        const clockInTime = record.clockIn
+          ? `${record.clockIn.getHours()}:${String(record.clockIn.getMinutes()).padStart(2, '0')}`
+          : '';
+        const clockOutTime = record.clockOut
+          ? `${record.clockOut.getHours()}:${String(record.clockOut.getMinutes()).padStart(2, '0')}`
+          : '';
+        violations.push({
+          employeeId,
+          employeeName: firstRecord.employeeName,
+          department: firstRecord.department,
+          date: record.date,
+          type: 'mid_day_hourly_leave_suspected',
+          details: `出社${clockInTime}・退社${clockOutTime}（時間休申請・私用外出/戻り未打刻）`,
         });
       }
 
