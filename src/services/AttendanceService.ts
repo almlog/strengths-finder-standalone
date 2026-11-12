@@ -1084,15 +1084,16 @@ export class AttendanceService {
   }
 
   /**
-   * 中抜け時間休の打刻漏れ疑いをチェック
+   * 時間休合計のうち、始業・終業のズレで説明できない分（中抜け等）が
+   * 残っているかを判定する共通ロジック。
    *
    * 時間休は通常、就業開始時（遅れて出社）か退勤時（早めに退社）に取得され、
    * この場合は出退勤時刻自体が短縮されるため私用外出/私用戻りの打刻は不要。
    *
-   * その日に申請された時間休の合計（勤務時間－実働時間）のうち、
-   * 始業・終業のズレ（始業の遅れ＋終業の早まり）で説明できる分を引いても
-   * まだ残りがある場合、その残りは就業時間内の "中抜け" で取得した可能性が高く、
-   * 私用外出/私用戻りの打刻が必須にもかかわらず入力されていない疑いがある。
+   * その日に申請された時間休の合計のうち、始業・終業のズレ（始業の遅れ＋
+   * 終業の早まり）で説明できる分を引いてもまだ残りがある場合、その残りは
+   * 就業時間内の "中抜け" で取得した可能性が高く、私用外出/私用戻りの打刻が
+   * 必須にもかかわらず入力されていない疑いがある。
    *
    * 例: 9:00出社・14-15中抜け1h・16:00退勤（終業1.5h分前倒し）で時間休合計2.5h
    *     → 終業側で吸収できるのは1.5hのみ。残り1h（中抜け分）が説明不可 → 違反
@@ -1100,8 +1101,13 @@ export class AttendanceService {
    * 【時差出勤】始業・終業がセットでシフトし絶対時刻の基準点が不明なため、
    * 始業・終業それぞれの吸収分ではなく「標準の合計勤務スパン(9:00-17:30=8.5h)
    * と実際のスパンの差」を吸収分とみなして同様に判定する。
+   *
+   * time_leave_punch_missing（打刻漏れ）と mid_day_hourly_leave_suspected
+   * （中抜け疑い）はどちらもこの同じ基準で判定する。出社・退社を見ずに
+   * 無条件判定していた旧実装は、始業時/退勤時の正当な時間休（打刻不要）まで
+   * 誤検知する実データでの不具合があったため統一した。
    */
-  static hasMidDayHourlyLeaveSuspected(record: AttendanceRecord): boolean {
+  private static hasUnexplainedHourlyLeave(record: AttendanceRecord): boolean {
     // 休日は対象外
     if (record.calendarType !== 'weekday') {
       return false;
@@ -1154,6 +1160,13 @@ export class AttendanceService {
 
     // 時間休合計のうち、始業・終業のズレで説明できない分が残っていれば中抜け疑い
     return leaveMinutes - absorbedMinutes > 0;
+  }
+
+  /**
+   * 中抜け時間休の打刻漏れ疑いをチェック（hasUnexplainedHourlyLeaveと同基準）
+   */
+  static hasMidDayHourlyLeaveSuspected(record: AttendanceRecord): boolean {
+    return this.hasUnexplainedHourlyLeave(record);
   }
 
   /**
@@ -1315,26 +1328,15 @@ export class AttendanceService {
   }
 
   /**
-   * 時間有休打刻漏れをチェック
-   * 時間休系の申請（時間有休/有休時間/時間休）がある場合、私用外出と私用戻りの両方が必要
+   * 時間有休打刻漏れをチェック（hasUnexplainedHourlyLeaveと同基準）
    *
-   * 【偽陰性対策】実データでは「有休時間」表記が使われ「時間有休」表記は使われない
-   * ケースがあるため、HOURLY_LEAVE_KEYWORDS（表記ゆれを網羅）で判定する。
+   * 旧実装は出社・退社を見ずに「時間休系の申請があり打刻が不完全なら無条件に違反」
+   * としていたため、始業時/退勤時に正当に取得した時間休（打刻不要）まで誤検知
+   * していた（実データで発覚）。mid_day_hourly_leave_suspectedと同じ、始業・終業
+   * のズレで説明できない分が残っている場合のみ違反とする基準に統一した。
    */
   static hasTimeLeavePunchMissing(record: AttendanceRecord): boolean {
-    // 時間休系の申請がない場合は対象外
-    const applicationContent = record.applicationContent || '';
-    if (!hasApplicationKeyword(applicationContent, HOURLY_LEAVE_KEYWORDS)) {
-      return false;
-    }
-
-    // 私用外出・戻りの両方が入力されていれば問題なし
-    if (record.privateOutTime && record.privateReturnTime) {
-      return false;
-    }
-
-    // 時間有休申請があるが打刻が不完全 = 打刻漏れ
-    return true;
+    return this.hasUnexplainedHourlyLeave(record);
   }
 
   /**

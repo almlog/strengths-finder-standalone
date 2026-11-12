@@ -120,6 +120,7 @@ describe('AttendanceService - 申請漏れ検出', () => {
     it('should detect time leave punch missing when 時間有休申請 without 私用外出/戻り', () => {
       const record = createBaseRecord({
         applicationContent: '時間有休申請',
+        hourlyLeaveHours: '1:00',
         privateOutTime: null,
         privateReturnTime: null,
       });
@@ -140,6 +141,7 @@ describe('AttendanceService - 申請漏れ検出', () => {
     it('should detect time leave punch missing when only 私用外出 is present', () => {
       const record = createBaseRecord({
         applicationContent: '時間有休申請',
+        hourlyLeaveHours: '1:00',
         privateOutTime: new Date('2026-01-06T11:00:00'),
         privateReturnTime: null,
       });

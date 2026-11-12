@@ -306,6 +306,7 @@ describe('AttendanceService - 時間有休の打刻検証（既存機能）', ()
     it('時間有休申請ありで外出のみ打刻 - 違反', () => {
       const record = createTestRecord('TV002', '外出のみ', {
         applicationContent: '時間有休',
+        hourlyLeaveHours: '1:00',
         privateOutTime: new Date('2026-01-06T14:00:00'),
         privateReturnTime: null,
       });
@@ -318,6 +319,7 @@ describe('AttendanceService - 時間有休の打刻検証（既存機能）', ()
     it('時間有休申請ありで戻りのみ打刻 - 違反', () => {
       const record = createTestRecord('TV003', '戻りのみ', {
         applicationContent: '時間有休',
+        hourlyLeaveHours: '1:00',
         privateOutTime: null,
         privateReturnTime: new Date('2026-01-06T16:00:00'),
       });
@@ -330,6 +332,7 @@ describe('AttendanceService - 時間有休の打刻検証（既存機能）', ()
     it('時間有休申請ありで両方未打刻 - 違反', () => {
       const record = createTestRecord('TV004', '未打刻', {
         applicationContent: '時間有休',
+        hourlyLeaveHours: '1:00',
         privateOutTime: null,
         privateReturnTime: null,
       });

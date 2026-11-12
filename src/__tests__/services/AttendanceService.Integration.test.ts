@@ -317,9 +317,16 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
   // 5. 時間有休打刻関連
   // ============================================
   describe('時間有休打刻関連の違反検出', () => {
+    // 2026-11: time_leave_punch_missingはmid_day_hourly_leave_suspectedと同じ
+    // 基準（始業/終業のズレで説明できない時間休が残っているか）で判定するよう統一。
+    // 出社・退社を見ずに無条件判定していた旧実装は、始業時/退勤時の正当な
+    // 時間休（打刻不要）まで誤検知する実データでの不具合が発覚したため修正。
+    // デフォルトの出社9:00・退社17:30は吸収分0なので、hourlyLeaveHoursで
+    // 時間休合計を明示しないと「説明できない分」が生じない点に注意。
     it('401_時間有休（打刻なし）: - 打刻漏れ検出', () => {
       const record = createTestRecord('D401', '時間有休 打刻漏れ', {
         applicationContent: '時間有休申請',
+        hourlyLeaveHours: '1:00',
         privateOutTime: null,
         privateReturnTime: null,
       });
@@ -332,6 +339,7 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
     it('402_時間有休（打刻あり）: - 違反なし', () => {
       const record = createTestRecord('D402', '時間有休 打刻済', {
         applicationContent: '時間有休申請',
+        hourlyLeaveHours: '1:00',
         privateOutTime: new Date('2026-01-06T14:00:00'),
         privateReturnTime: new Date('2026-01-06T15:00:00'),
       });
@@ -344,6 +352,7 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
     it('403_時間有休（外出のみ）: - 打刻漏れ検出', () => {
       const record = createTestRecord('D403', '時間有休 片方漏れ', {
         applicationContent: '時間有休申請',
+        hourlyLeaveHours: '1:00',
         privateOutTime: new Date('2026-01-06T14:00:00'),
         privateReturnTime: null,
       });
@@ -356,6 +365,7 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
     it('404_時間有休（戻りのみ）: - 打刻漏れ検出', () => {
       const record = createTestRecord('D404', '時間有休 片方漏れ2', {
         applicationContent: '時間有休申請',
+        hourlyLeaveHours: '1:00',
         privateOutTime: null,
         privateReturnTime: new Date('2026-01-06T15:00:00'),
       });
@@ -383,6 +393,7 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
       // 一度も検出されていなかった（偽陰性バグ）。HOURLY_LEAVE_KEYWORDSで修正。
       const record = createTestRecord('D406', '有休時間 実運用表記', {
         applicationContent: '有休時間',
+        hourlyLeaveHours: '1:00',
         privateOutTime: null,
         privateReturnTime: null,
       });
@@ -390,6 +401,23 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
       const analysis = AttendanceService.analyzeDailyRecord(record);
 
       expect(analysis.violations).toContain('time_leave_punch_missing');
+    });
+
+    it('407_有休時間（始業時に取得・出社10:00・退社17:30）: - 吸収分で説明できるため違反なし', () => {
+      // 実データ(SHRESTHA RAJESH 2026-11-06)相当: 始業を2h遅らせて時間休取得。
+      // 出社・退社を見ない旧実装ではこれも誤検知していた。
+      const record = createTestRecord('D407', '時間有休 始業時取得', {
+        clockIn: new Date('2026-01-06T11:00:00'),
+        clockOut: new Date('2026-01-06T17:30:00'),
+        applicationContent: '有休時間',
+        hourlyLeaveHours: '2:00',
+        privateOutTime: null,
+        privateReturnTime: null,
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.violations).not.toContain('time_leave_punch_missing');
     });
   });
 
@@ -539,10 +567,9 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
 
     it('603_時間有休＋遅刻（時間有休申請のみ）: - 両方検出', () => {
       const record = createTestRecord('D603', '時間有休遅刻', {
-        clockIn: new Date('2026-01-06T10:00:00'),
-        clockOut: new Date('2026-01-06T17:30:00'),
         lateMinutes: '1:00',
         applicationContent: '時間有休申請',
+        hourlyLeaveHours: '1:00',
         privateOutTime: null,
         privateReturnTime: null,
       });
