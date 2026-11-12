@@ -59,6 +59,7 @@ import { calculateCapacityUtilization, sumExpectedCapacityMinutes } from '../../
 import { mergePartnerRecords } from '../../utils/mergePartnerRecords';
 import { EmployeeActivityPeriod, resolveEmployeePassedWeekdays, resolvePartnerElapsedDays, filterRecordsByActivityPeriod } from '../../utils/employeeActivityPeriod';
 import { countDistinctPositions, summarizePositionGroups } from '../../utils/positionGrouping';
+import { summarizeApplicationContents, formatOccurrencesTooltip, ApplicationContentSummary } from '../../utils/applicationContentSummary';
 import { MemberStrengths, Position } from '../../models/StrengthsTypes';
 import StrengthsService from '../../services/StrengthsService';
 
@@ -98,7 +99,7 @@ const TAG_STYLES: Record<string, string> = {
   '月途中退場': 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
 };
 
-type TabType = 'summary' | 'employees' | 'departments' | 'violations' | 'integrated';
+type TabType = 'summary' | 'employees' | 'departments' | 'violations' | 'applications' | 'integrated';
 
 // ── マージ関数 ────────────────────────────────────────────────
 
@@ -165,7 +166,7 @@ const VIOLATION_CHART_COLORS: Record<ViolationType, string> = {
 const AttendanceAnalysisPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [, setRecords] = useState<AttendanceRecord[]>([]);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [analysisResult, setAnalysisResult] = useState<ExtendedAnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('summary');
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
@@ -1084,6 +1085,12 @@ const AttendanceAnalysisPage: React.FC = () => {
               >
                 違反一覧
               </TabButton>
+              <TabButton
+                active={activeTab === 'applications'}
+                onClick={() => setActiveTab('applications')}
+              >
+                申請一覧
+              </TabButton>
               {partnerRecords.length > 0 && (
                 <TabButton
                   active={activeTab === 'integrated'}
@@ -1120,6 +1127,7 @@ const AttendanceAnalysisPage: React.FC = () => {
               <div ref={summaryRef} style={isExportingPdf ? { width: '1600px' } : undefined}>
                 <SummaryTab
                   result={analysisResult}
+                  records={records}
                   partnerRecords={partnerRecords}
                   isExportingPdf={isExportingPdf}
                   employeeActivityPeriods={employeeActivityPeriods}
@@ -1141,6 +1149,9 @@ const AttendanceAnalysisPage: React.FC = () => {
             )}
             {activeTab === 'violations' && (
               <ViolationsTab result={analysisResult} partnerRecords={partnerRecords} />
+            )}
+            {activeTab === 'applications' && (
+              <ApplicationsTab records={records} />
             )}
             {activeTab === 'integrated' && partnerRecords.length > 0 && (
               <IntegratedTab
@@ -1448,6 +1459,39 @@ const TabButton: React.FC<{
   </button>
 );
 
+// 申請内容の集計一覧（省略表示＋マウスオーバーで対象者・日付を表示）
+const ApplicationContentList: React.FC<{
+  items: ApplicationContentSummary[];
+  limit?: number;
+}> = ({ items, limit }) => {
+  if (items.length === 0) {
+    return <p className="text-sm text-gray-400 dark:text-gray-500">申請内容はありません</p>;
+  }
+
+  const visible = limit ? items.slice(0, limit) : items;
+  const hiddenCount = limit ? Math.max(0, items.length - limit) : 0;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {visible.map(item => (
+        <span
+          key={item.content}
+          title={formatOccurrencesTooltip(item.occurrences)}
+          className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 cursor-help"
+        >
+          {item.content}
+          <span className="ml-1.5 text-gray-500 dark:text-gray-400">({item.count}件)</span>
+        </span>
+      ))}
+      {hiddenCount > 0 && (
+        <span className="inline-flex items-center px-2.5 py-1 text-xs text-gray-400 dark:text-gray-500">
+          他{hiddenCount}件
+        </span>
+      )}
+    </div>
+  );
+};
+
 // サマリータブ
 // 部門別残業時間の色を決定するヘルパー関数
 const getOvertimeBarColor = (minutes: number): string => {
@@ -1478,12 +1522,14 @@ const ChartTooltip: React.FC<{
 
 const SummaryTab: React.FC<{
   result: ExtendedAnalysisResult;
+  records?: AttendanceRecord[];
   partnerRecords?: EStaffingRecord[];
   isExportingPdf?: boolean;
   employeeActivityPeriods?: Map<string, EmployeeActivityPeriod>;
   partnerActivityPeriods?: Map<string, EmployeeActivityPeriod>;
   positionGroups?: Map<string, string>;
-}> = ({ result, partnerRecords = [], isExportingPdf = false, employeeActivityPeriods, partnerActivityPeriods, positionGroups }) => {
+}> = ({ result, records = [], partnerRecords = [], isExportingPdf = false, employeeActivityPeriods, partnerActivityPeriods, positionGroups }) => {
+  const applicationSummary = useMemo(() => summarizeApplicationContents(records), [records]);
   // メンバー交代（前半A・後半B）を1ポジションとして数えた人数
   // 正社員同士・パートナー同士だけでなく、正社員⇔パートナーの交代もグループ化対象
   const groupedEmployeeCount = countDistinctPositions(
@@ -1891,6 +1937,16 @@ const SummaryTab: React.FC<{
                 <span className="text-gray-600 dark:text-gray-300">深夜帯勤務実績（22:01以降）</span>
                 <span className="font-medium text-gray-900 dark:text-white">{result.nightWorkRecords.length}件</span>
               </div>
+            </div>
+          )}
+          {/* 申請内容一覧（マウスオーバーで対象者・日付を確認できる） */}
+          {applicationSummary.length > 0 && !isExportingPdf && (
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-600 dark:text-gray-300">申請内容</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">マウスオーバーで対象者・日付を確認</span>
+              </div>
+              <ApplicationContentList items={applicationSummary} limit={10} />
             </div>
           )}
         </div>
@@ -2644,6 +2700,21 @@ const DepartmentsTab: React.FC<{ departments: DepartmentSummary[] }> = ({ depart
           ))}
         </tbody>
       </table>
+    </div>
+  );
+};
+
+// 申請一覧タブ（全件・省略なし。気になる申請をマウスオーバーで確認する用途）
+const ApplicationsTab: React.FC<{ records: AttendanceRecord[] }> = ({ records }) => {
+  const applicationSummary = useMemo(() => summarizeApplicationContents(records), [records]);
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">申請内容一覧</h3>
+        <span className="text-xs text-gray-400 dark:text-gray-500">マウスオーバーで対象者・日付を確認</span>
+      </div>
+      <ApplicationContentList items={applicationSummary} />
     </div>
   );
 };
