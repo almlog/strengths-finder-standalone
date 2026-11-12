@@ -1462,18 +1462,14 @@ const TabButton: React.FC<{
 // 申請内容の集計一覧（省略表示＋マウスオーバーで対象者・日付を表示）
 const ApplicationContentList: React.FC<{
   items: ApplicationContentSummary[];
-  limit?: number;
-}> = ({ items, limit }) => {
+}> = ({ items }) => {
   if (items.length === 0) {
     return <p className="text-sm text-gray-400 dark:text-gray-500">申請内容はありません</p>;
   }
 
-  const visible = limit ? items.slice(0, limit) : items;
-  const hiddenCount = limit ? Math.max(0, items.length - limit) : 0;
-
   return (
     <div className="flex flex-wrap gap-2">
-      {visible.map(item => (
+      {items.map(item => (
         <span
           key={item.content}
           title={formatOccurrencesTooltip(item.occurrences)}
@@ -1483,11 +1479,6 @@ const ApplicationContentList: React.FC<{
           <span className="ml-1.5 text-gray-500 dark:text-gray-400">({item.count}件)</span>
         </span>
       ))}
-      {hiddenCount > 0 && (
-        <span className="inline-flex items-center px-2.5 py-1 text-xs text-gray-400 dark:text-gray-500">
-          他{hiddenCount}件
-        </span>
-      )}
     </div>
   );
 };
@@ -1939,18 +1930,19 @@ const SummaryTab: React.FC<{
               </div>
             </div>
           )}
-          {/* 申請内容一覧（マウスオーバーで対象者・日付を確認できる） */}
-          {applicationSummary.length > 0 && !isExportingPdf && (
-            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-600 dark:text-gray-300">申請内容</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">マウスオーバーで対象者・日付を確認</span>
-              </div>
-              <ApplicationContentList items={applicationSummary} limit={10} />
-            </div>
-          )}
         </div>
       </div>
+
+      {/* 申請内容一覧（違反サマリーとは独立したセクション。マウスオーバーで対象者・日付を確認できる） */}
+      {applicationSummary.length > 0 && !isExportingPdf && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">申請内容</h3>
+            <span className="text-xs text-gray-400 dark:text-gray-500">マウスオーバーで対象者・日付を確認</span>
+          </div>
+          <ApplicationContentList items={applicationSummary} />
+        </div>
+      )}
 
       {/* グラフセクション: 部門別残業 + 違反種別（WEB/PDFともに横並び） */}
       <div className={isExportingPdf ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>

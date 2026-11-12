@@ -106,6 +106,44 @@ describe('summarizeApplicationContents', () => {
     expect(summarizeApplicationContents([])).toEqual([]);
   });
 
+  describe('スケジュール記法・システムマーカーの除外（申請ではないため一覧に出さない）', () => {
+    it('スケジュール記法のみ（HHMM-HHMM/HHMM-HHMM/時間数）は除外する', () => {
+      const records = [
+        createRecord({ applicationContent: '900-1730/1200-1300/7.75' }),
+        createRecord({ applicationContent: '830-1700/1200-1300/7.75' }),
+      ];
+
+      expect(summarizeApplicationContents(records)).toEqual([]);
+    });
+
+    it('「残業終了」単体は除外する', () => {
+      const records = [createRecord({ applicationContent: '残業終了' })];
+
+      expect(summarizeApplicationContents(records)).toEqual([]);
+    });
+
+    it('「残業終了」+スケジュール記法の組み合わせも除外する', () => {
+      const records = [createRecord({ applicationContent: '残業終了,900-1730/1200-1300/7.75' })];
+
+      expect(summarizeApplicationContents(records)).toEqual([]);
+    });
+
+    it('末尾に追加の数値セグメント（/5等）があるスケジュール記法も除外する', () => {
+      const records = [createRecord({ applicationContent: '残業終了,900-1730/1200-1300/7.75/5' })];
+
+      expect(summarizeApplicationContents(records)).toEqual([]);
+    });
+
+    it('実際の申請キーワードを含む場合は除外しない（有休時間+電車遅延）', () => {
+      const records = [createRecord({ applicationContent: '有休時間,電車遅延' })];
+
+      const result = summarizeApplicationContents(records);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].content).toBe('有休時間,電車遅延');
+    });
+  });
+
   it('件数が同じ場合は申請内容の文字コード順で安定ソートされる', () => {
     const records = [
       createRecord({ applicationContent: 'B申請' }),

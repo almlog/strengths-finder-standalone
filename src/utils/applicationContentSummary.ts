@@ -16,9 +16,26 @@ export interface ApplicationContentSummary {
   occurrences: ApplicationContentOccurrence[];
 }
 
+// スケジュール記法（例: "900-1730/1200-1300/7.75" "830-1700/1200-1300/7.75/5"）
+// 楽楽勤怠が始業・終業・休憩・所定時間を内部的に申請内容欄に埋め込む形式で、
+// 利用者が入力した申請ではないため一覧に出さない。
+const SCHEDULE_NOTATION_PATTERN = /^\d{3,4}-\d{3,4}(?:\/\d{3,4}-\d{3,4})*(?:\/[\d.]+)*$/;
+
+// 「残業終了」もAltX残業の技術的マーカーであり申請ではないため除外する。
+const NON_APPLICATION_MARKERS = new Set(['残業終了']);
+
+/**
+ * 申請内容のセグメント（カンマ区切りの1要素）が、申請とは無関係な
+ * スケジュール記法・システムマーカーかどうかを判定する。
+ */
+function isNonApplicationSegment(segment: string): boolean {
+  return NON_APPLICATION_MARKERS.has(segment) || SCHEDULE_NOTATION_PATTERN.test(segment);
+}
+
 /**
  * 申請内容を完全一致でグルーピングし、件数の多い順（同数は申請内容の文字コード順）に集計する。
- * 空文字・空白のみの申請内容は除外する。
+ * 空文字・空白のみの申請内容、およびスケジュール記法/システムマーカーのみの
+ * 申請内容（例: "残業終了,900-1730/1200-1300/7.75"）は除外する。
  */
 export function summarizeApplicationContents(records: AttendanceRecord[]): ApplicationContentSummary[] {
   const map = new Map<string, ApplicationContentOccurrence[]>();
@@ -26,6 +43,9 @@ export function summarizeApplicationContents(records: AttendanceRecord[]): Appli
   records.forEach(record => {
     const content = (record.applicationContent || '').trim();
     if (!content) return;
+
+    const segments = content.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    if (segments.length === 0 || segments.every(isNonApplicationSegment)) return;
 
     const occurrences = map.get(content) ?? [];
     occurrences.push({
