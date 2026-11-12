@@ -21,7 +21,9 @@ import {
   AnalysisOptions,
   ApplicationCounts,
   NightWorkRecord,
-  XLSX_COLUMN_INDEX,
+  AttendanceColumnField,
+  resolveAttendanceColumnIndices,
+  ATTENDANCE_COLUMN_CANDIDATES,
   LEAVE_KEYWORDS,
   NIGHT_WORK_START_HOUR,
   URGENCY_THRESHOLDS,
@@ -90,14 +92,7 @@ export class AttendanceService {
               raw: false,
             });
 
-            // Skip header row (row 0), parse each data row
-            for (let i = 1; i < jsonData.length; i++) {
-              const row = jsonData[i] as unknown[];
-              const record = this.parseRow(row, sheetName);
-              if (record) {
-                allRecords.push(record);
-              }
-            }
+            allRecords.push(...this.parseSheet(jsonData, sheetName));
           });
 
           resolve(allRecords);
@@ -115,73 +110,121 @@ export class AttendanceService {
   }
 
   /**
-   * 行データをAttendanceRecordにパース
+   * シート1枚分（ヘッダー行+データ行の2次元配列）をAttendanceRecord[]にパース
+   *
+   * ヘッダー行から列名で各フィールドの位置を解決する（固定インデックスではない）。
+   * 楽楽勤怠のエクスポートは月によって列の並び替え・削除が発生するため、
+   * 列名ベースで解決することで並び替えに自動追従する。
+   * 必須列が見つからない場合は「想定外のヘッダー情報です」とエラーを投げ、
+   * サイレントな誤読（2026-11のヘッダー変更で発覚した重大バグ）を防ぐ。
    */
-  private static parseRow(row: unknown[], sheetName: string): AttendanceRecord | null {
+  static parseSheet(jsonData: unknown[][], sheetName: string): AttendanceRecord[] {
+    if (jsonData.length === 0) {
+      return [];
+    }
+
+    const header = jsonData[0] as unknown[];
+    const { indices, missingRequired } = resolveAttendanceColumnIndices(header);
+
+    if (missingRequired.length > 0) {
+      const missingNames = missingRequired
+        .map(field => ATTENDANCE_COLUMN_CANDIDATES[field][0])
+        .join('、');
+      throw new Error(
+        `想定外のヘッダー情報です。シート「${sheetName}」で必須の列が見つかりません（${missingNames}）。ヘッダー行をご確認ください。`
+      );
+    }
+
+    const records: AttendanceRecord[] = [];
+    for (let i = 1; i < jsonData.length; i++) {
+      const row = jsonData[i] as unknown[];
+      const record = this.parseRow(row, sheetName, indices);
+      if (record) {
+        records.push(record);
+      }
+    }
+    return records;
+  }
+
+  /**
+   * 行データをAttendanceRecordにパース（列インデックスはヘッダー名解決済みのものを使用）
+   */
+  private static parseRow(
+    row: unknown[],
+    sheetName: string,
+    indices: Partial<Record<AttendanceColumnField, number>>
+  ): AttendanceRecord | null {
+    const at = (field: AttendanceColumnField): unknown => {
+      const idx = indices[field];
+      return idx !== undefined ? row[idx] : '';
+    };
+
     // 空行またはヘッダー行をスキップ
-    const employeeId = String(row[XLSX_COLUMN_INDEX.EMPLOYEE_ID] || '').trim();
+    const employeeId = String(at('employeeId') || '').trim();
     if (!employeeId || employeeId === '社員番号') {
       return null;
     }
 
-    const dateValue = row[XLSX_COLUMN_INDEX.DATE];
-    const date = this.parseDate(dateValue);
+    const date = this.parseDate(at('date'));
     if (!date) {
       return null;
     }
 
-    const calendarRaw = String(row[XLSX_COLUMN_INDEX.CALENDAR_TYPE] || '');
+    const calendarRaw = String(at('calendarType') || '');
     const calendarType = this.parseCalendarType(calendarRaw);
 
     // 休憩時間をパース（"1:00" 形式を分に変換）
-    const breakTimeMinutes = this.parseTimeToMinutes(String(row[XLSX_COLUMN_INDEX.BREAK_TIME] || ''));
+    const breakTimeMinutes = this.parseTimeToMinutes(String(at('breakTime') || ''));
 
     // 早出フラグ: "1" が入力されていればtrue
-    const earlyStartFlagValue = String(row[XLSX_COLUMN_INDEX.EARLY_START_FLAG] || '').trim();
+    const earlyStartFlagValue = String(at('earlyStartFlag') || '').trim();
     const earlyStartFlag = earlyStartFlagValue === '1';
 
     return {
       employeeId,
-      employeeName: String(row[XLSX_COLUMN_INDEX.EMPLOYEE_NAME] || '').trim(),
-      department: String(row[XLSX_COLUMN_INDEX.DEPARTMENT] || '').trim(),
-      position: String(row[XLSX_COLUMN_INDEX.POSITION] || '').trim(),
+      employeeName: String(at('employeeName') || '').trim(),
+      department: String(at('department') || '').trim(),
+      position: String(at('position') || '').trim(),
       date,
-      dayOfWeek: String(row[XLSX_COLUMN_INDEX.DAY_OF_WEEK] || '').trim(),
+      dayOfWeek: String(at('dayOfWeek') || '').trim(),
       calendarType,
       calendarRaw,
-      applicationContent: String(row[XLSX_COLUMN_INDEX.APPLICATION_CONTENT] || '').trim(),
-      // 出退勤時刻: 計算開始/終了カラムを使用
-      clockIn: this.parseDateTime(row[XLSX_COLUMN_INDEX.CALC_START]),
-      clockOut: this.parseDateTime(row[XLSX_COLUMN_INDEX.CALC_END]),
+      applicationContent: String(at('applicationContent') || '').trim(),
+      // 出退勤時刻: 計算開始/終了列があれば優先、無ければ出社/退社にフォールバック
+      clockIn: this.parseDateTime(at('clockIn')),
+      clockOut: this.parseDateTime(at('clockOut')),
       // 元データの出社/退社も保持
-      originalClockIn: this.parseDateTime(row[XLSX_COLUMN_INDEX.ORIGINAL_CLOCK_IN]),
-      originalClockOut: this.parseDateTime(row[XLSX_COLUMN_INDEX.ORIGINAL_CLOCK_OUT]),
+      originalClockIn: this.parseDateTime(at('originalClockIn')),
+      originalClockOut: this.parseDateTime(at('originalClockOut')),
       // 早出フラグ
       earlyStartFlag,
       // AltX残業
-      altxOvertimeIn: this.parseDateTime(row[XLSX_COLUMN_INDEX.ALTX_OVERTIME_IN]),
-      altxOvertimeOut: this.parseDateTime(row[XLSX_COLUMN_INDEX.ALTX_OVERTIME_OUT]),
+      altxOvertimeIn: this.parseDateTime(at('altxOvertimeIn')),
+      altxOvertimeOut: this.parseDateTime(at('altxOvertimeOut')),
       // 出社2/出社3（退社とのギャップを休憩として扱う運用）
-      clockIn2: this.parseDateTime(row[XLSX_COLUMN_INDEX.CLOCK_IN_2]),
-      clockOut2: this.parseDateTime(row[XLSX_COLUMN_INDEX.CLOCK_OUT_2]),
-      clockIn3: this.parseDateTime(row[XLSX_COLUMN_INDEX.CLOCK_IN_3]),
-      clockOut3: this.parseDateTime(row[XLSX_COLUMN_INDEX.CLOCK_OUT_3]),
+      clockIn2: this.parseDateTime(at('clockIn2')),
+      clockOut2: this.parseDateTime(at('clockOut2')),
+      clockIn3: this.parseDateTime(at('clockIn3')),
+      clockOut3: this.parseDateTime(at('clockOut3')),
       // 私用外出/戻り（時間有休用）
-      privateOutTime: this.parseDateTime(row[XLSX_COLUMN_INDEX.PRIVATE_OUT_TIME]),
-      privateReturnTime: this.parseDateTime(row[XLSX_COLUMN_INDEX.PRIVATE_RETURN_TIME]),
+      privateOutTime: this.parseDateTime(at('privateOutTime')),
+      privateReturnTime: this.parseDateTime(at('privateReturnTime')),
       // 休憩時間
       breakTimeMinutes,
-      // 深夜休憩修正
-      nightBreakModification: String(row[XLSX_COLUMN_INDEX.NIGHT_BREAK_MODIFICATION] || '').trim(),
+      // 深夜休憩修正（新ヘッダーには列が無い場合がある。無ければ空）
+      nightBreakModification: String(at('nightBreakModification') || '').trim(),
       // 深夜労働時間
-      nightWorkMinutes: String(row[XLSX_COLUMN_INDEX.NIGHT_WORK_MINUTES] || '').trim(),
-      actualWorkHours: String(row[XLSX_COLUMN_INDEX.ACTUAL_WORK_HOURS] || '').trim(),
-      workHours: String(row[XLSX_COLUMN_INDEX.WORK_HOURS] || '').trim(),
+      nightWorkMinutes: String(at('nightWorkMinutes') || '').trim(),
+      actualWorkHours: String(at('actualWorkHours') || '').trim(),
+      // 勤務時間（旧ヘッダーのみ。新ヘッダーには列が無いので空になる）
+      workHours: String(at('workHours') || '').trim(),
+      // 有休時間（新旧ヘッダー共通の直接値列）
+      hourlyLeaveHours: String(at('hourlyLeaveHours') || '').trim(),
       // 残業時間: 平日法定外残業(36協定用)を使用
-      overtimeHours: String(row[XLSX_COLUMN_INDEX.LEGAL_OVERTIME_36] || '').trim(),
-      lateMinutes: String(row[XLSX_COLUMN_INDEX.LATE_MINUTES] || '').trim(),
-      earlyLeaveMinutes: String(row[XLSX_COLUMN_INDEX.EARLY_LEAVE_MINUTES] || '').trim(),
-      remarks: String(row[XLSX_COLUMN_INDEX.REMARKS] || '').trim(),
+      overtimeHours: String(at('legalOvertime36') || '').trim(),
+      lateMinutes: String(at('lateMinutes') || '').trim(),
+      earlyLeaveMinutes: String(at('earlyLeaveMinutes') || '').trim(),
+      remarks: String(at('remarks') || '').trim(),
       sheetName,
     };
   }
@@ -797,24 +840,33 @@ export class AttendanceService {
   }
 
   /**
-   * 有休時間（時間単位年休）による法定基準の引き上げ分（分）を返す
-   * - 申請内容に「有休時間」を含み、勤務時間 > 実働時間 の場合に適用
-   * - 有休分 = 勤務時間 - 実働時間
-   * - 午前/午後有休は対象外（「有休時間」の文字列を含まないため）
+   * その日の時間休合計（分）を返す
+   * - 優先: 「有休時間」列の直接値（新旧ヘッダー共通で存在する場合はこちらが正確）
+   * - フォールバック: 勤務時間 - 実働時間（旧ヘッダーで有休時間列が無い場合）
    */
-  private static getHourlyPaidLeaveMinutes(record: AttendanceRecord): number {
-    const applicationContent = record.applicationContent || '';
-    if (!applicationContent.includes('有休時間')) {
-      return 0;
+  private static getDeclaredHourlyLeaveMinutes(record: AttendanceRecord): number {
+    const directMinutes = this.parseTimeToMinutes(record.hourlyLeaveHours || '');
+    if (directMinutes > 0) {
+      return directMinutes;
     }
 
     const workMinutes = this.parseTimeToMinutes(record.workHours || '');
     const actualMinutes = this.parseTimeToMinutes(record.actualWorkHours);
+    return Math.max(0, workMinutes - actualMinutes);
+  }
 
-    if (workMinutes > actualMinutes) {
-      return workMinutes - actualMinutes;
+  /**
+   * 有休時間（時間単位年休）による法定基準の引き上げ分（分）を返す
+   * - 申請内容に時間休系キーワードを含む場合に適用
+   * - 午前/午後有休は対象外（時間休系キーワードを含まないため）
+   */
+  private static getHourlyPaidLeaveMinutes(record: AttendanceRecord): number {
+    const applicationContent = record.applicationContent || '';
+    if (!hasApplicationKeyword(applicationContent, HOURLY_LEAVE_KEYWORDS)) {
+      return 0;
     }
-    return 0;
+
+    return this.getDeclaredHourlyLeaveMinutes(record);
   }
 
   /**
@@ -1072,10 +1124,8 @@ export class AttendanceService {
       return false;
     }
 
-    // 時間休合計(分) = 勤務時間 - 実働時間（算出できなければ判定不可）
-    const workMinutes = this.parseTimeToMinutes(record.workHours || '');
-    const actualMinutes = this.parseTimeToMinutes(record.actualWorkHours);
-    const leaveMinutes = workMinutes - actualMinutes;
+    // 時間休合計(分)（算出できなければ判定不可）
+    const leaveMinutes = this.getDeclaredHourlyLeaveMinutes(record);
     if (leaveMinutes <= 0) {
       return false;
     }
@@ -1266,12 +1316,15 @@ export class AttendanceService {
 
   /**
    * 時間有休打刻漏れをチェック
-   * 時間有休申請がある場合、私用外出と私用戻りの両方が必要
+   * 時間休系の申請（時間有休/有休時間/時間休）がある場合、私用外出と私用戻りの両方が必要
+   *
+   * 【偽陰性対策】実データでは「有休時間」表記が使われ「時間有休」表記は使われない
+   * ケースがあるため、HOURLY_LEAVE_KEYWORDS（表記ゆれを網羅）で判定する。
    */
   static hasTimeLeavePunchMissing(record: AttendanceRecord): boolean {
-    // 時間有休申請がない場合は対象外
+    // 時間休系の申請がない場合は対象外
     const applicationContent = record.applicationContent || '';
-    if (!applicationContent.includes('時間有休')) {
+    if (!hasApplicationKeyword(applicationContent, HOURLY_LEAVE_KEYWORDS)) {
       return false;
     }
 

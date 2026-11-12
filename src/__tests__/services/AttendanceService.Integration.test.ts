@@ -376,6 +376,21 @@ describe('AttendanceService - 統合テスト（様々な違反シナリオ）',
 
       expect(analysis.violations).not.toContain('time_leave_punch_missing');
     });
+
+    it('406_有休時間（実際の運用キーワード・打刻なし）: - 打刻漏れ検出', () => {
+      // 実データでは「時間有休」ではなく「有休時間」という表記が使われる（語順が逆）。
+      // 修正前は.includes('時間有休')のみでチェックしていたため、実運用で
+      // 一度も検出されていなかった（偽陰性バグ）。HOURLY_LEAVE_KEYWORDSで修正。
+      const record = createTestRecord('D406', '有休時間 実運用表記', {
+        applicationContent: '有休時間',
+        privateOutTime: null,
+        privateReturnTime: null,
+      });
+
+      const analysis = AttendanceService.analyzeDailyRecord(record);
+
+      expect(analysis.violations).toContain('time_leave_punch_missing');
+    });
   });
 
   // ============================================

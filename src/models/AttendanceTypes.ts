@@ -59,7 +59,8 @@ export interface AttendanceRecord {
   nightBreakModification: string; // 深夜休憩修正
   nightWorkMinutes: string;      // 深夜労働時間
   actualWorkHours: string; // 実働時間
-  workHours?: string;      // 勤務時間（有休時間の法定外残業調整に使用）
+  workHours?: string;      // 勤務時間（旧ヘッダーのみ存在。有休時間の算出フォールバックに使用）
+  hourlyLeaveHours?: string; // 有休時間（新旧ヘッダー共通の直接値列。存在する場合はこちらを優先）
   overtimeHours: string;   // 平日法定外残業(36協定用)
   lateMinutes: string;     // 遅刻
   earlyLeaveMinutes: string; // 早退
@@ -120,40 +121,96 @@ export interface AttendanceAnalysisResult {
 }
 
 /**
- * XLSXカラムマッピング
+ * XLSXカラム解決（ヘッダー名ベース）
+ *
+ * 楽楽勤怠の出勤簿エクスポートは、列の並び替え・削除が月によって発生する
+ * （名称自体は変わらない）。固定インデックスで読むと、列構成が変わった
+ * 瞬間に全く別の列を誤読する（2026-11のヘッダー変更で発覚）。
+ * そのため、ヘッダー行から列名で位置を解決する方式に変更する。
+ *
+ * clockIn/clockOut は「計算開始/計算終了」列を優先し、存在しない場合
+ * （新ヘッダー）は「出社/退社」にフォールバックする（候補配列の先頭から探索）。
  */
-export const XLSX_COLUMN_INDEX = {
-  EMPLOYEE_ID: 0,           // 社員番号 (Index 1)
-  EMPLOYEE_NAME: 1,         // 氏名 (Index 2)
-  DEPARTMENT: 2,            // 部門 (Index 3)
-  POSITION: 3,              // 役職 (Index 4)
-  DATE: 4,                  // 日付 (Index 5)
-  DAY_OF_WEEK: 5,           // 曜日 (Index 6)
-  CALENDAR_TYPE: 6,         // カレンダー (Index 7)
-  APPLICATION_CONTENT: 7,   // 申請内容 (Index 8)
-  ORIGINAL_CLOCK_IN: 8,     // 出社（元データ）(Index 9)
-  EARLY_START_FLAG: 9,      // 早出フラグ (Index 10)
-  ORIGINAL_CLOCK_OUT: 10,   // 退社（元データ）(Index 11)
-  CALC_START: 11,           // 計算開始 (Index 12)
-  CALC_END: 12,             // 計算終了 (Index 13)
-  ALTX_OVERTIME_IN: 16,     // AltX残業出 (Index 17)
-  ALTX_OVERTIME_OUT: 17,    // AltX残業退 (Index 18)
-  CLOCK_IN_2: 23,           // 出社2 (Index 24)
-  CLOCK_OUT_2: 24,          // 退社2 (Index 25)
-  PRIVATE_OUT_TIME: 28,     // 私用外出 (Index 29)
-  PRIVATE_RETURN_TIME: 29,  // 私用戻り (Index 30)
-  CLOCK_IN_3: 30,           // 出社3 (Index 31)
-  CLOCK_OUT_3: 31,          // 退社3 (Index 32)
-  BREAK_TIME: 36,           // 休憩時間 (Index 37)
-  NIGHT_BREAK_MODIFICATION: 38, // 深夜休憩修正 (Index 39)
-  ACTUAL_WORK_HOURS: 39,    // 実働時間 (Index 40)
-  WORK_HOURS: 40,            // 勤務時間 (Index 41) — 有休時間の法定外残業調整に使用
-  NIGHT_WORK_MINUTES: 45,   // 深夜労働 (Index 46)
-  LATE_MINUTES: 49,         // 遅刻 (Index 50)
-  EARLY_LEAVE_MINUTES: 50,  // 早退 (Index 51)
-  LEGAL_OVERTIME_36: 58,    // 平日法定外残業(36協定用) (Index 59)
-  REMARKS: 60,              // 備考 (Index 61)
+export type AttendanceColumnField =
+  | 'employeeId' | 'employeeName' | 'department' | 'position' | 'date' | 'dayOfWeek'
+  | 'calendarType' | 'applicationContent'
+  | 'clockIn' | 'clockOut' | 'originalClockIn' | 'originalClockOut'
+  | 'earlyStartFlag' | 'altxOvertimeIn' | 'altxOvertimeOut'
+  | 'clockIn2' | 'clockOut2' | 'clockIn3' | 'clockOut3'
+  | 'privateOutTime' | 'privateReturnTime'
+  | 'breakTime' | 'nightBreakModification' | 'actualWorkHours' | 'workHours' | 'hourlyLeaveHours'
+  | 'nightWorkMinutes' | 'lateMinutes' | 'earlyLeaveMinutes' | 'legalOvertime36' | 'remarks';
+
+/**
+ * 論理フィールドごとのヘッダー名候補（優先順位つき。先頭から探索し最初に見つかった列を使用）
+ */
+export const ATTENDANCE_COLUMN_CANDIDATES: Record<AttendanceColumnField, readonly string[]> = {
+  employeeId: ['社員番号'],
+  employeeName: ['氏名'],
+  department: ['部門'],
+  position: ['役職'],
+  date: ['日付'],
+  dayOfWeek: ['曜日'],
+  calendarType: ['カレンダー'],
+  applicationContent: ['申請内容'],
+  clockIn: ['計算開始', '出社'],
+  clockOut: ['計算終了', '退社'],
+  originalClockIn: ['出社'],
+  originalClockOut: ['退社'],
+  earlyStartFlag: ['早出フラグ'],
+  altxOvertimeIn: ['AltX残業出'],
+  altxOvertimeOut: ['AltX残業退'],
+  clockIn2: ['出社2'],
+  clockOut2: ['退社2'],
+  clockIn3: ['出社3'],
+  clockOut3: ['退社3'],
+  privateOutTime: ['私用外出'],
+  privateReturnTime: ['私用戻り'],
+  breakTime: ['休憩時間'],
+  nightBreakModification: ['深夜休憩修正'],
+  actualWorkHours: ['実働時間'],
+  workHours: ['勤務時間'],
+  hourlyLeaveHours: ['有休時間'],
+  nightWorkMinutes: ['深夜労働'],
+  lateMinutes: ['遅刻'],
+  earlyLeaveMinutes: ['早退'],
+  legalOvertime36: ['平日法定外残業(36協定用)'],
+  remarks: ['備考'],
 } as const;
+
+/**
+ * 必須列（見つからない場合は解析を中断してエラーを表示する）
+ * これ以外の列は欠落していても安全に空/未解決として処理を継続する。
+ */
+export const REQUIRED_ATTENDANCE_COLUMN_FIELDS: readonly AttendanceColumnField[] = [
+  'employeeId', 'employeeName', 'date', 'calendarType', 'applicationContent',
+  'clockIn', 'clockOut', 'breakTime', 'actualWorkHours',
+] as const;
+
+/**
+ * ヘッダー行（列名の配列）から各論理フィールドの列インデックスを解決する。
+ * @returns indices: 解決できた列インデックス, missingRequired: 必須列のうち解決できなかったもの
+ */
+export function resolveAttendanceColumnIndices(header: readonly unknown[]): {
+  indices: Partial<Record<AttendanceColumnField, number>>;
+  missingRequired: AttendanceColumnField[];
+} {
+  const trimmedHeader = header.map(h => String(h ?? '').replace(/^﻿/, '').trim());
+  const indices: Partial<Record<AttendanceColumnField, number>> = {};
+
+  (Object.keys(ATTENDANCE_COLUMN_CANDIDATES) as AttendanceColumnField[]).forEach(field => {
+    for (const name of ATTENDANCE_COLUMN_CANDIDATES[field]) {
+      const idx = trimmedHeader.indexOf(name);
+      if (idx >= 0) {
+        indices[field] = idx;
+        break;
+      }
+    }
+  });
+
+  const missingRequired = REQUIRED_ATTENDANCE_COLUMN_FIELDS.filter(field => indices[field] === undefined);
+  return { indices, missingRequired };
+}
 
 /**
  * 休暇関連のキーワード（入力漏れ除外条件）

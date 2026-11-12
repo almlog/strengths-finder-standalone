@@ -110,6 +110,38 @@ describe('AttendanceService - 時間有休(有休時間)の法定外残業調整
     });
   });
 
+  describe('有休時間列（hourlyLeaveHours）が直接存在する場合（新ヘッダー相当）', () => {
+    it('workHoursが無く有休時間列のみでも調整が適用される（新ヘッダーにはworkHours列が無い）', () => {
+      // 実働9:30(570分), 有休時間列=1:00(60分)
+      // break=75 → adj=15, adjusted=585
+      // 法定外: max(0, 585 - (480+60)) = 45
+      // 所定超過: max(0, 585 - (465+60)) = 60
+      const record = createTestRecord('9:30', {
+        workHours: undefined,
+        hourlyLeaveHours: '1:00',
+        breakTimeMinutes: 75,
+        applicationContent: '有休時間',
+      });
+      const result = AttendanceService.calculateOvertimeDetails(record);
+      expect(result.legalOvertimeMinutes).toBe(45);
+      expect(result.overtimeMinutes).toBe(60);
+    });
+
+    it('有休時間列とworkHours-actualWorkHoursの両方がある場合は有休時間列を優先する', () => {
+      // workHours-actualWorkHoursの差分は2:00だが、有休時間列は1:00を優先
+      const record = createTestRecord('9:30', {
+        workHours: '11:30', // 差分だけなら2:00になってしまう
+        hourlyLeaveHours: '1:00', // 直接値はこちらが正しいとみなす
+        breakTimeMinutes: 75,
+        applicationContent: '有休時間',
+      });
+      const result = AttendanceService.calculateOvertimeDetails(record);
+      // 有休分=60分で計算: 法定外45, 所定超過60（上のテストと同じ結果になるはず）
+      expect(result.legalOvertimeMinutes).toBe(45);
+      expect(result.overtimeMinutes).toBe(60);
+    });
+  });
+
   describe('有休時間 + 他の申請との併記', () => {
     it('有休時間 + 休憩時間修正: breakAdj=0, 有休調整は適用', () => {
       // 実働9:00(540分), 勤務10:00(600分), 有休分=1:00(60分)

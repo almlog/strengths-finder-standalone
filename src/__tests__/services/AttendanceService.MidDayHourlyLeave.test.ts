@@ -202,6 +202,35 @@ describe('AttendanceService.hasMidDayHourlyLeaveSuspected - 中抜け時間休�
     expect(AttendanceService.hasMidDayHourlyLeaveSuspected(record)).toBe(false);
   });
 
+  describe('有休時間列（hourlyLeaveHours）を直接使用するケース（新ヘッダー相当・実データに準拠）', () => {
+    it('workHoursが無く有休時間列のみでも中抜けを検出できる（実データ: SHRESTHA 2026-11-04相当）', () => {
+      // 出社10:23・退社16:30、有休時間2:00（9-10時間休+16:30-17:30時間休の想定だが
+      // 遅延のため実際の出社が10:23まで後ろ倒れ、始業側で83分吸収・終業側で60分吸収）
+      const record = createTestRecord({
+        applicationContent: '有休時間',
+        clockIn: new Date('2026-04-10T10:23:00'),
+        clockOut: new Date('2026-04-10T16:30:00'),
+        workHours: undefined,
+        hourlyLeaveHours: '2:00',
+      });
+
+      expect(AttendanceService.hasMidDayHourlyLeaveSuspected(record)).toBe(false);
+    });
+
+    it('有休時間列のみで、始業・終業のズレだけでは説明できない中抜けを検出する', () => {
+      // 出社9:00・退社16:00（終業側で90分のみ吸収）、有休時間2:30(150分) → 残り60分が中抜け
+      const record = createTestRecord({
+        applicationContent: '有休時間',
+        clockIn: new Date('2026-04-10T09:00:00'),
+        clockOut: new Date('2026-04-10T16:00:00'),
+        workHours: undefined,
+        hourlyLeaveHours: '2:30',
+      });
+
+      expect(AttendanceService.hasMidDayHourlyLeaveSuspected(record)).toBe(true);
+    });
+  });
+
   describe('時差出勤メンバー（標準スパン8.5hと実スパンの差を吸収分とみなす）', () => {
     it('時間休1hなのに実スパンが標準スパン(8.5h)のまま短縮されていない → 違反を検出する', () => {
       const record = createTestRecord({
