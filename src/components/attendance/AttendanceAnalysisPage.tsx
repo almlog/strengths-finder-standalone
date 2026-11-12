@@ -99,7 +99,7 @@ const TAG_STYLES: Record<string, string> = {
   '月途中退場': 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
 };
 
-type TabType = 'summary' | 'employees' | 'departments' | 'violations' | 'applications' | 'integrated';
+type TabType = 'summary' | 'employees' | 'departments' | 'violations' | 'integrated';
 
 // ── マージ関数 ────────────────────────────────────────────────
 
@@ -1085,12 +1085,6 @@ const AttendanceAnalysisPage: React.FC = () => {
               >
                 違反一覧
               </TabButton>
-              <TabButton
-                active={activeTab === 'applications'}
-                onClick={() => setActiveTab('applications')}
-              >
-                申請一覧
-              </TabButton>
               {partnerRecords.length > 0 && (
                 <TabButton
                   active={activeTab === 'integrated'}
@@ -1149,9 +1143,6 @@ const AttendanceAnalysisPage: React.FC = () => {
             )}
             {activeTab === 'violations' && (
               <ViolationsTab result={analysisResult} partnerRecords={partnerRecords} />
-            )}
-            {activeTab === 'applications' && (
-              <ApplicationsTab records={records} />
             )}
             {activeTab === 'integrated' && partnerRecords.length > 0 && (
               <IntegratedTab
@@ -2692,21 +2683,6 @@ const DepartmentsTab: React.FC<{ departments: DepartmentSummary[] }> = ({ depart
           ))}
         </tbody>
       </table>
-    </div>
-  );
-};
-
-// 申請一覧タブ（全件・省略なし。気になる申請をマウスオーバーで確認する用途）
-const ApplicationsTab: React.FC<{ records: AttendanceRecord[] }> = ({ records }) => {
-  const applicationSummary = useMemo(() => summarizeApplicationContents(records), [records]);
-
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">申請内容一覧</h3>
-        <span className="text-xs text-gray-400 dark:text-gray-500">マウスオーバーで対象者・日付を確認</span>
-      </div>
-      <ApplicationContentList items={applicationSummary} />
     </div>
   );
 };
