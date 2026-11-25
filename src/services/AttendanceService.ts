@@ -26,6 +26,8 @@ import {
   ATTENDANCE_COLUMN_CANDIDATES,
   LEAVE_KEYWORDS,
   NIGHT_WORK_START_HOUR,
+  DEEP_NIGHT_END_HOUR,
+  POST_NIGHT_REST_REQUIRED_WORK_MINUTES,
   URGENCY_THRESHOLDS,
   BREAK_TIME_REQUIREMENTS,
   TIMELY_DEPARTURE_TIME,
@@ -379,6 +381,81 @@ export class AttendanceService {
     // 0:00〜4:59（翌日未明）
     if (hour < 5) return true;
     return false;
+  }
+
+  /**
+   * 退勤時刻が明け休ルール専用の深夜時間帯（22:01〜5:59）にかかっているか判定
+   *
+   * 「9:00-22:00」等、ちょうど22:00で終わる定時シフトは深夜に"わたって"はいない
+   * ため対象外とする（実データで複数名・複数日にわたり頻出する固定シフトであり、
+   * 22:00ちょうどを含めると明け休ルールが過剰発火することが判明したため）。
+   * isNightWork（深夜加給判定用）と同じ境界（22:01以降）を採用し、
+   * 終了側のみDEEP_NIGHT_END_HOUR（6時）でisNightWorkの5時から変更している。
+   */
+  private static isWithinDeepNightWindow(clockOut: Date): boolean {
+    const hour = clockOut.getHours();
+    const minute = clockOut.getMinutes();
+    // 22:01以降（22時台で1分以上、または23時台）
+    if (hour === NIGHT_WORK_START_HOUR && minute > 0) return true;
+    if (hour > NIGHT_WORK_START_HOUR) return true;
+    // 0:00〜5:59（翌日未明、6時より前）
+    if (hour < DEEP_NIGHT_END_HOUR) return true;
+    return false;
+  }
+
+  /**
+   * 明け休未取得（深夜長時間勤務の翌日就業）を検出する
+   *
+   * 労務ルール: 所定就業時間終了後、深夜（22:00-6:00）にわたり実働7時間45分
+   * 以上の勤務をさせた場合、その翌日は明け休として原則就業させない。
+   *
+   * ある日の勤務が深夜時間帯にかかり、かつ実働時間が7時間45分以上の場合、
+   * 日付が連続する翌日のレコードに明け休申請が無く、かつ実際の勤務実績が
+   * あれば違反とする。レコードの渡し順は問わず内部で日付順にソートし、
+   * 日付が連続していないペア（データの欠落・歯抜け）は判定対象外とする。
+   */
+  static detectPostNightRestViolations(records: AttendanceRecord[]): AttendanceViolation[] {
+    const sorted = records.slice().sort((a, b) => a.date.getTime() - b.date.getTime());
+    const violations: AttendanceViolation[] = [];
+
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const today = sorted[i];
+      const tomorrow = sorted[i + 1];
+
+      // 日付が連続していなければ（歯抜け・重複）判定不可
+      const expectedNextDate = new Date(today.date);
+      expectedNextDate.setDate(expectedNextDate.getDate() + 1);
+      if (tomorrow.date.getTime() !== expectedNextDate.getTime()) {
+        continue;
+      }
+
+      if (!today.clockIn || !today.clockOut) continue;
+      if (!this.isWithinDeepNightWindow(today.clockOut)) continue;
+
+      const actualMinutes = this.parseTimeToMinutes(today.actualWorkHours);
+      if (actualMinutes < POST_NIGHT_REST_REQUIRED_WORK_MINUTES) continue;
+
+      // 翌日に明け休申請があれば問題なし
+      if (hasApplicationKeyword(tomorrow.applicationContent || '', POST_NIGHT_LEAVE_KEYWORDS)) {
+        continue;
+      }
+
+      // 翌日に実際の勤務実績がなければ（正しく休んでいれば）問題なし
+      const tomorrowWorked = !!(tomorrow.clockIn || tomorrow.clockOut) ||
+        this.parseTimeToMinutes(tomorrow.actualWorkHours) > 0;
+      if (!tomorrowWorked) continue;
+
+      violations.push({
+        employeeId: tomorrow.employeeId,
+        employeeName: tomorrow.employeeName,
+        department: tomorrow.department,
+        date: tomorrow.date,
+        type: 'post_night_rest_missing',
+        details: `前日深夜勤務(実働${today.actualWorkHours})の翌日に明け休を取得せず就業`,
+      });
+    }
+
+    return violations;
   }
 
   /**
@@ -1995,6 +2072,14 @@ export class AttendanceService {
       //   });
       // }
     }
+
+    // 明け休未取得（深夜長時間勤務の翌日就業）: 日付をまたぐ判定のため全レコードに対して実行し、
+    // 違反日（翌日側の日付）が分析対象期間内に収まるものだけを採用する
+    const futureCutoff = new Date(today);
+    if (includeToday) futureCutoff.setDate(futureCutoff.getDate() + 1);
+    const postNightRestViolations = this.detectPostNightRestViolations(records)
+      .filter(v => v.date < futureCutoff);
+    violations.push(...postNightRestViolations);
 
     // 申請カウントと総就業時間を計算
     const applicationCounts = this.countApplications(records);

@@ -15,6 +15,7 @@ describe('VIOLATION_URGENCY マッピング', () => {
     const highUrgencyTypes: ViolationType[] = [
       'break_violation',
       'night_break_application_missing',
+      'post_night_rest_missing',
     ];
 
     test.each(highUrgencyTypes)('%s は高緊急度に分類される', (type) => {
@@ -26,9 +27,10 @@ describe('VIOLATION_URGENCY マッピング', () => {
         .filter(([, level]) => level === 'high')
         .map(([type]) => type);
 
-      expect(highTypes).toHaveLength(2);
+      expect(highTypes).toHaveLength(3);
       expect(highTypes).toContain('break_violation');
       expect(highTypes).toContain('night_break_application_missing');
+      expect(highTypes).toContain('post_night_rest_missing');
     });
   });
 
@@ -92,6 +94,7 @@ describe('VIOLATION_URGENCY マッピング', () => {
       'time_leave_punch_missing',
       'mid_day_hourly_leave_suspected',
       'night_break_application_missing',
+      'post_night_rest_missing',
       'remarks_missing',
       'remarks_format_warning',
     ];

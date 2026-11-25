@@ -262,6 +262,7 @@ export type ViolationType =
   | 'time_leave_punch_missing'         // 時間有休打刻漏れ（私用外出/戻り）
   | 'mid_day_hourly_leave_suspected'   // 中抜け時間休の打刻漏れ疑い（出退勤が定時をカバー）
   | 'night_break_application_missing'  // 深夜休憩関連の届出漏れ
+  | 'post_night_rest_missing'          // 明け休未取得（深夜長時間勤務の翌日に就業）
   | 'remarks_missing'                  // 備考欄未入力（申請に対して）
   | 'remarks_format_warning';          // 備考欄フォーマット警告
 
@@ -324,6 +325,11 @@ export const VIOLATION_DISPLAY_INFO: Record<ViolationType, ViolationDisplayInfo>
     displayName: '中抜け時間休疑い',
     possibleApplications: ['私用外出', '私用戻り'],
     notes: '出社が定時以前・退社が定時超えのまま時間休を申請しています。就業時間内の中抜け（通院・家庭の事情等）が疑われるため、「私用外出」「私用戻り」の打刻を確認してください。',
+  },
+  post_night_rest_missing: {
+    displayName: '明け休未取得',
+    possibleApplications: ['明け休'],
+    notes: '所定就業時間終了後、深夜（22:00-6:00）にわたり実働7時間45分以上勤務した翌日は、原則として明け休とし就業させてはいけません。翌日の勤務実績が確認されたため、明け休の取得状況を確認してください。',
   },
   night_break_application_missing: {
     displayName: '届出漏れ（深夜休憩）',
@@ -486,6 +492,20 @@ export interface ExtendedAnalysisResult {
  * clockOut が22時以降の場合に深夜帯勤務と判定
  */
 export const NIGHT_WORK_START_HOUR = 22 as const;
+
+/**
+ * 明け休判定に使う深夜時間帯の終了時刻（22:00〜6:00）
+ * NIGHT_WORK_START_HOUR（22時）と対になる、明け休ルール専用の終了境界。
+ * 深夜加給の判定（NIGHT_WORK_START_HOUR基準、22:00ちょうどは含めない）とは
+ * 境界条件が異なるため別定数にしている。
+ */
+export const DEEP_NIGHT_END_HOUR = 6 as const;
+
+/**
+ * 明け休が必要となる実働時間の閾値（7時間45分 = 所定労働時間、STANDARD_WORK_MINUTESと同値）
+ * STANDARD_WORK_MINUTESはファイル後方で定義されるため、TDZを避けるためリテラル値で定義する。
+ */
+export const POST_NIGHT_REST_REQUIRED_WORK_MINUTES = 465 as const;
 
 /**
  * 深夜帯勤務レコード
@@ -835,6 +855,7 @@ export const VIOLATION_URGENCY: Record<ViolationType, ViolationUrgencyLevel> = {
   // 法令違反（高緊急度）
   break_violation: 'high',                    // 休憩時間違反（労働基準法違反）
   night_break_application_missing: 'high',    // 深夜休憩申請漏れ（深夜労働規制）
+  post_night_rest_missing: 'high',            // 明け休未取得（深夜長時間勤務の翌日就業）
 
   // 届出漏れ（中緊急度）
   late_application_missing: 'medium',         // 届出漏れ（遅刻）

@@ -159,6 +159,7 @@ const VIOLATION_CHART_COLORS: Record<ViolationType, string> = {
   time_leave_punch_missing: '#06B6D4',   // Cyan
   mid_day_hourly_leave_suspected: '#D946EF', // Fuchsia
   night_break_application_missing: '#6366F1', // Indigo
+  post_night_rest_missing: '#BE123C',    // Rose (高緊急度を強調)
   remarks_missing: '#64748B',            // Slate
   remarks_format_warning: '#94A3B8',     // Light Slate
 };
@@ -2721,6 +2722,7 @@ const ViolationsTab: React.FC<{ result: ExtendedAnalysisResult; partnerRecords?:
     time_leave_punch_missing: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300',
     mid_day_hourly_leave_suspected: 'bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-800 dark:text-fuchsia-300',
     night_break_application_missing: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300',
+    post_night_rest_missing: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300',
     remarks_missing: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300',
     remarks_format_warning: 'bg-lime-100 dark:bg-lime-900/30 text-lime-800 dark:text-lime-300',
   };
